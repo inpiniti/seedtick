@@ -42,6 +42,11 @@
   --ui-surface-sunken: #14181e;
   --ui-danger: #f87171;
   --ui-danger-surface: #2a191c;
+  --ui-accent-ink: #0e1116;
+  --ui-success-surface: rgba(34, 197, 94, 0.14);
+  --ui-success-ink: #86efac;
+  --ui-warning-surface: rgba(251, 146, 60, 0.14);
+  --ui-warning-ink: #fbbf24;
   --ui-focus-ring: 0 0 0 3px rgba(242, 244, 246, 0.16);
   --ui-focus-ring-accent: 0 0 0 3px rgba(242, 244, 246, 0.22);
 }
@@ -194,4 +199,333 @@
   outline: 2px solid var(--ui-text);
   outline-offset: 2px;
   box-shadow: 0 0 0 6px rgba(242, 244, 246, 0.12), 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   패치노트 · 피드백 (Toss 스타일)
+   ProStudioView.css가 라이트 팔레트로 하드코딩한 패널·입력·배지를 다크 토큰으로
+   덮어쓴다. V2 설정창 임베드와 독립 모달이 같은 규칙을 공유한다.
+   -------------------------------------------------------------------------- */
+
+/* 공통 버튼·배지 */
+:root.dark .toss-btn-primary {
+  background: var(--ui-accent);
+  border-color: var(--ui-accent);
+  color: var(--ui-accent-ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+:root.dark .toss-btn-primary:hover:not(:disabled) {
+  background: var(--ui-accent-hover);
+  border-color: var(--ui-accent-hover);
+}
+:root.dark .toss-btn-primary:disabled {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-subtle);
+}
+
+/* 버튼·카드 안에서만 쓰는 Tailwind 유틸리티 색도 다크 팔레트로 되돌린다. */
+:root.dark .toss-feedback-wrapper .text-slate-300,
+:root.dark .toss-feedback-wrapper .text-slate-400 {
+  color: var(--ui-text-subtle);
+}
+:root.dark .toss-feedback-wrapper .text-slate-500,
+:root.dark .toss-feedback-wrapper .text-slate-600,
+:root.dark .toss-feedback-wrapper .text-slate-700 {
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-feedback-wrapper .text-slate-800,
+:root.dark .toss-feedback-wrapper .text-slate-900,
+:root.dark .toss-patch-modal-body .text-slate-900 {
+  color: var(--ui-text);
+}
+
+/* 피드백: 헤더·툴바·카드 */
+:root.dark .toss-feedback-wrapper:not(.embedded) {
+  background-color: var(--page-background);
+}
+:root.dark .toss-feedback-modal-body,
+:root.dark .toss-feedback-header-card:not(.embedded),
+:root.dark .toss-feedback-form-card,
+:root.dark .toss-feedback-toolbar,
+:root.dark .toss-feedback-card,
+:root.dark .toss-feedback-empty-card,
+:root.dark .toss-modal-container {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+:root.dark .toss-feedback-card:hover {
+  border-color: var(--ui-border-strong);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+:root.dark .toss-feedback-empty-card {
+  border-color: var(--ui-border-strong);
+}
+:root.dark .toss-feedback-card-title,
+:root.dark .toss-feedback-step-indicator,
+:root.dark .toss-feedback-detail-title,
+:root.dark .toss-community-title {
+  color: var(--ui-text);
+}
+:root.dark .toss-feedback-card-snippet,
+:root.dark .toss-feedback-detail-meta,
+:root.dark .toss-feedback-label,
+:root.dark .toss-feedback-checkbox-label,
+:root.dark .toss-community-desc {
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-feedback-card-footer,
+:root.dark .toss-feedback-create-header,
+:root.dark .toss-feedback-form-footer,
+:root.dark .toss-feedback-detail-header {
+  border-color: var(--ui-border);
+}
+:root.dark .toss-feedback-admin-snippet {
+  background-color: var(--ui-surface-muted);
+  border-left-color: var(--ui-accent);
+  color: var(--ui-text);
+}
+
+/* 피드백: 필터·검색·드롭다운·입력 */
+:root.dark .toss-status-tabs {
+  background-color: var(--ui-surface-sunken);
+}
+:root.dark .toss-status-tab-btn {
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-status-tab-btn:hover {
+  color: var(--ui-text);
+}
+:root.dark .toss-status-tab-btn.active {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+:root.dark .toss-search-input,
+:root.dark .toss-feedback-input,
+:root.dark .toss-feedback-textarea {
+  background-color: var(--ui-surface-sunken);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+:root.dark .toss-search-input:focus,
+:root.dark .toss-feedback-input:focus,
+:root.dark .toss-feedback-textarea:focus {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-accent);
+  box-shadow: var(--ui-focus-ring);
+}
+:root.dark .toss-search-input::placeholder,
+:root.dark .toss-feedback-input::placeholder,
+:root.dark .toss-feedback-textarea::placeholder {
+  color: var(--ui-text-subtle);
+}
+:root.dark .toss-community-search-icon,
+:root.dark .toss-community-search-clear,
+:root.dark .toss-patch-search-clear {
+  color: var(--ui-text-subtle);
+}
+:root.dark .toss-category-dropdown-trigger,
+:root.dark .toss-category-select-btn,
+:root.dark .toss-status-select-btn,
+:root.dark .toss-feedback-back-btn,
+:root.dark .toss-feedback-upload-btn,
+:root.dark .toss-category-dropdown-menu {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-category-dropdown-trigger:hover,
+:root.dark .toss-category-select-btn:hover,
+:root.dark .toss-status-select-btn.active,
+:root.dark .toss-category-dropdown-trigger.active,
+:root.dark .toss-category-select-btn.active,
+:root.dark .toss-feedback-back-btn:hover,
+:root.dark .toss-feedback-upload-btn:hover,
+:root.dark .toss-category-dropdown-item:hover,
+:root.dark .toss-category-dropdown-item.selected {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+:root.dark .toss-category-dropdown-trigger.open,
+:root.dark .toss-category-dropdown-trigger:focus-visible {
+  border-color: var(--ui-accent);
+  box-shadow: var(--ui-focus-ring);
+}
+:root.dark .toss-category-dropdown-item {
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-feedback-upload-btn {
+  color: var(--ui-text);
+}
+:root.dark .toss-feedback-image-tile {
+  background-color: var(--ui-surface-muted);
+  border-color: var(--ui-border);
+}
+:root.dark .toss-feedback-like-btn {
+  background-color: var(--ui-danger-surface);
+  border-color: color-mix(in srgb, var(--ui-danger) 30%, var(--ui-border));
+  color: var(--ui-danger);
+}
+:root.dark .toss-feedback-like-btn:hover {
+  background-color: color-mix(in srgb, var(--ui-danger) 22%, var(--ui-surface));
+  border-color: color-mix(in srgb, var(--ui-danger) 45%, var(--ui-border));
+}
+:root.dark .toss-paste-tip-box,
+:root.dark .toss-dev-admin-panel,
+:root.dark .toss-feedback-detail-body {
+  background-color: var(--ui-surface-sunken);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+:root.dark .toss-admin-response-card {
+  background: linear-gradient(180deg, var(--ui-surface-sunken) 0%, var(--ui-surface) 100%);
+  border-color: var(--ui-border-strong);
+  color: var(--ui-text);
+}
+
+/* 패치노트: 컨트롤·카드·커밋 목록 */
+:root.dark .toss-patch-modal-body {
+  background-color: var(--ui-surface);
+}
+:root.dark .toss-patch-control-bar,
+:root.dark .toss-patch-footer {
+  border-color: var(--ui-border);
+}
+:root.dark .toss-patch-tab-btn {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-patch-tab-btn:hover {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+:root.dark .toss-patch-tab-btn.active {
+  background-color: var(--ui-accent);
+  border-color: var(--ui-accent);
+  color: var(--ui-accent-ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+:root.dark .toss-patch-search-box {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+:root.dark .toss-patch-search-box:focus-within {
+  border-color: var(--ui-accent);
+  box-shadow: var(--ui-focus-ring);
+}
+:root.dark .toss-patch-search-input {
+  color: var(--ui-text);
+}
+:root.dark .toss-patch-text-btn {
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-patch-text-btn:hover {
+  color: var(--ui-text);
+  background-color: var(--ui-surface-muted);
+}
+:root.dark .toss-patch-divider {
+  color: var(--ui-border-strong);
+}
+:root.dark .toss-patch-current-version-badge,
+:root.dark .toss-patch-tag-major,
+:root.dark .toss-patch-tag-minor,
+:root.dark .toss-patch-commit-count {
+  background-color: var(--ui-surface-muted);
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-patch-card {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+:root.dark .toss-patch-card:hover,
+:root.dark .toss-patch-card.latest-card {
+  border-color: var(--ui-border-strong);
+}
+:root.dark .toss-patch-card.major-card {
+  border-left-color: var(--ui-accent);
+}
+:root.dark .toss-patch-ver-tag.major {
+  background-color: var(--ui-accent);
+  color: var(--ui-accent-ink);
+}
+:root.dark .toss-patch-ver-tag.patch {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+:root.dark .toss-patch-tag-latest {
+  background-color: var(--ui-success-surface);
+  border-color: color-mix(in srgb, var(--ui-success-ink) 30%, transparent);
+  color: var(--ui-success-ink);
+}
+:root.dark .toss-patch-date,
+:root.dark .toss-patch-expand-icon,
+:root.dark .toss-patch-commit-hash,
+:root.dark .toss-patch-empty-desc,
+:root.dark .toss-patch-footer-info {
+  color: var(--ui-text-subtle);
+}
+:root.dark .toss-patch-title,
+:root.dark .toss-patch-empty-title,
+:root.dark .toss-patch-footer-info strong {
+  color: var(--ui-text);
+}
+:root.dark .toss-patch-summary,
+:root.dark .toss-patch-commit-list-header,
+:root.dark .toss-patch-commit-scope {
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-patch-commit-list {
+  background-color: var(--ui-surface-sunken);
+  border-top-color: var(--ui-border);
+}
+:root.dark .toss-patch-commit-item {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+:root.dark .toss-patch-commit-msg {
+  color: var(--ui-text);
+}
+
+/* 독립 모달의 공통 헤더·푸터도 같은 팔레트를 따른다. */
+:root.dark .model-modal-header,
+:root.dark .model-modal-footer {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+:root.dark .model-modal-title,
+:root.dark .model-modal-icon-badge {
+  color: var(--ui-text);
+}
+:root.dark .model-modal-confirm-btn {
+  background-color: var(--ui-accent);
+  color: var(--ui-accent-ink);
+}
+:root.dark .model-modal-confirm-btn:hover {
+  background-color: var(--ui-accent-hover);
+}
+:root.dark .model-modal-subtitle,
+:root.dark .model-modal-footer-tip {
+  color: var(--ui-text-muted);
+}
+:root.dark .model-modal-icon-badge {
+  background-color: var(--ui-surface-muted);
+}
+:root.dark .model-modal-close-btn {
+  color: var(--ui-text-subtle);
+}
+:root.dark .model-modal-close-btn:hover {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+:root.dark .toss-modal-btn-close {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
+}
+:root.dark .toss-modal-btn-close:hover {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
 }

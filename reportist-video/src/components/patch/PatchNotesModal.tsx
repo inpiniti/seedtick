@@ -55,12 +55,12 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
       >
         <div
           className="model-modal-header"
-          style={{ borderBottom: '1px solid #eef2f6', paddingBottom: '16px' }}
+          style={{ borderBottom: '1px solid var(--ui-border)', paddingBottom: '16px' }}
         >
           <div className="model-modal-title-row">
             <div
               className="model-modal-icon-badge"
-              style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}
+              style={{ backgroundColor: 'var(--ui-surface-muted)', color: 'var(--ui-ink)' }}
             >
               <Sparkles size={20} />
             </div>

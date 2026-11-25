@@ -54,9 +54,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
         onTouchStart={(event) => event.stopPropagation()}
       >
         {/* Header */}
-        <div className="model-modal-header" style={{ borderBottom: '1px solid #eef2f6', paddingBottom: '14px' }}>
+        <div className="model-modal-header" style={{ borderBottom: '1px solid var(--ui-border)', paddingBottom: '14px' }}>
           <div className="model-modal-title-row">
-            <div className="model-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
+            <div className="model-modal-icon-badge" style={{ backgroundColor: 'var(--ui-surface-muted)', color: 'var(--ui-ink)' }}>
               <MessageSquare size={20} />
             </div>
             <div>

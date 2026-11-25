@@ -173,7 +173,7 @@ export const PatchNotesContent: React.FC<PatchNotesContentProps> = ({ onClose })
 
           <div className="toss-patch-actions-row">
             <div className="toss-patch-search-box">
-              <Search size={14} color="#94a3b8" />
+              <Search size={14} style={{ color: 'var(--ui-text-subtle)' }} />
               <input
                 type="text"
                 value={searchQuery}
@@ -228,7 +228,7 @@ export const PatchNotesContent: React.FC<PatchNotesContentProps> = ({ onClose })
 
         {filteredReleases.length === 0 ? (
           <div className="toss-patch-empty-state">
-            <Search size={32} color="#cbd5e1" />
+            <Search size={32} style={{ color: 'var(--ui-text-subtle)' }} />
             <p className="toss-patch-empty-title">
               {dict.patchNotes?.noResults || '일치하는 패치 내역이 없어요'}
             </p>
@@ -305,7 +305,7 @@ export const PatchNotesContent: React.FC<PatchNotesContentProps> = ({ onClose })
                   {isExpanded && (
                     <div className="toss-patch-commit-list">
                       <div className="toss-patch-commit-list-header">
-                        <GitCommit size={14} color="#64748b" />
+                        <GitCommit size={14} style={{ color: 'var(--ui-text-muted)' }} />
                         <span>
                           {dict.patchNotes?.commitDetails || '상세 커밋 내역'} (
                           {release.commits.length})
@@ -380,21 +380,22 @@ export const PatchNotesContent: React.FC<PatchNotesContentProps> = ({ onClose })
 };
 
 function getCommitBadgeStyle(type: string): { bg: string; text: string } {
+  // 색을 토큰으로 넘겨 다크 모드에서도 배지 대비가 유지되게 한다.
   switch (type.toLowerCase()) {
     case 'feat':
-      return { bg: '#f1f5f9', text: '#0f172a' };
+      return { bg: 'var(--ui-surface-muted)', text: 'var(--ui-ink)' };
     case 'fix':
-      return { bg: '#fef2f2', text: '#dc2626' };
+      return { bg: 'var(--ui-danger-surface)', text: 'var(--ui-danger)' };
     case 'perf':
-      return { bg: '#f8fafc', text: '#0f172a' };
+      return { bg: 'var(--ui-surface-sunken)', text: 'var(--ui-ink)' };
     case 'style':
-      return { bg: '#f0fdf4', text: '#16a34a' };
+      return { bg: 'var(--ui-success-surface)', text: 'var(--ui-success-ink)' };
     case 'refactor':
-      return { bg: '#f8fafc', text: '#475569' };
+      return { bg: 'var(--ui-surface-sunken)', text: 'var(--ui-text-muted)' };
     case 'revert':
-      return { bg: '#fff7ed', text: '#ea580c' };
+      return { bg: 'var(--ui-warning-surface)', text: 'var(--ui-warning-ink)' };
     default:
-      return { bg: '#f1f5f9', text: '#64748b' };
+      return { bg: 'var(--ui-surface-muted)', text: 'var(--ui-text-muted)' };
   }
 }
 

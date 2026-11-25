@@ -176,7 +176,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
             {feedback.title}
           </h2>
           <div className="toss-feedback-detail-meta">
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#475569', fontWeight: 600 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--ui-text-muted)', fontWeight: 600 }}>
               <User size={12} />
               {feedback.authorName}
             </span>
@@ -265,30 +265,30 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
 
         {/* Developer Response Section */}
         <div className="toss-admin-response-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(203, 213, 225, 0.6)', paddingBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: 700, fontSize: '12.5px' }}>
-              <ShieldCheck size={16} color="#0f172a" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--ui-border)', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--ui-text)', fontWeight: 700, fontSize: '12.5px' }}>
+              <ShieldCheck size={16} style={{ color: 'var(--ui-text)' }} />
               <span>{dict.feedback?.adminResponseTitle || '개발자 처리 내용'}</span>
               {feedback.status === 'completed' && (
-                <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#d1fae5', color: '#065f46', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
+                <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: 'var(--ui-success-surface)', color: 'var(--ui-success-ink)', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
                   {dict.feedback?.adminResponseCompletedBadge || '반영 완료 🎉'}
                 </span>
               )}
             </div>
             {feedback.adminRespondedAt && (
-              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+              <span style={{ fontSize: '11px', color: 'var(--ui-text-subtle)' }}>
                 {formatDate(feedback.adminRespondedAt)}
               </span>
             )}
           </div>
 
           {feedback.adminResponse ? (
-            <div style={{ color: '#1e293b', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', paddingTop: '10px' }}>
+            <div style={{ color: 'var(--ui-text)', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', paddingTop: '10px' }}>
               {feedback.adminResponse}
             </div>
           ) : (
-            <div style={{ color: '#94a3b8', fontSize: '12px', fontStyle: 'italic', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <MessageSquare size={14} color="#cbd5e1" />
+            <div style={{ color: 'var(--ui-text-subtle)', fontSize: '12px', fontStyle: 'italic', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MessageSquare size={14} style={{ color: 'var(--ui-text-subtle)' }} />
               <span>
                 {dict.feedback?.adminResponsePendingText ||
                   '개발자가 확인 후 처리 내용과 일정을 공유할 예정입니다.'}
@@ -301,7 +301,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
         {isAdminMode && (
           <div className="toss-dev-admin-panel">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--ui-text)' }}>
                 <ShieldCheck size={14} />
                 <span>{dict.feedback?.adminControlsTitle || '개발자 관리자 모드 (Admin Controls)'}</span>
               </div>
@@ -309,7 +309,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
                 type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                style={{ fontSize: '12px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ fontSize: '12px', color: 'var(--ui-danger)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
                 <Trash2 size={12} />
                 <span>{dict.feedback?.deleteFeedbackBtn || '삭제'}</span>
@@ -318,7 +318,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
 
             {/* Status Switcher */}
             <div className="toss-feedback-form-group" style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569' }}>
+              <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--ui-text-muted)' }}>
                 {dict.feedback?.statusChangeLabel || '진행 상태 변경'}
               </label>
               <div className="toss-feedback-status-grid">
@@ -340,12 +340,12 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
 
             {/* Response Textarea */}
             <div className="toss-feedback-form-group" style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569' }}>
+              <label style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--ui-text-muted)' }}>
                 {dict.feedback?.adminReplyLabel || '개발자 공식 처리/답변 내용 작성'}
               </label>
               <textarea
                 className="toss-feedback-textarea"
-                style={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', minHeight: '90px' }}
+                style={{ minHeight: '90px' }}
                 rows={4}
                 placeholder={
                   dict.feedback?.adminReplyPlaceholder ||
