@@ -124,6 +124,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
     progress,
     onCancelProcessing,
     onReStitch,
+    onCancelReStitch,
     isReStitching,
     reStitchProgress,
 
@@ -1596,6 +1597,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
                 style={{ width: `${reStitchProgress?.progressPercent ?? 0}%` }}
               />
             </div>
+            {onCancelReStitch && (
+              <button
+                type="button"
+                className="sv2-processing-cancel-btn"
+                onClick={onCancelReStitch}
+              >
+                {ui('내보내기 취소')}
+              </button>
+            )}
           </div>
         </div>
       )}

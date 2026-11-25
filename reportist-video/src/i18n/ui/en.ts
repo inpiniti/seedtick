@@ -698,6 +698,7 @@ export const uiEn: Record<string, string> = {
   "장면을 분석하고 있어요. 끝나면 타임라인에 바로 채워져요.": "Analyzing scenes. They'll appear on the timeline when done.",
   "{count}초": "{count}s",
   "MP4로 내보내고 있어요": "Exporting to MP4",
+  "내보내기 취소": "Cancel export",
   "미리보기와 똑같은 화면으로 인코딩하고 있어요.": "Encoding exactly what you see in the preview.",
   "원본 영상": "Source videos",
   "컷 완료": "Clips ready",

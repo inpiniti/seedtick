@@ -2419,6 +2419,28 @@
 .sv2-progress-track {
   height: 6px;
 }
+.sv2-processing-cancel-btn {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--sv2-border-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sv2-text-2);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sv2-processing-cancel-btn:hover {
+  background: var(--sv2-accent-soft);
+  color: var(--sv2-accent);
+}
+.sv2-processing-cancel-btn:focus-visible {
+  outline: 2px solid var(--sv2-accent);
+  outline-offset: 2px;
+}
 .sv2-processing-elevated {
   z-index: 60;
 }

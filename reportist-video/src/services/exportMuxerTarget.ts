@@ -15,6 +15,8 @@ export interface ExportMuxerTarget {
   streaming: boolean;
   /** muxer.finalize() 이후 호출해 최종 Blob을 얻는다. */
   finalize: () => Promise<Blob>;
+  /** 내보내기 취소 시 임시 출력물을 버린다. finalize()와 함께 호출하지 않는다. */
+  dispose: () => Promise<void>;
 }
 
 async function tryCreateStreamingTarget(): Promise<ExportMuxerTarget | null> {
@@ -77,6 +79,19 @@ async function tryCreateStreamingTarget(): Promise<ExportMuxerTarget | null> {
         }
         return blob;
       },
+      dispose: async () => {
+        try {
+          await writableRef.abort();
+        } catch {
+          // 이미 닫혔거나 abort할 수 없는 스트림은 무시
+        }
+        writable = null;
+        try {
+          await dir.removeEntry(exportFileName);
+        } catch {
+          // 임시 파일이 없으면 무시
+        }
+      },
     };
   } catch (err) {
     console.warn('[Export] OPFS 스트리밍 대상 생성 실패, 메모리 버퍼로 폴백:', err);
@@ -103,5 +118,6 @@ export async function createExportMuxerTarget(): Promise<ExportMuxerTarget> {
     fastStart: 'in-memory',
     streaming: false,
     finalize: async () => new Blob([target.buffer], { type: 'video/mp4' }),
+    dispose: async () => {},
   };
 }

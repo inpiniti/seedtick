@@ -645,6 +645,8 @@ export function App() {
     progressPercent: 0,
     statusMessage: '',
   });
+  // 내보내기 인코더 취소용 — 스티처와 하위 WebCodecs 렌더러가 이 시그널을 공유한다.
+  const exportAbortControllerRef = useRef<AbortController | null>(null);
 
   // 유효한 비디오 Blob URL 확인 및 복구
   const refreshVideoBlobUrls = (videoList: VideoItem[]): VideoItem[] => {
@@ -1711,6 +1713,12 @@ export function App() {
     resolution?: ExportResolution
   ): Promise<FinalVideoResult | null> => {
     if (updatedSegments.length === 0) return null;
+    // 중복 내보내기(이전 인코딩이 아직 정리 중인 경우)를 막는다.
+    if (exportAbortControllerRef.current && !exportAbortControllerRef.current.signal.aborted) {
+      return null;
+    }
+    const exportController = new AbortController();
+    exportAbortControllerRef.current = exportController;
 
     // 1. 영상 URL 갱신 및 파일 유효성 사전 검사
     const readyVideos = refreshVideoBlobUrls(videos);
@@ -1719,6 +1727,7 @@ export function App() {
     } catch (vErr) {
       const msg = vErr instanceof Error ? vErr.message : '영상을 확인할 수 없습니다.';
       setErrorMessage(msg);
+      exportAbortControllerRef.current = null;
       return null;
     }
     setVideos(readyVideos);
@@ -1749,6 +1758,7 @@ export function App() {
         resolution,
         orientation: currentOrientation,
         portraitPlatform: currentPortraitPlatform,
+        signal: exportController.signal,
         onProgress: (pct, msg) => {
           setReStitchProgress({
             progressPercent: pct,
@@ -1756,6 +1766,9 @@ export function App() {
           });
         },
       });
+
+      // 취소가 최종화 직전에 들어온 경우 완성본을 덮어쓰지 않는다.
+      if (exportController.signal.aborted) return null;
 
       result.thumbnailUrl = finalResult?.thumbnailUrl;
       result.cleanThumbnailUrl = finalResult?.cleanThumbnailUrl;
@@ -1779,13 +1792,25 @@ export function App() {
       }
       return result;
     } catch (err) {
-      console.error('Export stitching error:', err);
-      setErrorMessage(err instanceof Error ? err.message : dict.logs.reStitchError);
+      // 사용자가 취소한 경우는 정상 종료로 처리해 오류 배너를 띄우지 않는다.
+      if (!exportController.signal.aborted) {
+        console.error('Export stitching error:', err);
+        setErrorMessage(err instanceof Error ? err.message : dict.logs.reStitchError);
+      }
       return null;
     } finally {
+      if (exportAbortControllerRef.current === exportController) {
+        exportAbortControllerRef.current = null;
+      }
       setIsReStitching(false);
       backgroundGuard.stop();
     }
+  };
+
+  // 내보내기 취소: 실행 중인 스티처에 중단 시그널을 보내 즉시 인코딩을 멈춘다.
+  const handleCancelReStitch = () => {
+    exportAbortControllerRef.current?.abort();
+    setReStitchProgress({ progressPercent: 0, statusMessage: '' });
   };
 
   // 취소 핸들러
@@ -1871,6 +1896,7 @@ export function App() {
     onCancelProcessing: handleCancel,
     onReset: handleReset,
     onReStitch: handleReStitch,
+    onCancelReStitch: handleCancelReStitch,
     isReStitching,
     reStitchProgress,
     onStartNewProject: handleStartNewProject,

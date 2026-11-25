@@ -687,6 +687,7 @@ export const uiFr: Record<string, string> = {
   "장면을 분석하고 있어요. 끝나면 타임라인에 바로 채워져요.": "Analyse des scènes. Elles apparaîtront sur la timeline une fois terminées.",
   "{count}초": "{count} s",
   "MP4로 내보내고 있어요": "Exportation en MP4",
+  "내보내기 취소": "Annuler l'exportation",
   "미리보기와 똑같은 화면으로 인코딩하고 있어요.": "Encodage exactement comme dans l'aperçu.",
   "원본 영상": "Vidéos sources",
   "컷 완료": "Clips prêts",

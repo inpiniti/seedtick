@@ -686,6 +686,7 @@ export const uiEs: Record<string, string> = {
   "장면을 분석하고 있어요. 끝나면 타임라인에 바로 채워져요.": "Analizando escenas. Aparecerán en la línea de tiempo al terminar.",
   "{count}초": "{count} s",
   "MP4로 내보내고 있어요": "Exportando a MP4",
+  "내보내기 취소": "Cancelar exportación",
   "미리보기와 똑같은 화면으로 인코딩하고 있어요.": "Codificando exactamente lo que ves en la vista previa.",
   "원본 영상": "Vídeos originales",
   "컷 완료": "Clips listos",

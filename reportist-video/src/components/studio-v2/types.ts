@@ -79,6 +79,8 @@ export interface StudioV2Props {
     overlayOptions?: VideoOverlayOptions,
     resolution?: ExportResolution
   ) => Promise<FinalVideoResult | null>;
+  /** 진행 중인 내보내기 인코딩을 취소한다. */
+  onCancelReStitch?: () => void;
   isReStitching: boolean;
   reStitchProgress?: { progressPercent: number; statusMessage: string };
 

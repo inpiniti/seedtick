@@ -379,6 +379,9 @@ export async function stitchVideosWebCodecs({
     } catch {}
   }
 
+  // 취소 시 해제할 리소스를 생성 시점마다 등록한다. (초기화 중 취소되어도 안전하게 정리)
+  const cleanupOnCancel: Array<() => void> = [];
+
   // 해상도 결정: 전달된 옵션이 있거나, 없으면 데스크톱은 1080p, 모바일은 720p 권장 기본값
   const requestedResolution: ExportResolution = resolution ?? (IS_MOBILE ? '720p' : '1080p');
   const frame = resolveFrameSpec(orientation, requestedResolution, portraitPlatform);
@@ -486,6 +489,9 @@ export async function stitchVideosWebCodecs({
 
   // 7. Muxer 인스턴스 생성 (지원 시 OPFS 디스크 스트리밍, 미지원 시 메모리 버퍼)
   const exportTarget = await createExportMuxerTarget();
+  cleanupOnCancel.push(() => {
+    void exportTarget.dispose();
+  });
   const muxer = new Muxer({
     target: exportTarget.target,
     video: {
@@ -517,6 +523,13 @@ export async function stitchVideosWebCodecs({
       console.error('[WebCodecs] VideoEncoder error:', e);
       videoEncoderError = new Error(e.message || 'VideoEncoder 인코딩 오류');
     },
+  });
+  cleanupOnCancel.push(() => {
+    try {
+      videoEncoder.close();
+    } catch {
+      // 이미 닫힌 인코더는 무시
+    }
   });
 
   // 고품질 H.264 하드웨어 가속 설정
@@ -578,6 +591,13 @@ export async function stitchVideosWebCodecs({
         });
         audioEncoder.configure(audioConfig);
         audioDataAvailable = true;
+        cleanupOnCancel.push(() => {
+          try {
+            audioEncoder?.close();
+          } catch {
+            // 이미 닫힌 인코더는 무시
+          }
+        });
       }
     } catch (err) {
       console.warn('[WebCodecs] AudioEncoder 초기화 건너뜀 (무음 처리):', err);
@@ -1492,6 +1512,7 @@ export async function stitchVideosWebCodecs({
     // -------------------------------------------------------------------------
     // STEP E. 인코더 플러시 및 최종 MP4 Blob 생성
     // -------------------------------------------------------------------------
+    if (signal?.aborted) throw new Error('작업 취소');
     reportProgress(98, translateServiceUi('MP4 컨테이너 고화질 패키징 중...'), true);
     await videoEncoder.flush();
     videoEncoder.close();
@@ -1530,6 +1551,16 @@ export async function stitchVideosWebCodecs({
     };
   } finally {
     try {
+      // 취소된 내보내기는 최종 Blob을 만들지 않으므로 인코더·임시 OPFS 파일을 즉시 해제한다.
+      if (signal?.aborted) {
+        for (const cleanup of cleanupOnCancel) {
+          try {
+            cleanup();
+          } catch {
+            // 리소스별 정리 실패는 무시하고 다음 정리로 진행
+          }
+        }
+      }
       if (wakeLock) {
         void wakeLock.release().catch(() => {});
         wakeLock = null;

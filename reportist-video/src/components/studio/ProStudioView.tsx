@@ -438,6 +438,8 @@ interface ProStudioViewProps {
     overlayOptions?: VideoOverlayOptions,
     resolution?: ExportResolution
   ) => Promise<FinalVideoResult | null>;
+  /** 진행 중인 내보내기 인코딩을 취소한다. */
+  onCancelReStitch?: () => void;
   isReStitching: boolean;
   reStitchProgress?: {
     progressPercent: number;
@@ -483,6 +485,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onCancelProcessing,
   onReset,
   onReStitch,
+  onCancelReStitch,
   isReStitching,
   reStitchProgress,
   onUpdateVideosDateFormat,
@@ -9753,6 +9756,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 {reStitchProgress?.progressPercent ?? 0}%
               </span>
             </div>
+            {onCancelReStitch && (
+              <button
+                type="button"
+                className="toss-modal-cancel-btn mt-4 w-full"
+                onClick={onCancelReStitch}
+              >
+                {ui('내보내기 취소')}
+              </button>
+            )}
           </div>
         </div>
       )}

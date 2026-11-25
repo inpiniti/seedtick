@@ -1568,6 +1568,8 @@ export async function stitchHighlightedSegments({
       throw new Error('녹화된 영상 구간이 없습니다. 브라우저를 새로고침한 뒤 다시 시도해 주세요.');
     }
 
+    if (signal?.aborted) throw new Error('작업 취소');
+
     // WebKit VideoToolbox 하드웨어 인코더 플러시 대기 (마지막 프레임 렌더 후 최소 350ms 대기 필수)
     await sleep(350);
 
@@ -1653,6 +1655,21 @@ export async function stitchHighlightedSegments({
     };
   } finally {
     try {
+      // 취소로 중간에 빠져나온 경우에도 녹화기와 캡처 스트림을 즉시 해제한다.
+      if (recorder.state !== 'inactive') {
+        try {
+          recorder.stop();
+        } catch {
+          // 이미 정지된 녹화기는 무시
+        }
+      }
+      for (const track of canvasStream.getTracks()) {
+        try {
+          track.stop();
+        } catch {
+          // 해제 불가 트랙은 무시
+        }
+      }
       bridgeController.dispose();
       if (bgmController) {
         bgmController.stop();

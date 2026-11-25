@@ -18,7 +18,7 @@ export interface UseModalFocusTrapOptions {
  *
  * 1. Moves focus into the dialog so focus rings never remain on background
  *    controls (e.g. the timeline or the top bar during video export).
- * 2. Keeps Tab inside the dialog — progress dialogs have no focusable controls.
+ * 2. Keeps Tab inside the dialog's focusable controls (e.g. the cancel button).
  * 3. Marks background siblings inert so they cannot be clicked or focused.
  * 4. Restores the previous focus on close when that element is still connected.
  */
@@ -52,11 +52,34 @@ export function useModalFocusTrap(
     // 2. Take focus so background controls lose their focus rings.
     dialog.focus({ preventScroll: true });
 
-    // 3. Progress dialogs contain no controls — hold focus on the dialog itself.
+    // 3. dialog 안의 컨트롤(취소 버튼 등) 사이에서만 Tab 순환을 허용한다.
+    const getFocusable = () =>
+      Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') return;
-      event.preventDefault();
-      dialog.focus({ preventScroll: true });
+      const focusables = getFocusable();
+      if (focusables.length === 0) {
+        event.preventDefault();
+        dialog.focus({ preventScroll: true });
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !dialog.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !dialog.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', handleKeyDown, true);
 
