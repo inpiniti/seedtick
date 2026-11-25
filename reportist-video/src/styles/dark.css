@@ -678,6 +678,11 @@
 :root.dark .model-modal-icon-badge {
   background-color: var(--ui-surface-muted);
 }
+/* lucide의 color prop은 svg의 stroke 속성으로 박히므로 배경만 어두워진 헤더 아이콘이 보이지 않는다.
+   stroke="#0f172a" 인 중립 아이콘만 덮어쓰고 위치 모달의 빨간 아이콘은 그대로 둔다. */
+:root.dark .model-modal-icon-badge svg[stroke="#0f172a"] {
+  stroke: var(--ui-text);
+}
 :root.dark .model-modal-close-btn {
   color: var(--ui-text-subtle);
 }
