@@ -182,3 +182,11 @@
 :root.dark .sv2-intro-wordmark {
   color: var(--ui-text);
 }
+
+/* driver.js 안내는 라이트 팔레트를 전제로 해서 다크에서는 스포트라이트 타깃과
+   이미 어두운 배경이 섞여 티가 안 난다. 밝은 링으로 타깃만 또렷하게 띄운다. */
+:root.dark .driver-active-element {
+  outline: 2px solid var(--ui-text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(242, 244, 246, 0.12), 0 4px 16px rgba(0, 0, 0, 0.4);
+}

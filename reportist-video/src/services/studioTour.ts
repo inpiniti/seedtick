@@ -174,12 +174,16 @@ export function createStudioDriver({
   onDestroyed,
   onHighlighted,
 }: StudioDriverOptions): Driver {
+  // 다크에서는 페이지가 이미 어두워 오버레이만으로는 안내가 시작된 게 잘 안 보인다.
+  // 요청된 농도를 유지하면서 한 단계 더 짙게 만들어 스포트라이트 대비를 살린다.
+  const isDarkTheme =
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   const driverObj = driver({
     steps,
     animate: true,
     duration: 240,
-    overlayColor: '#0f172a',
-    overlayOpacity,
+    overlayColor: isDarkTheme ? '#000000' : '#0f172a',
+    overlayOpacity: isDarkTheme ? Math.min(1, overlayOpacity + 0.2) : overlayOpacity,
     stagePadding: 6,
     stageRadius: 10,
     allowClose: true,
