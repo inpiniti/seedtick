@@ -34,8 +34,10 @@ import {
 } from './hyperframesIntroOutroRenderer.ts';
 import { getBgmGain, scheduleBgmSynthTrack } from './audioSynth.ts';
 import {
-  createMasterLimiter,
-  softLimitAudioBuffer,
+  applyEndFade,
+  createSeamlessLoopBuffer,
+  limitAudioBufferPeak,
+  resolveBgmFitPlan,
   timeStretchAudioBuffer,
 } from './audioMixUtils.ts';
 import { translateServiceUi } from '../i18n/serviceUi.ts';
@@ -570,17 +572,28 @@ export async function stitchVideosWebCodecs({
   };
   videoEncoder.configure(videoEncoderConfig);
 
-  // 9. 오디오 인코더 설정
+  // 9. 오디오 인코더 설정 (256kbps 우선, 미지원 시 192kbps)
   if (hasAudioSource && typeof AudioEncoder === 'function') {
     try {
-      const audioConfig: AudioEncoderConfig = {
-        codec: 'mp4a.40.2', // AAC-LC
-        sampleRate: audioSampleRate,
-        numberOfChannels: audioChannels,
-        bitrate: 192_000, // 192kbps
-      };
-      const audioSupport = await AudioEncoder.isConfigSupported(audioConfig);
-      if (audioSupport.supported) {
+      let audioConfig: AudioEncoderConfig | null = null;
+      for (const bitrate of [256_000, 192_000]) {
+        const candidate: AudioEncoderConfig = {
+          codec: 'mp4a.40.2', // AAC-LC
+          sampleRate: audioSampleRate,
+          numberOfChannels: audioChannels,
+          bitrate,
+        };
+        try {
+          const support = await AudioEncoder.isConfigSupported(candidate);
+          if (support.supported) {
+            audioConfig = candidate;
+            break;
+          }
+        } catch {
+          // 이 비트레이트가 지원되지 않으면 다음 후보를 계속 시도한다.
+        }
+      }
+      if (audioConfig) {
         audioEncoder = new AudioEncoder({
           output: (chunk, meta) => {
             muxer.addAudioChunk(chunk, meta);
@@ -1259,9 +1272,10 @@ export async function stitchVideosWebCodecs({
         reportProgress(97, translateServiceUi('오디오 트랙 고화질 믹싱 및 동기화 중...'), true);
         const totalSampleCount = Math.max(1024, Math.ceil(totalVideoDurationSec * audioSampleRate));
         const offlineAudioCtx = new OfflineAudioContext(audioChannels, totalSampleCount, audioSampleRate);
-        // 원본 현장음 + BGM을 합산하면 쉽게 1.0을 넘는다. 리미터 없이 AAC로 넘기면
-        // 하드 클리핑·마스킹으로 하이햇·잔향·여린 멜로디가 사라진다.
-        const masterBus = createMasterLimiter(offlineAudioCtx, offlineAudioCtx.destination);
+        // OfflineAudioContext는 부동소수점으로 렌더링하므로 중간에 컴프레서를 누를 필요가 없다.
+        // 렌더링 완료 후 임계값 초과 구간만 투명한 피크 리미터로 처리한다(어택·다이내믹 보존).
+        const masterBus = offlineAudioCtx.createGain();
+        masterBus.connect(offlineAudioCtx.destination);
 
         // 원본 비디오 오디오 디코딩 헬퍼 (표준 AudioContext 우선 시도 후 2차 fallback)
         const readVideoArrayBuffer = async (vItem: VideoItem): Promise<ArrayBuffer | null> => {
@@ -1358,6 +1372,13 @@ export async function stitchVideosWebCodecs({
                 const segSource = offlineAudioCtx.createBufferSource();
                 segSource.buffer = fullAudioBuf;
 
+                // 스마트폰 현장음의 80Hz 이하 풍절음·진동 노이즈가 BGM 베이스/킥과
+                // 위상 충돌하거나 마스터 헤드룸을 잡아먹지 않도록 하이패스 필터를 건다.
+                const segHighpass = offlineAudioCtx.createBiquadFilter();
+                segHighpass.type = 'highpass';
+                segHighpass.frequency.value = 80;
+                segHighpass.Q.value = 0.707;
+
                 const segGain = offlineAudioCtx.createGain();
                 const userVol = typeof seg.volume === 'number' && Number.isFinite(seg.volume) ? seg.volume : 1.0;
                 const targetVol = Math.max(0, Math.min(2.0, userVol));
@@ -1376,7 +1397,8 @@ export async function stitchVideosWebCodecs({
                   segGain.gain.setValueAtTime(targetVol, startT);
                 }
 
-                segSource.connect(segGain);
+                segSource.connect(segHighpass);
+                segHighpass.connect(segGain);
                 segGain.connect(masterBus);
                 segSource.start(startT, safeOffset, safeDuration);
               } catch (segAudioErr) {
@@ -1419,19 +1441,21 @@ export async function stitchVideosWebCodecs({
 
               const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
               const targetMusicDuration = Math.max(0.1, totalVideoDurationSec);
+              const plan = fitToVideo
+                ? resolveBgmFitPlan(decoded.duration, targetMusicDuration)
+                : { mode: 'loop' as const, rate: 1 };
 
-              if (fitToVideo && decoded.duration > 0 && targetMusicDuration > 0) {
-                // 미리보기(<audio>.preservesPitch=true)와 같은 음높이 유지 타임스트레치.
-                // playbackRate만 바꾸면 음높이가 함께 내려가 고음 악기가 사라진 듯 들린다.
-                const calculatedRate = Math.max(
-                  0.25,
-                  Math.min(4.0, Number((decoded.duration / targetMusicDuration).toFixed(3)))
-                );
-                srcNode.buffer = timeStretchAudioBuffer(offlineAudioCtx, decoded, calculatedRate);
+              if (plan.mode === 'stretch') {
+                // 길이 차이가 ±15% 이내일 때만 WSOLA로 미세 배속(음높이 유지)한다.
+                srcNode.buffer = timeStretchAudioBuffer(offlineAudioCtx, decoded, plan.rate);
                 srcNode.loop = false;
               } else {
-                srcNode.buffer = decoded;
-                srcNode.loop = totalVideoDurationSec > decoded.duration;
+                // 차이가 크면 원곡 템포를 그대로 살리고 크로스페이드 루프로 이음새를 숨긴다.
+                const seamless = createSeamlessLoopBuffer(offlineAudioCtx, decoded);
+                srcNode.buffer = seamless.buffer;
+                srcNode.loop = true;
+                srcNode.loopStart = seamless.loopStartSec;
+                srcNode.loopEnd = seamless.buffer.duration;
               }
 
               const gain = offlineAudioCtx.createGain();
@@ -1467,8 +1491,10 @@ export async function stitchVideosWebCodecs({
         }
 
         const renderedBuffer = await offlineAudioCtx.startRendering();
-        // 리미터를 거쳐도 순간 피크가 남을 수 있으니 인코딩 전 소프트 클램핑으로 마무리한다.
-        softLimitAudioBuffer(renderedBuffer);
+        // 부동소수점 렌더 결과를 임계값 초과 구간만 투명하게 제한한 뒤,
+        // 영상 마지막 1.8초는 자연스럽게 페이드아웃해 완성된 영상처럼 마감한다.
+        limitAudioBufferPeak(renderedBuffer);
+        applyEndFade(renderedBuffer);
 
         // 1024 샘플 청크 단위로 AudioData 생성 후 AudioEncoder에 전달
         const chunkSize = 1024;

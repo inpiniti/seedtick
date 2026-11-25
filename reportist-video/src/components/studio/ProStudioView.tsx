@@ -114,6 +114,7 @@ import {
 } from '../../services/previewCompositorBase.ts';
 import { previewFrame } from '../../services/frameSpec.ts';
 import { getBgmGain, playBgmSynthLoop } from '../../services/audioSynth.ts';
+import { resolveBgmFitPlan } from '../../services/audioMixUtils.ts';
 
 // 모달은 사용자가 열 때만 청크를 내려받도록 지연 로딩한다. (초기 번들 절감)
 const ModelSelectorModal = React.lazy(() =>
@@ -2611,8 +2612,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   const calculatedBgmSpeed = useMemo(() => {
     if (!customAudioDuration || customAudioDuration <= 0 || !totalDuration || totalDuration <= 0) return null;
-    const rate = customAudioDuration / totalDuration;
-    return rate.toFixed(2);
+    const plan = resolveBgmFitPlan(customAudioDuration, totalDuration);
+    // 원속도 루프 모드에서는 배속 표시를 숨긴다(실제 재생 배속이 1x이므로).
+    return plan.mode === 'stretch' ? plan.rate.toFixed(2) : null;
   }, [customAudioDuration, totalDuration]);
 
   // 시퀀스 타임라인용 배경음악(A1) 구간 블록 계산 (1회차 원곡 재생 구간 + 초과 시 반복 재생 구간)
@@ -3011,13 +3013,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (!bgmAudioElRef.current) return;
     const audio = bgmAudioElRef.current;
     const fit = Boolean(overlayOptions.bgmFitToVideo);
-    if (fit && customAudioDuration && customAudioDuration > 0 && totalDuration > 0) {
-      const rate = customAudioDuration / totalDuration;
-      audio.playbackRate = Math.max(0.25, Math.min(4.0, Number(rate.toFixed(3))));
+    const plan = fit ? resolveBgmFitPlan(customAudioDuration || 0, totalDuration) : null;
+    if (plan?.mode === 'stretch') {
+      audio.playbackRate = plan.rate;
       audio.preservesPitch = true;
       audio.loop = false;
     } else {
+      // ±15%를 넘는 차이는 원속도로 재생하고 모자라면 반복한다(그루브·타격감 보존).
       audio.playbackRate = 1.0;
+      audio.preservesPitch = true;
       audio.loop = true;
     }
   }, [overlayOptions.bgmFitToVideo, customAudioDuration, totalDuration]);
@@ -3033,8 +3037,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0);
         if (dur > 0) {
           try {
-            const fit = Boolean(overlayOptions.bgmFitToVideo);
-            if (fit && totalDuration > 0) {
+            const plan = overlayOptions.bgmFitToVideo
+              ? resolveBgmFitPlan(dur, totalDuration)
+              : null;
+            if (plan?.mode === 'stretch' && totalDuration > 0) {
               audio.currentTime = Math.max(0, Math.min(dur, timelineSec * (dur / totalDuration)));
             } else {
               audio.currentTime = Math.max(0, timelineSec % dur);

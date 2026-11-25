@@ -10,7 +10,13 @@ import type {
   VideoOverlayOptions,
 } from '../types/video.ts';
 import { getBgmGain, playBgmSynthLoop } from './audioSynth.ts';
-import { createMasterLimiter, timeStretchAudioBuffer } from './audioMixUtils.ts';
+import {
+  createMasterLimiter,
+  createSeamlessLoopBuffer,
+  resolveBgmFitPlan,
+  scheduleMasterFadeOut,
+  timeStretchAudioBuffer,
+} from './audioMixUtils.ts';
 import { drawCompositorCoverFrame, drawCompositorSegmentOverlay } from './previewCompositorBase.ts';
 import { resolveFrameSpec } from './frameSpec.ts';
 import {
@@ -158,6 +164,9 @@ function createMediaRecorder(stream: MediaStream, customBitrate?: number): { rec
   for (const mime of candidates) {
     try {
       const options: MediaRecorderOptions = { videoBitsPerSecond };
+      // 비트레이트 미지정 시 브라우저 기본값(64~96kbps)으로 압축되어
+      // 하이햇·잔향이 뭉개지고 음악이 밋밋해지는 것을 막는다.
+      if (hasAudio) options.audioBitsPerSecond = 192_000;
       if (mime) options.mimeType = mime;
       const recorder = new MediaRecorder(stream, options);
       return { recorder, mimeType: recorder.mimeType || mime || '' };
@@ -356,7 +365,13 @@ export async function stitchHighlightedSegments({
         workerAudioGain.connect(masterAudioBus ?? audioDest);
 
         const workerSource = audioCtx.createMediaElementSource(workerA);
-        workerSource.connect(workerAudioGain);
+        // 현장음의 저주파 풍절음이 BGM 베이스/킥과 충돌해 headroom을 잡아먹지 않도록 HPF 적용.
+        const workerHighpass = audioCtx.createBiquadFilter();
+        workerHighpass.type = 'highpass';
+        workerHighpass.frequency.value = 80;
+        workerHighpass.Q.value = 0.707;
+        workerSource.connect(workerHighpass);
+        workerHighpass.connect(workerAudioGain);
         workerA.muted = false;
         workerA.defaultMuted = false;
         workerA.volume = 1.0;
@@ -524,21 +539,22 @@ export async function stitchHighlightedSegments({
           const plannedTotalVideoSec = totalSegmentsDuration + expectedIntroSec + expectedOutroSec;
 
           const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
-          // 배경음악(BGM)은 인트로를 포함한 전체 영상 길이에 맞춰 배속 동기화
           const targetMusicDuration = Math.max(0.1, plannedTotalVideoSec);
+          const plan = fitToVideo
+            ? resolveBgmFitPlan(decodedResult.value.duration, targetMusicDuration)
+            : { mode: 'loop' as const, rate: 1 };
 
-          if (fitToVideo && decodedResult.value.duration > 0 && targetMusicDuration > 0) {
-            // 미리보기(<audio>.preservesPitch=true)와 같은 음높이 유지 타임스트레치.
-            // playbackRate만 바꾸면 고음이 가라앉아 음악에서 무언가 빠진 듯 들린다.
-            const calculatedRate = Math.max(
-              0.25,
-              Math.min(4.0, Number((decodedResult.value.duration / targetMusicDuration).toFixed(3)))
-            );
-            customSourceNode.buffer = timeStretchAudioBuffer(audioCtx, decodedResult.value, calculatedRate);
+          if (plan.mode === 'stretch') {
+            // ±15% 이내만 WSOLA 미세 배속으로 끝점을 맞춘다.
+            customSourceNode.buffer = timeStretchAudioBuffer(audioCtx, decodedResult.value, plan.rate);
             customSourceNode.loop = false;
           } else {
-            customSourceNode.buffer = decodedResult.value;
-            customSourceNode.loop = plannedTotalVideoSec > decodedResult.value.duration + 0.5;
+            // 그 외에는 원속도를 유지하고 크로스페이드 루프로 그루브를 보존한다.
+            const seamless = createSeamlessLoopBuffer(audioCtx, decodedResult.value);
+            customSourceNode.buffer = seamless.buffer;
+            customSourceNode.loop = true;
+            customSourceNode.loopStart = seamless.loopStartSec;
+            customSourceNode.loopEnd = seamless.buffer.duration;
           }
 
           const gainNode = audioCtx.createGain();
@@ -1545,6 +1561,17 @@ export async function stitchHighlightedSegments({
 
         void tick(true);
       });
+    }
+
+    // 아웃트로/엔딩 구간에서 마스터 버스를 페이드아웃해 마지막 소리가 칼같이 끊기지 않게 한다.
+    if (masterAudioBus && audioCtx) {
+      scheduleMasterFadeOut(
+        masterAudioBus,
+        audioCtx,
+        overlayOptions?.showOutro
+          ? Math.min(2, Math.max(0.6, overlayOptions.outroDurationSec || DEFAULT_OUTRO_DURATION))
+          : 0.35
+      );
     }
 
     // 마무리 아웃트로 렌더링 (옵션 활성화 시: 영상 파일 우선, 없으면 엔딩 시퀀스)
