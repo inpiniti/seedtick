@@ -39,6 +39,8 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
   const [drawn, setDrawn] = useState(false);
   const groupRef = useRef<HTMLDivElement>(null);
   const flightRef = useRef<Animation | null>(null);
+  // 뷰포트가 바뀌어도 아이콘을 같은 브랜드 좌표에 다시 붙이기 위한 비행 기하값.
+  const flightGeometryRef = useRef<{ offsetX: number; offsetY: number; scale: number } | null>(null);
 
   // 부모의 루트 data-intro 속성과 내부 위상을 항상 동기화한다.
   useEffect(() => {
@@ -70,8 +72,11 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
         const gx = g.left + g.width / 2;
         const gy = g.top + g.height / 2;
         // 그룹 중심 기준으로 스케일링하므로 아이콘 중심이 목표에 닿도록 보정한다.
-        const dx = t.left + t.width / 2 - gx - (i.left + i.width / 2 - gx) * scale;
-        const dy = t.top + t.height / 2 - gy - (i.top + i.height / 2 - gy) * scale;
+        const offsetX = i.left + i.width / 2 - gx;
+        const offsetY = i.top + i.height / 2 - gy;
+        flightGeometryRef.current = { offsetX, offsetY, scale };
+        const dx = t.left + t.width / 2 - gx - offsetX * scale;
+        const dy = t.top + t.height / 2 - gy - offsetY * scale;
 
         flightRef.current?.cancel();
         flightRef.current = group.animate(
@@ -98,6 +103,34 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
 
     // pinned: 비행 애니메이션(fill: forwards)이 적용된 채 로고를 그대로 유지한다.
     return;
+  }, [phase]);
+
+  // 고정된 로고는 뷰포트 중앙 기준으로 배치되므로, 창 크기가 바뀌면
+  // 실제 상단바 로고 좌표를 다시 측정해 같은 자리에 다시 붙인다.
+  useEffect(() => {
+    if (phase !== 'pinned') return;
+
+    const pinToBrand = () => {
+      const group = groupRef.current;
+      const geometry = flightGeometryRef.current;
+      const target = document.querySelector('.sv2-brand-logo');
+      if (!group || !geometry || !target) return;
+
+      // WAAPI의 fill: forwards 대신 인라인 transform으로 전환해 재계산 값을 유지한다.
+      flightRef.current?.cancel();
+      flightRef.current = null;
+
+      const gx = window.innerWidth / 2;
+      const gy = window.innerHeight / 2;
+      const t = target.getBoundingClientRect();
+      const dx = t.left + t.width / 2 - gx - geometry.offsetX * geometry.scale;
+      const dy = t.top + t.height / 2 - gy - geometry.offsetY * geometry.scale;
+      group.style.transform = `translate(${dx}px, ${dy}px) scale(${geometry.scale})`;
+    };
+
+    pinToBrand();
+    window.addEventListener('resize', pinToBrand);
+    return () => window.removeEventListener('resize', pinToBrand);
   }, [phase]);
 
   // 언마운트 시에만 비행 애니메이션을 정리한다(단계 전환 중에는 유지).
