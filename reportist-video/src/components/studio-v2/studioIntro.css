@@ -130,7 +130,8 @@
   font-size: calc(15px / var(--sv2-intro-scale, 0.325));
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1;
+  /* 상단바 브랜드와 같은 줄간격이어야 스케일 후 글자 베이스라인이 어긋나지 않는다. */
+  line-height: 1.5;
   white-space: nowrap;
   opacity: 0;
   transform: translateY(8px);
