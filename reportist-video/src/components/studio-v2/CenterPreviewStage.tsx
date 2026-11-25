@@ -196,8 +196,23 @@ export const CenterPreviewStage = ({
         ).name
     : '';
 
-  // 컷이 없으면 안내 문구·미리보기·재생바 없이 빈 스테이지를 유지한다.
-  if (!hasContent) return null;
+  // 컷이 없어도 빈 화면 대신 영상 미리보기 박스를 보여준다.
+  if (!hasContent) {
+    return (
+      <div className="sv2-preview-empty" data-orientation={orientation}>
+        <div className="sv2-preview-empty-card">
+          <span className="sv2-preview-empty-sheen" aria-hidden="true" />
+          <span className="sv2-preview-empty-play" aria-hidden="true">
+            <Play size={26} fill="currentColor" strokeWidth={1.5} />
+          </span>
+        </div>
+        <div className="sv2-preview-empty-copy">
+          <strong>{ui('영상을 추가하면 미리보기가 나타나요')}</strong>
+          <span>{ui('원본 영상을 올리면 컷과 자막을 여기서 확인할 수 있어요')}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

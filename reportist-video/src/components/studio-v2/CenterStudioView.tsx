@@ -1269,6 +1269,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
         />
 
         <div className="sv2-center">
+          <div className="sv2-stars" aria-hidden="true" />
           <div className="sv2-stage-wrap">
             {isProcessing && (
               <div className="sv2-status-pill" role="status" aria-live="polite" data-tour="onboarding-status">

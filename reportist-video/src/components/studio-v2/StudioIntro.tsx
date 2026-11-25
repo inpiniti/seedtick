@@ -14,7 +14,7 @@ export type StudioIntroPhase = 'intro' | 'flying' | 'revealing' | 'pinned' | 'do
 const DRAW_MS = 1400;
 const FLY_MS = 820;
 const HAND_OFF_MS = 120;
-const REVEAL_MS = 1600;
+const REVEAL_MS = 2100;
 
 /**
  * 인트로를 건너뛸지 판단한다.

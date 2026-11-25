@@ -939,10 +939,57 @@
   flex-direction: column;
   align-items: stretch;
   position: relative;
+  overflow: hidden;
   padding: 0;
+}
+
+/* 모노톤 별 배경 — 라이트 테마에 맞춰 낮은 대비의 점으로만 표현한다. */
+.sv2-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.4px 1.4px at 24px 36px, rgba(15, 23, 42, 0.2) 50%, transparent 52%),
+    radial-gradient(1.1px 1.1px at 96px 112px, rgba(15, 23, 42, 0.14) 50%, transparent 52%),
+    radial-gradient(1.6px 1.6px at 158px 64px, rgba(15, 23, 42, 0.18) 50%, transparent 52%),
+    radial-gradient(1px 1px at 62px 156px, rgba(15, 23, 42, 0.12) 50%, transparent 52%);
+  background-size: 220px 200px;
+  animation: sv2-stars-drift 40s linear infinite;
+}
+
+.sv2-stars::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.2px 1.2px at 48px 88px, rgba(15, 23, 42, 0.12) 50%, transparent 52%),
+    radial-gradient(1px 1px at 180px 148px, rgba(15, 23, 42, 0.1) 50%, transparent 52%);
+  background-size: 260px 240px;
+  animation: sv2-stars-twinkle 4.5s ease-in-out infinite;
+}
+
+@keyframes sv2-stars-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -220px -200px;
+  }
+}
+
+@keyframes sv2-stars-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 .sv2-stage-wrap {
   position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -1038,6 +1085,93 @@
 .sv2-preview-frame[data-orientation='portrait'] canvas {
   max-height: calc(100vh - var(--sv2-topbar-h) - var(--sv2-timeline-h) - 110px);
 }
+
+/* ---------- 빈 미리보기 (reflective card 느낌) ---------- */
+.sv2-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+}
+
+.sv2-preview-empty-card {
+  position: relative;
+  width: min(760px, 100%);
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: linear-gradient(155deg, #ffffff 0%, #f2f4f6 58%, #eceff2 100%);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.sv2-preview-empty[data-orientation='portrait'] .sv2-preview-empty-card {
+  width: min(420px, 100%);
+  aspect-ratio: 9 / 16;
+}
+
+/* 얇은 흰색 반사광이 카드 위를 천천히 지나간다. */
+.sv2-preview-empty-sheen {
+  position: absolute;
+  inset: -60%;
+  background: linear-gradient(
+    115deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.62) 50%,
+    transparent 58%
+  );
+  animation: sv2-preview-sheen 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.sv2-preview-empty-play {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: var(--sv2-accent);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.sv2-preview-empty-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.sv2-preview-empty-copy strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--sv2-text);
+}
+
+.sv2-preview-empty-copy span {
+  font-size: 13px;
+  color: var(--sv2-text-3);
+}
+
+@keyframes sv2-preview-sheen {
+  0%,
+  100% {
+    transform: translateX(-32%);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateX(32%);
+    opacity: 0.9;
+  }
+}
+
 /* 직접 올린 인트로/아웃트로 영상은 모션 캔버스 위에 같은 비율로 덮는다. */
 .sv2-preview-custom-video {
   position: absolute;
