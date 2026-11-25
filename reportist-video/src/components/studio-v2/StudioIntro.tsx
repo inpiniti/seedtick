@@ -121,25 +121,50 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
     return;
   }, [phase]);
 
-  // 비행이 끝난 뒤 오버레이와 실제 브랜드 박스를 한 번 실측해 맞춘다(FLIP 보정).
+  // 비행이 끝난 뒤 아이콘과 글자를 각각 실측해 실제 브랜드에 맞춘다(FLIP 보정).
   // 이후 100ms 안에 실제 브랜드로 교체되므로 보정 자체는 눈에 띄지 않는다.
   useEffect(() => {
     if (phase !== 'pinned') return;
     const group = groupRef.current;
     const brand = document.querySelector('.sv2-brand');
+    const icon = group?.querySelector('.sv2-intro-fill');
+    const wordmark = group?.querySelector<HTMLElement>('.sv2-intro-wordmark');
+    const targetIcon = document.querySelector('.sv2-brand-logo');
     const finalTransform = finalTransformRef.current;
-    if (!group || !brand || !finalTransform) return;
+    if (!group || !brand || !icon || !wordmark || !targetIcon || !finalTransform) return;
 
-    const g = group.getBoundingClientRect();
-    const b = brand.getBoundingClientRect();
-    const corrX = b.left + b.width / 2 - (g.left + g.width / 2);
-    const corrY = b.top + b.height / 2 - (g.top + g.height / 2);
+    // 1) 그룹 transform은 아이콘 중심을 상단바 로고 중심에 정확히 맞춘다.
+    const i = icon.getBoundingClientRect();
+    const ti = targetIcon.getBoundingClientRect();
+    const corrX = ti.left + ti.width / 2 - (i.left + i.width / 2);
+    const corrY = ti.top + ti.height / 2 - (i.top + i.height / 2);
 
     flightRef.current?.cancel();
     flightRef.current = null;
     group.style.transform = `translate(${finalTransform.dx + corrX}px, ${
       finalTransform.dy + corrY
     }px) scale(${finalTransform.scale})`;
+
+    // 2) 글자는 상단바의 텍스트 노드를 실측해 개별 보정한다.
+    //    큰 글자를 축소한 오버레이와 네이티브 15px 글자의 미세한 폭 차이까지 흡수한다.
+    const textNode = Array.from(brand.childNodes).find(
+      (node) => node.nodeType === 3 && (node.textContent ?? '').trim().length > 0
+    );
+    if (!textNode) return;
+    const range = document.createRange();
+    range.selectNodeContents(textNode);
+    const targetText = range.getBoundingClientRect();
+    range.detach?.();
+
+    const w = wordmark.getBoundingClientRect();
+    // 워드마크는 그룹 안에서 scale배 크기로 잡히므로 오프셋도 scale로 나눠준다.
+    const textCorrX =
+      (targetText.left + targetText.width / 2 - (w.left + w.width / 2)) / finalTransform.scale;
+    const textCorrY =
+      (targetText.top + targetText.height / 2 - (w.top + w.height / 2)) / finalTransform.scale;
+
+    wordmark.style.transition = 'none';
+    wordmark.style.transform = `translate(${textCorrX}px, ${textCorrY}px)`;
   }, [phase]);
 
   // 언마운트 시에만 비행 애니메이션을 정리한다(단계 전환 중에는 유지).
