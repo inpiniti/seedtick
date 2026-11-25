@@ -1,30 +1,30 @@
 // components/studio-v2/StudioIntro.tsx — 스튜디오 첫 진입 연출.
-// 중앙에서 펭귄컷 로고를 그린 뒤 좌상단 브랜드 위치로 날려 보내고,
-// 상단바 → 타임라인 → 좌측 독 순서로 패널을 바운스 + 슬라이드 등장시킨다.
+// 중앙에서 로고(심볼 + 워드마크)를 그린 뒤 좌상단 브랜드 위치로 함께 날려 보내고,
+// 그 자리에 고정한 채 로고 없는 상단바·타임라인·좌측 독을 순차 등장시킨다.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
+import { getLandingPath, useI18n } from '../../i18n/index.tsx';
 import './studioIntro.css';
 
-export type StudioIntroPhase = 'intro' | 'flying' | 'revealing' | 'done';
+export type StudioIntroPhase = 'intro' | 'flying' | 'revealing' | 'pinned' | 'done';
 
 // 각 단계 지속 시간은 studioIntro.css의 전환/애니메이션 길이와 일치시킨다.
 const DRAW_MS = 1400;
 const FLY_MS = 820;
 const HAND_OFF_MS = 120;
-const REVEAL_MS = 1350;
+const REVEAL_MS = 1600;
 
 /**
  * 인트로를 건너뛸지 판단한다.
  * 새로고침·재방문에도 매번 재생하고, 모션 감소 설정 또는 ?intro=0 에서만 생략한다.
- * (?intro=1 은 재생을 명시적으로 강제하는 플래그)
  */
 export function shouldSkipStudioIntro(): boolean {
   if (typeof window === 'undefined') return true;
   const params = new URLSearchParams(window.location.search);
-  if (params.get('intro') === '1') return false;
   if (params.get('intro') === '0') return true;
+  if (params.get('intro') === '1') return false;
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
@@ -34,6 +34,7 @@ interface StudioIntroProps {
 }
 
 export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
+  const { locale } = useI18n();
   const [phase, setPhase] = useState<StudioIntroPhase>(initialPhase);
   const [drawn, setDrawn] = useState(false);
   const groupRef = useRef<HTMLDivElement>(null);
@@ -67,19 +68,22 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
     if (phase === 'flying') {
       const group = groupRef.current;
       // 상단바는 아직 투명하지만 레이아웃은 잡혀 있어 목표 좌표를 측정할 수 있다.
-      // 감싼 span(80×80)이 아니라 실제 SVG(≈61×80)를 기준으로 스케일을 계산해야
-      // 상단바 로고와 크기·중심이 정확히 일치한다.
+      // 감싼 span이 아닌 실제 SVG를 기준으로 스케일을 계산해야 목표 로고와 정확히 겹친다.
       const icon = group?.querySelector('svg');
       const target = document.querySelector('.sv2-brand-logo');
-      if (icon && target) {
-        const from = icon.getBoundingClientRect();
-        const to = target.getBoundingClientRect();
-        const scale = from.width > 0 ? to.width / from.width : 0.325;
-        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
-        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+      if (group && icon && target) {
+        const g = group.getBoundingClientRect();
+        const i = icon.getBoundingClientRect();
+        const t = target.getBoundingClientRect();
+        const scale = i.width > 0 ? t.width / i.width : 0.325;
+        const gx = g.left + g.width / 2;
+        const gy = g.top + g.height / 2;
+        // 그룹 중심 기준으로 스케일링하므로 아이콘 중심이 목표에 닿도록 보정한다.
+        const dx = t.left + t.width / 2 - gx - (i.left + i.width / 2 - gx) * scale;
+        const dy = t.top + t.height / 2 - gy - (i.top + i.height / 2 - gy) * scale;
 
         flightRef.current?.cancel();
-        flightRef.current = icon.animate(
+        flightRef.current = group.animate(
           [
             { transform: 'translate(0px, 0px) scale(1)' },
             { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
@@ -91,15 +95,17 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
           }
         );
       }
+      // 도착 직후 바로 패널이 튀어나오지 않도록 짧은 홀드를 둔다.
       const timer = window.setTimeout(() => setPhase('revealing'), FLY_MS + HAND_OFF_MS);
       return () => window.clearTimeout(timer);
     }
 
     if (phase === 'revealing') {
-      const timer = window.setTimeout(() => setPhase('done'), REVEAL_MS);
+      const timer = window.setTimeout(() => setPhase('pinned'), REVEAL_MS);
       return () => window.clearTimeout(timer);
     }
 
+    // pinned: 비행 애니메이션(fill: forwards)이 적용된 채 로고를 그대로 유지한다.
     return;
   }, [phase]);
 
@@ -114,15 +120,26 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
   if (phase === 'done') return null;
 
   return createPortal(
-    <div className="sv2-intro-overlay" data-phase={phase} data-drawn={drawn} aria-hidden="true">
-      <div className="sv2-intro-glow" />
+    <>
+      {phase !== 'pinned' && (
+        <div className="sv2-intro-backdrop" data-phase={phase} data-drawn={drawn} aria-hidden="true">
+          <div className="sv2-intro-glow" />
+        </div>
+      )}
       <div className="sv2-intro-group" ref={groupRef} data-phase={phase} data-drawn={drawn}>
-        <span className="sv2-intro-icon">
-          <PenguinLogo size={80} color="#191f28" />
-        </span>
-        <span className="sv2-intro-wordmark">PenguinCut</span>
+        <a
+          className="sv2-intro-brand"
+          href={getLandingPath(locale)}
+          aria-label="PenguinCut"
+          tabIndex={phase === 'pinned' ? 0 : -1}
+        >
+          <span className="sv2-intro-icon">
+            <PenguinLogo size={80} color="#191f28" />
+          </span>
+          <span className="sv2-intro-wordmark">PenguinCut</span>
+        </a>
       </div>
-    </div>,
+    </>,
     document.body
   );
 }

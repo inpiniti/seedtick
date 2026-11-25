@@ -1,28 +1,29 @@
 /* components/studio-v2/studioIntro.css — 스튜디오 진입 인트로 연출
-   1) 중앙에서 로고 외곽선 드로잉 → 채우기
-   2) 좌상단 상단바 브랜드 로고 위치로 비행
-   3) 상단바 → 타임라인 → 좌측 독 순차 바운스 + 슬라이드 등장 */
+   1) 중앙에서 로고 외곽선 드로잉 → 채우기 + 워드마크 등장
+   2) 심볼과 글씨가 함께 좌상단 브랜드 위치로 비행
+   3) 로고는 그 자리에 고정된 채, 로고 없는 상단바 → 타임라인 → 좌측 독 순차 등장 */
 
-.sv2-intro-overlay {
+.sv2-intro-backdrop {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  display: grid;
-  place-items: center;
   background: #f8f9fa;
   opacity: 1;
   transition: opacity 0.26s ease;
 }
 
-.sv2-intro-overlay[data-phase='revealing'] {
+.sv2-intro-backdrop[data-phase='revealing'] {
   opacity: 0;
   pointer-events: none;
 }
 
 .sv2-intro-glow {
   position: absolute;
+  top: 50%;
+  left: 50%;
   width: 460px;
   height: 460px;
+  margin: -230px 0 0 -230px;
   border-radius: 50%;
   background: radial-gradient(
     circle,
@@ -36,32 +37,44 @@
   pointer-events: none;
 }
 
-.sv2-intro-overlay[data-drawn='true'] .sv2-intro-glow {
+.sv2-intro-backdrop[data-drawn='true'] .sv2-intro-glow {
   opacity: 1;
   transform: scale(1);
 }
 
-.sv2-intro-overlay[data-phase='flying'] .sv2-intro-glow,
-.sv2-intro-overlay[data-phase='revealing'] .sv2-intro-glow {
+.sv2-intro-backdrop[data-phase='flying'] .sv2-intro-glow,
+.sv2-intro-backdrop[data-phase='revealing'] .sv2-intro-glow {
   opacity: 0;
   transition-duration: 0.3s;
 }
 
+/* 배경이 사라진 뒤에도 이 그룹은 남아 상단바 로고 자리에 고정된다. */
 .sv2-intro-group {
-  position: relative;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 340px;
+  height: 110px;
+  margin: -55px 0 0 -170px;
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  width: 340px;
-  height: 110px;
+  gap: 22px;
   transform-origin: center center;
-  will-change: transform, opacity;
-  transition: opacity 0.2s ease;
+  will-change: transform;
+  pointer-events: none;
 }
 
-.sv2-intro-group[data-phase='revealing'] {
-  opacity: 0;
+.sv2-intro-group[data-phase='pinned'] {
+  pointer-events: auto;
+}
+
+/* 링크는 레이아웃에 영향 없이 동작만 제공한다. */
+.sv2-intro-brand {
+  display: contents;
+  text-decoration: none;
+  color: inherit;
 }
 
 .sv2-intro-icon {
@@ -77,9 +90,6 @@
   height: 80px;
   width: auto;
   overflow: visible;
-  /* getBoundingClientRect()로 잰 SVG 뷰포트 박스와 변환 기준을 정확히 일치시킨다. */
-  transform-box: view-box;
-  transform-origin: center center;
 }
 
 .sv2-intro-icon path {
@@ -103,7 +113,7 @@
 
 .sv2-intro-wordmark {
   color: #191f28;
-  font-size: 34px;
+  font-size: 40px;
   font-weight: 800;
   letter-spacing: -0.05em;
   line-height: 1;
@@ -119,16 +129,13 @@
   transition-delay: 1s;
 }
 
-/* 비행이 시작되면 워드마크는 사라지고 아이콘만 좌상단으로 이동한다. */
-.sv2-intro-group[data-phase='flying'] .sv2-intro-wordmark,
-.sv2-intro-group[data-phase='revealing'] .sv2-intro-wordmark {
-  opacity: 0;
-  transform: translateX(-12px);
-  transition-duration: 0.3s;
-  transition-delay: 0s;
-}
-
 /* ---------- 스튜디오 셸 패널 등장 ---------- */
+
+/* 인트로 로고가 고정된 뒤에는 상단바의 기본 브랜드를 숨겨 중복을 막는다. */
+.sv2-root:not([data-intro='done']) .sv2-brand {
+  opacity: 0;
+  pointer-events: none;
+}
 
 .sv2-root[data-intro='intro'] :is(.sv2-topbar, .sv2-dock, .sv2-timeline, .sv2-center),
 .sv2-root[data-intro='flying'] :is(.sv2-topbar, .sv2-dock, .sv2-timeline, .sv2-center) {
@@ -141,15 +148,15 @@
 }
 
 .sv2-root[data-intro='revealing'] .sv2-timeline {
-  animation: sv2-intro-rise 0.6s ease-out 0.26s both;
+  animation: sv2-intro-rise 0.6s ease-out 0.38s both;
 }
 
 .sv2-root[data-intro='revealing'] .sv2-dock {
-  animation: sv2-intro-slide 0.6s ease-out 0.52s both;
+  animation: sv2-intro-slide 0.6s ease-out 0.76s both;
 }
 
 .sv2-root[data-intro='revealing'] .sv2-center {
-  animation: sv2-intro-fade 0.5s ease 0.62s both;
+  animation: sv2-intro-fade 0.5s ease 0.9s both;
 }
 
 @keyframes sv2-intro-drop {
