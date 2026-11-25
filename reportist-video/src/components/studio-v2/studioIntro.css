@@ -60,7 +60,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  /* 스케일 후 상단바 브랜드의 gap(8px)과 정확히 같아지도록 역보정한다. */
+  gap: calc(8px / var(--sv2-intro-scale, 0.325));
   transform-origin: center center;
   will-change: transform;
   pointer-events: none;
@@ -125,10 +126,10 @@
 
 .sv2-intro-wordmark {
   color: #191f28;
-  /* 상단바 브랜드(15px)와 스케일 후에도 같은 크기가 되도록 맞춘다. */
-  font-size: 44px;
-  font-weight: 800;
-  letter-spacing: -0.05em;
+  /* 상단바 브랜드(15px / 700 / -0.02em)를 스케일 역보정해 교체 티를 없앤다. */
+  font-size: calc(15px / var(--sv2-intro-scale, 0.325));
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1;
   white-space: nowrap;
   opacity: 0;

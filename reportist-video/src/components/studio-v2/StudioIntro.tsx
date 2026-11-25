@@ -70,6 +70,9 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
         const i = icon.getBoundingClientRect();
         const t = target.getBoundingClientRect();
         const scale = i.width > 0 ? t.width / i.width : 0.325;
+        // 상단바 브랜드(15px/700/-0.02em/gap 8px)와 스케일 후에도 1:1로 같아지도록
+        // 워드마크 타이포와 간격을 스케일의 역수로 보정한다.
+        group.style.setProperty('--sv2-intro-scale', String(scale));
         const gx = g.left + g.width / 2;
         const gy = g.top + g.height / 2;
         // 그룹 중심 기준으로 스케일링하므로 아이콘 중심이 목표에 닿도록 보정한다.
