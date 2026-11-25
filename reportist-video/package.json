@@ -13,6 +13,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "verify:frame-drop": "node scripts/verify-frame-drop.mjs",
+    "verify:preview-fallback": "node scripts/verify-preview-fallback.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

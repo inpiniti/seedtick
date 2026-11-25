@@ -229,22 +229,42 @@ function paintRoundedRect(
   }
 }
 
+/** <video> 프레임, 썸네일 <img>, WebCodecs ImageBitmap 모두 같은 크롭 수학으로 그린다. */
+export type PreviewFrameSource = HTMLVideoElement | HTMLImageElement | ImageBitmap;
+
+/** DOM 생성자에 의존하지 않고(테스트 스텁 포함) 소스의 픽셀 크기를 얻는다. */
+function getPreviewSourceSize(source: PreviewFrameSource): { width: number; height: number } {
+  const video = source as HTMLVideoElement;
+  if (typeof video.videoWidth === 'number' && video.videoWidth > 0) {
+    return { width: video.videoWidth, height: video.videoHeight };
+  }
+  const image = source as HTMLImageElement;
+  if (typeof image.naturalWidth === 'number' && image.naturalWidth > 0) {
+    return { width: image.naturalWidth, height: image.naturalHeight };
+  }
+  const bitmap = source as ImageBitmap;
+  return { width: bitmap.width || 0, height: bitmap.height || 0 };
+}
+
 /**
  * 프레임(가로 16:9 / 세로 9:16)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림 (개별 90도 회전 지원)
  * - 세로 출력에서 가로 원본은 `cropOffsetXRatio`(기본 0.5)로 좌우 위치를 조정한다.
  * - 가로 출력의 기존 크롭/중앙 정렬 수학은 그대로 유지한다.
+ * - <video>가 디코더를 잃었을 때 즉시 썸네일 / WebCodecs 프레임으로 같은 레이아웃을 그릴 수 있게
+ *   공용 소스 타입(HTMLVideoElement | HTMLImageElement | ImageBitmap)을 받는다.
  */
 export function drawCompositorCoverFrame(
   ctx: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
+  video: PreviewFrameSource,
   vItem?: VideoItem,
   segment?: HighlightSegment,
   frame: FrameSpec = LANDSCAPE_PREVIEW_FRAME
 ): void {
   const targetWidth = frame.width;
   const targetHeight = frame.height;
-  const rawVW = video.videoWidth || vItem?.width || targetWidth;
-  const rawVH = video.videoHeight || vItem?.height || targetHeight;
+  const sourceSize = getPreviewSourceSize(video);
+  const rawVW = sourceSize.width || vItem?.width || targetWidth;
+  const rawVH = sourceSize.height || vItem?.height || targetHeight;
   // 세그먼트에 회전 값이 없으면(AI 분석 전/레거시 프로젝트) 원본 영상의 회전을 사용한다.
   const rotation = ((segment?.rotation ?? vItem?.rotation ?? 0) % 360 + 360) % 360;
 

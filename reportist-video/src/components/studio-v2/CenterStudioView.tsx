@@ -1458,6 +1458,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
                 totalDuration={model.total}
                 previewRange={previewRange}
                 isExporting={isReStitching}
+                isProcessing={progress?.step === 'processing'}
                 isMuted={isMuted}
                 onToggleMute={toggleMute}
                 onTogglePlay={togglePlay}
