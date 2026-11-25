@@ -176,12 +176,7 @@
     rgba(255, 255, 255, 0) 72%
   );
 }
-:root.dark .sv2-intro-outline path {
-  stroke: var(--ui-text);
-}
-:root.dark .sv2-intro-wordmark {
-  color: var(--ui-text);
-}
+/* 브랜드 자체가 토큰 색을 쓰므로 별도 오버라이드는 필요 없다. */
 
 /* driver.js 안내는 라이트 팔레트를 전제로 해서 다크에서는 스포트라이트 타깃과
    이미 어두운 배경이 섞여 티가 안 난다. 밝은 링으로 타깃만 또렷하게 띄운다. */

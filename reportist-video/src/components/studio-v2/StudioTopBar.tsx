@@ -69,7 +69,7 @@ export const StudioTopBar = ({
           aria-label="PenguinCut"
         >
           <PenguinLogo size={26} className="sv2-brand-logo" />
-          PenguinCut
+          <span className="sv2-brand-text">PenguinCut</span>
         </a>
       </Tooltip>
       {projectName && <span className="sv2-project-name">{projectName}</span>}

@@ -1,14 +1,12 @@
 /* components/studio-v2/studioIntro.css — 스튜디오 진입 인트로 연출
-   1) 중앙에서 로고 외곽선 드로잉 → 채우기 + 워드마크 등장
-   2) 심볼과 글씨가 함께 좌상단 브랜드 위치로 비행
-   3) 로고는 그 자리에 고정된 채, 로고 없는 상단바 → 타임라인 → 좌측 독 순차 등장 */
+   상단바에 원래 있는 브랜드 요소를 중앙에서 그린 뒤 제자리로 되돌린다.
+   복제/교체가 없어 최종 상태는 상단바 브랜드 그 자체다. */
 
 .sv2-intro-backdrop {
   position: fixed;
   inset: 0;
   z-index: 9999;
   background: #f8f9fa;
-  opacity: 1;
   transition: opacity 0.26s ease;
 }
 
@@ -31,137 +29,91 @@
     rgba(15, 23, 42, 0.025) 38%,
     rgba(15, 23, 42, 0) 72%
   );
-  opacity: 0;
-  transform: scale(0.92);
-  transition: opacity 0.55s ease, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: sv2-intro-glow-in 0.55s ease both;
   pointer-events: none;
-}
-
-.sv2-intro-backdrop[data-drawn='true'] .sv2-intro-glow {
-  opacity: 1;
-  transform: scale(1);
 }
 
 .sv2-intro-backdrop[data-phase='flying'] .sv2-intro-glow,
 .sv2-intro-backdrop[data-phase='revealing'] .sv2-intro-glow {
+  animation: none;
   opacity: 0;
-  transition-duration: 0.3s;
+  transition: opacity 0.3s ease;
 }
 
-/* 배경이 사라진 뒤에도 이 그룹은 남아 상단바 로고 자리에 고정된다. */
-.sv2-intro-group {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 340px;
-  height: 110px;
-  margin: -55px 0 0 -170px;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* 스케일 후 상단바 브랜드의 gap(8px)과 정확히 같아지도록 역보정한다. */
-  gap: calc(8px / var(--sv2-intro-scale, 0.325));
-  transform-origin: center center;
-  will-change: transform;
+@keyframes sv2-intro-glow-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---------- 상단바 브랜드: 중앙 드로잉 → 제자리 ---------- */
+
+/* 드로잉 동안에는 상단바 배경과 다른 컨트롤을 숨긴다. */
+.sv2-root[data-intro='intro'] .sv2-topbar,
+.sv2-root[data-intro='flying'] .sv2-topbar {
+  z-index: 10001;
+  background: transparent;
+  border-bottom-color: transparent;
   pointer-events: none;
-  transition: opacity 0.1s linear;
 }
 
-.sv2-intro-group[data-phase='pinned'] {
-  pointer-events: auto;
-}
-
-/* 실제 브랜드가 FLIP으로 앉는 동안 오버레이가 교차 페이드하며 사라진다. */
-.sv2-intro-group[data-phase='handoff'] {
+.sv2-root[data-intro='intro'] .sv2-topbar > :not(.sv2-brand),
+.sv2-root[data-intro='flying'] .sv2-topbar > :not(.sv2-brand) {
   opacity: 0;
-  transition: opacity 0.22s ease;
 }
 
-/* 링크는 레이아웃에 영향 없이 동작만 제공한다. */
-.sv2-intro-brand {
-  display: contents;
-  text-decoration: none;
-  color: inherit;
+.sv2-brand-text {
+  display: inline-block;
 }
 
-.sv2-intro-icon {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  flex: 0 0 auto;
-  /* 외곽선 stroke는 서브패스 5개가 동시에 그려져 실루엣이 알아보이지 않으므로,
-     실제 채우기 로고를 왼쪽→오른쪽으로 점진 노출해 처음부터 펭귄컷으로 보이게 한다. */
-  clip-path: inset(0 100% 0 0);
-  transition: clip-path 1.25s cubic-bezier(0.65, 0, 0.35, 1);
+.sv2-root[data-intro='intro'] .sv2-brand-logo {
+  animation: sv2-brand-draw 1.25s cubic-bezier(0.65, 0, 0.35, 1) both;
 }
 
-.sv2-intro-group[data-drawn='true'] .sv2-intro-icon {
-  clip-path: inset(0 0 0 0);
+@keyframes sv2-brand-draw {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
 }
 
-.sv2-intro-icon svg {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  height: 80px;
-  width: auto;
-  transform: translateX(-50%);
-  overflow: visible;
+.sv2-root[data-intro='intro'] .sv2-brand-text {
+  animation: sv2-brand-text-in 0.36s ease 1s both;
 }
 
-/* 노출되는 경계를 따라 얇은 선이 지나가도록 외곽선을 겹친다. */
-.sv2-intro-outline path {
-  fill: none;
-  stroke: #191f28;
-  stroke-width: 1.15;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-opacity: 0.95;
-  transition: stroke-opacity 0.5s ease 0.95s;
-}
-
-.sv2-intro-group[data-drawn='true'] .sv2-intro-outline path {
-  stroke-opacity: 0;
-}
-
-.sv2-intro-wordmark {
-  color: #191f28;
-  /* 상단바 브랜드(15px / 700 / -0.02em)를 스케일 역보정해 교체 티를 없앤다. */
-  font-size: calc(15px / var(--sv2-intro-scale, 0.325));
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  /* 상단바 브랜드와 같은 줄간격이어야 스케일 후 글자 베이스라인이 어긋나지 않는다. */
-  line-height: 1.5;
-  white-space: nowrap;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.36s ease, transform 0.46s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.sv2-intro-group[data-drawn='true'] .sv2-intro-wordmark {
-  opacity: 1;
-  transform: translateY(0);
-  transition-delay: 1s;
+@keyframes sv2-brand-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ---------- 스튜디오 셸 패널 등장 ---------- */
 
-/* 인트로 로고가 상단바에 도착하기 전까지는 기본 브랜드를 숨겨 중복을 막는다.
-   handoff 단계에서 오버레이 로고와 같은 자리에서 조용히 교체한다. */
-.sv2-root:not([data-intro='done']):not([data-intro='handoff']) .sv2-brand {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.sv2-root[data-intro='intro'] :is(.sv2-topbar, .sv2-dock, .sv2-timeline, .sv2-center),
-.sv2-root[data-intro='flying'] :is(.sv2-topbar, .sv2-dock, .sv2-timeline, .sv2-center) {
+.sv2-root[data-intro='intro'] :is(.sv2-dock, .sv2-timeline, .sv2-center),
+.sv2-root[data-intro='flying'] :is(.sv2-dock, .sv2-timeline, .sv2-center) {
   opacity: 0;
   pointer-events: none;
 }
 
 .sv2-root[data-intro='revealing'] .sv2-topbar {
-  animation: sv2-intro-drop 0.6s ease-out both;
+  background: var(--sv2-surface);
+  border-bottom-color: var(--sv2-border);
+}
+
+.sv2-root[data-intro='revealing'] .sv2-topbar > :not(.sv2-brand) {
+  animation: sv2-intro-topbar-in 0.52s ease-out both;
 }
 
 .sv2-root[data-intro='revealing'] .sv2-timeline {
@@ -177,20 +129,10 @@
   animation: sv2-intro-pop 0.68s ease-out 1.3s both;
 }
 
-@keyframes sv2-intro-drop {
+@keyframes sv2-intro-topbar-in {
   0% {
     opacity: 0;
-    transform: translateY(-100%);
-  }
-  55% {
-    opacity: 1;
-    transform: translateY(8px);
-  }
-  78% {
-    transform: translateY(-4px);
-  }
-  92% {
-    transform: translateY(2px);
+    transform: translateY(-10px);
   }
   100% {
     opacity: 1;
