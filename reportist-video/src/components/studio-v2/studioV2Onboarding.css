@@ -155,12 +155,18 @@
   opacity: 0.4;
 }
 
-/* 투어를 중단했을 때 남는 재시작 버튼 */
-.sv2-onboarding-resume {
+/* 투어를 중단했을 때 남는 이어보기 · 종료 버튼 묶음 */
+.sv2-onboarding-resume-group {
   position: fixed;
   right: 24px;
   bottom: calc(var(--sv2-timeline-h) + 20px);
   z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sv2-onboarding-resume {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -174,6 +180,7 @@
   font-weight: 600;
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
   transition: background 0.15s, transform 0.15s;
+  cursor: pointer;
 }
 
 .sv2-onboarding-resume:hover {
@@ -185,6 +192,37 @@
 }
 
 .sv2-onboarding-resume:focus-visible {
+  outline: 2px solid #3182f6;
+  outline-offset: 2px;
+}
+
+/* 이어보기 오른쪽의 완전 종료 버튼 */
+.sv2-onboarding-resume-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #6b7684;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+  cursor: pointer;
+}
+
+.sv2-onboarding-resume-close:hover {
+  background: #f2f4f6;
+  color: #191f28;
+}
+
+.sv2-onboarding-resume-close:active {
+  transform: scale(0.96);
+}
+
+.sv2-onboarding-resume-close:focus-visible {
   outline: 2px solid #3182f6;
   outline-offset: 2px;
 }

@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, X } from 'lucide-react';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import {
   getProviderPreset,
@@ -628,13 +628,17 @@ export const CenterStudioView = (props: StudioV2Props) => {
     }, 180);
   }, [runOnboardingTour]);
 
-  const handleOnboardingDismiss = useCallback(() => {
+  /** 가이드를 완전히 종료한다. 이어보기 버튼도 함께 사라지고 새로고침 후에도 다시 뜨지 않는다. */
+  const handleOnboardingEnd = useCallback(() => {
+    stopOnboardingTour();
     markStudioGuideSeen('onboarding');
     setStudioOnboardingActive(false);
     clearStudioOnboardingStep();
     setOnboardingInProgress(false);
+    setShowOnboardingResume(false);
+    setShowCelebration(false);
     setIsOnboardingWelcomeOpen(false);
-  }, []);
+  }, [stopOnboardingTour]);
 
   const handleReplayGuide = useCallback(() => {
     resetStudioGuides();
@@ -1510,7 +1514,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
       <OnboardingWelcomeModal
         isOpen={isOnboardingWelcomeOpen}
         onStart={handleOnboardingStart}
-        onDismiss={handleOnboardingDismiss}
+        onDismiss={handleOnboardingEnd}
       />
 
       <OnboardingCelebration
@@ -1519,13 +1523,24 @@ export const CenterStudioView = (props: StudioV2Props) => {
       />
 
       {showOnboardingResume && onboardingInProgress && (
-        <button
-          type="button"
-          className="sv2-onboarding-resume"
-          onClick={handleResumeOnboarding}
-        >
-          <Sparkles size={15} /> {ui('가이드 이어서 보기')}
-        </button>
+        <div className="sv2-onboarding-resume-group">
+          <button
+            type="button"
+            className="sv2-onboarding-resume"
+            onClick={handleResumeOnboarding}
+          >
+            <Sparkles size={15} /> {ui('가이드 이어서 보기')}
+          </button>
+          <button
+            type="button"
+            className="sv2-onboarding-resume-close"
+            onClick={handleOnboardingEnd}
+            aria-label={ui('가이드 종료')}
+            title={ui('가이드 종료')}
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
     </div>
   );

@@ -838,6 +838,7 @@ export const uiFr: Record<string, string> = {
   "해상도를 고르고 다운로드를 누르면 완성된 영상이 저장돼요.": "Choisissez la résolution et appuyez sur Télécharger pour enregistrer la vidéo finale.",
   "가이드 다시 시작하기": "Recommencer le guide",
   "가이드 이어서 보기": "Reprendre le guide",
+  "가이드 종료": "Terminer le guide",
   "AI가 장면을 고르고 있어요. 끝나면 컷을 눌러 편집하는 단계로 이어갈게요.": "L'IA choisit les scènes. Nous passerons ensuite à la sélection d'un extrait à modifier.",
   "③ 컷을 눌러 편집해요": "③ Appuyez sur un extrait pour le modifier",
   "AI가 고른 장면이 타임라인에 채워졌어요. 컷을 누르면 미리보기가 그 장면으로 이동해요.": "Les extraits choisis par l'IA sont sur la timeline. Appuyez sur l'un d'eux pour y amener l'aperçu.",

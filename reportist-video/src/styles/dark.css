@@ -158,6 +158,16 @@
 :root.dark .sv2-onboarding-resume:hover {
   background: var(--ui-border-strong);
 }
+:root.dark .sv2-onboarding-resume-close {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-muted);
+  border-color: var(--ui-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+:root.dark .sv2-onboarding-resume-close:hover {
+  background: var(--ui-border-strong);
+  color: var(--ui-text);
+}
 :root.dark .sv2-celebration-card {
   background: var(--ui-surface);
   color: var(--ui-text);
