@@ -129,6 +129,171 @@
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
 }
 
+/* 카드만 어두워지고 검색·목록·푸터는 라이트로 남던 문제를 보정한다.
+   model-modal-* 는 언어/모델/날짜 등 여러 모달이 공유하므로 구조와 텍스트를 함께 맞춘다. */
+:root.dark .model-modal-header,
+:root.dark .model-modal-search-section,
+:root.dark .model-modal-footer {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+
+:root.dark .model-modal-title,
+:root.dark .model-modal-compact-name,
+:root.dark .model-modal-model-name,
+:root.dark .model-modal-empty-title,
+:root.dark .language-modal-item-native,
+:root.dark .language-modal-item.selected .language-modal-item-native {
+  color: var(--ui-text);
+}
+
+:root.dark .model-modal-subtitle,
+:root.dark .model-modal-desc,
+:root.dark .model-modal-footer-tip,
+:root.dark .model-modal-filter-label,
+:root.dark .model-modal-metric-label,
+:root.dark .model-modal-compact-meta,
+:root.dark .model-modal-empty-desc,
+:root.dark .model-modal-empty svg,
+:root.dark .language-modal-item-english {
+  color: var(--ui-text-muted);
+}
+
+/* lucide의 color prop은 stroke 속성으로 내려가므로 color만으로는 아이콘이 안 바뀐다. */
+:root.dark .model-modal-empty svg {
+  stroke: var(--ui-text-muted);
+}
+
+:root.dark .model-modal-close-btn,
+:root.dark .model-modal-search-icon,
+:root.dark .model-modal-clear-search-btn,
+:root.dark .model-modal-filter-reset,
+:root.dark .model-modal-tab-btn,
+:root.dark .model-modal-search-input::placeholder {
+  color: var(--ui-text-subtle);
+}
+
+:root.dark .model-modal-close-btn:hover,
+:root.dark .model-modal-clear-search-btn:hover,
+:root.dark .model-modal-chip:hover,
+:root.dark .model-modal-provider-chip:hover,
+:root.dark .model-modal-filter-toggle:hover,
+:root.dark .model-modal-filter-reset:hover {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+
+:root.dark .model-modal-search-wrapper,
+:root.dark .model-modal-list,
+:root.dark .model-modal-chip,
+:root.dark .model-modal-provider-chip,
+:root.dark .model-modal-filter-toggle,
+:root.dark .model-modal-model-card:hover,
+:root.dark .model-modal-metric {
+  background-color: var(--ui-surface-sunken);
+  border-color: var(--ui-border);
+}
+
+:root.dark .model-modal-tabs {
+  background-color: var(--ui-surface-muted);
+}
+
+:root.dark .model-modal-model-card {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+
+:root.dark .model-modal-model-card.selected,
+:root.dark .language-modal-item.selected {
+  background-color: var(--ui-surface-muted);
+  border-color: var(--ui-accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+:root.dark .model-modal-chip.active,
+:root.dark .model-modal-provider-chip.active,
+:root.dark .model-modal-filter-toggle.active,
+:root.dark .model-modal-filter-count {
+  background-color: var(--ui-accent);
+  border-color: var(--ui-accent);
+  color: var(--page-background);
+}
+
+:root.dark .model-modal-filter-toggle.active .model-modal-filter-count {
+  background-color: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+:root.dark .model-modal-filter-toggle.has-active:not(.active) {
+  border-color: var(--ui-border-strong);
+  color: var(--ui-text);
+}
+
+:root.dark .model-modal-tab-btn.active {
+  background-color: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+:root.dark .model-modal-search-input,
+:root.dark .model-modal-field {
+  color: var(--ui-text);
+}
+
+:root.dark .model-modal-check-badge.selected {
+  background-color: var(--ui-accent);
+  box-shadow: none;
+}
+
+:root.dark .model-modal-check-badge.selected svg {
+  color: var(--page-background);
+  stroke: var(--page-background);
+}
+
+:root.dark .model-modal-check-badge.unselected {
+  border-color: var(--ui-border-strong);
+}
+
+:root.dark .model-modal-confirm-btn {
+  background-color: var(--ui-accent);
+  color: var(--page-background);
+}
+
+:root.dark .model-modal-confirm-btn:hover {
+  background-color: var(--ui-accent-hover);
+}
+
+/* 언어 선택 모달 전용 카드·뱃지도 같은 팔레트로 맞춘다. */
+:root.dark .language-modal-item {
+  background-color: var(--ui-surface);
+  border-color: var(--ui-border);
+}
+
+:root.dark .language-modal-item:hover {
+  background-color: var(--ui-surface-hover);
+  border-color: var(--ui-border-strong);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+:root.dark .language-modal-flag-badge {
+  background-color: var(--ui-surface-muted);
+  border-color: var(--ui-border);
+}
+
+:root.dark .language-modal-item.selected .language-modal-flag-badge {
+  background-color: var(--ui-surface-hover);
+  border-color: var(--ui-border-strong);
+}
+
+:root.dark .language-modal-badge.default,
+:root.dark .language-modal-badge.supported {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text-muted);
+}
+
+:root.dark .language-modal-badge.supported {
+  border-color: var(--ui-border);
+}
+
 :root.dark .sv2-onboarding-card .model-modal-close-btn {
   color: var(--ui-text-subtle);
 }
