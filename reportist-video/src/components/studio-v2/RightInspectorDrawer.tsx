@@ -58,7 +58,10 @@ export const RightInspectorDrawer = ({
       : '';
 
   return (
-    <aside className="sv2-inspector" data-open={Boolean(target)} aria-hidden={!target}>
+    // 닫힌 인스펙터를 aria-hidden으로 숨기면, '닫기' 클릭 직후 포커스가 내부 버튼에
+    // 남아 있어 "포커스 요소가 aria-hidden 조상 안에 있다"는 경고가 난다.
+    // inert는 보조기술에서 숨기면서 포커스도 함께 빼앗아 경고를 원천 차단한다.
+    <aside className="sv2-inspector" data-open={Boolean(target)} inert={!target}>
       <div className="sv2-inspector-inner">
         <div className="sv2-inspector-head">
           <div className="sv2-inspector-title">{title}</div>
