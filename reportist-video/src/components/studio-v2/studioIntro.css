@@ -78,36 +78,42 @@
 }
 
 .sv2-intro-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
   width: 80px;
   height: 80px;
   flex: 0 0 auto;
+  /* 외곽선 stroke는 서브패스 5개가 동시에 그려져 실루엣이 알아보이지 않으므로,
+     실제 채우기 로고를 왼쪽→오른쪽으로 점진 노출해 처음부터 펭귄컷으로 보이게 한다. */
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1.25s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.sv2-intro-group[data-drawn='true'] .sv2-intro-icon {
+  clip-path: inset(0 0 0 0);
 }
 
 .sv2-intro-icon svg {
+  position: absolute;
+  top: 0;
+  left: 50%;
   height: 80px;
   width: auto;
+  transform: translateX(-50%);
   overflow: visible;
 }
 
-.sv2-intro-icon path {
-  fill: #191f28;
-  fill-opacity: 0;
+/* 노출되는 경계를 따라 얇은 선이 지나가도록 외곽선을 겹친다. */
+.sv2-intro-outline path {
+  fill: none;
   stroke: #191f28;
   stroke-width: 1.15;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: var(--sv2-intro-len, 1400);
-  stroke-dashoffset: var(--sv2-intro-len, 1400);
-  transition: stroke-dashoffset 1.25s cubic-bezier(0.65, 0, 0.35, 1),
-    fill-opacity 0.34s ease 1.02s, stroke-opacity 0.34s ease 1.02s;
+  stroke-opacity: 0.95;
+  transition: stroke-opacity 0.5s ease 0.95s;
 }
 
-.sv2-intro-group[data-drawn='true'] .sv2-intro-icon path {
-  stroke-dashoffset: 0;
-  fill-opacity: 1;
+.sv2-intro-group[data-drawn='true'] .sv2-intro-outline path {
   stroke-opacity: 0;
 }
 

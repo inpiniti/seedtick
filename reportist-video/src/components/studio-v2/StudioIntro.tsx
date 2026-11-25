@@ -1,8 +1,8 @@
 // components/studio-v2/StudioIntro.tsx — 스튜디오 첫 진입 연출.
-// 중앙에서 로고(심볼 + 워드마크)를 그린 뒤 좌상단 브랜드 위치로 함께 날려 보내고,
-// 그 자리에 고정한 채 로고 없는 상단바·타임라인·좌측 독을 순차 등장시킨다.
+// 중앙에서 펭귄컷 로고를 왼쪽→오른쪽으로 그려낸 뒤(실제 채우기 점진 노출),
+// 심볼과 워드마크가 함께 좌상단 브랜드 위치로 날아가 그 자리에 고정된다.
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { getLandingPath, useI18n } from '../../i18n/index.tsx';
@@ -45,18 +45,9 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
     onPhaseChange(phase);
   }, [phase, onPhaseChange]);
 
-  // 첫 페인트 전에 실제 경로 길이를 주입해 draw 전환이 미리 시작되지 않게 한다.
-  useLayoutEffect(() => {
-    if (phase !== 'intro') return;
-    const path = groupRef.current?.querySelector('path');
-    if (path) {
-      path.style.setProperty('--sv2-intro-len', String(Math.ceil(path.getTotalLength())));
-    }
-  }, [phase]);
-
   useEffect(() => {
     if (phase === 'intro') {
-      // 레이아웃 반영 후 draw 시작 (dashoffset 초기값이 먼저 그려지도록)
+      // 레이아웃 반영 후 드로잉 시작 (clip-path 초기값이 먼저 그려지도록)
       const raf = window.requestAnimationFrame(() => setDrawn(true));
       const timer = window.setTimeout(() => setPhase('flying'), DRAW_MS);
       return () => {
@@ -69,7 +60,7 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
       const group = groupRef.current;
       // 상단바는 아직 투명하지만 레이아웃은 잡혀 있어 목표 좌표를 측정할 수 있다.
       // 감싼 span이 아닌 실제 SVG를 기준으로 스케일을 계산해야 목표 로고와 정확히 겹친다.
-      const icon = group?.querySelector('svg');
+      const icon = group?.querySelector('.sv2-intro-fill');
       const target = document.querySelector('.sv2-brand-logo');
       if (group && icon && target) {
         const g = group.getBoundingClientRect();
@@ -134,7 +125,10 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
           tabIndex={phase === 'pinned' ? 0 : -1}
         >
           <span className="sv2-intro-icon">
-            <PenguinLogo size={80} color="#191f28" />
+            {/* 실제 채우기 로고를 점진 노출해 처음부터 펭귄컷임이 보이게 한다. */}
+            <PenguinLogo size={80} color="#191f28" className="sv2-intro-fill" />
+            {/* 노출되는 경계를 따라 얇은 외곽선을 겹쳐 '그려지는' 느낌을 준다. */}
+            <PenguinLogo size={80} color="#191f28" className="sv2-intro-outline" />
           </span>
           <span className="sv2-intro-wordmark">PenguinCut</span>
         </a>
