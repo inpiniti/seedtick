@@ -10,6 +10,7 @@ import { PageTransition } from './PageTransition.tsx';
 import { VideoContextMenu, type VideoContextAction } from './VideoContextMenu.tsx';
 import { formatShootDate } from './types.ts';
 import { Tooltip } from '../ui/Tooltip.tsx';
+import { StarBorder } from '../common/StarBorder.tsx';
 
 // components/studio-v2/UploadQueueDock.tsx
 // 분석 전/중 좌측 원본 리스트. 썸네일 + 촬영일만 최소 표시하고,
@@ -311,17 +312,9 @@ export const UploadQueueDock = ({
                           </div>
                         </Tooltip>
                         <div className="sv2-upload-date">{shootDate}</div>
-                        {isProcessing && !done && (
-                          <div className="sv2-progress-bar" data-queued={badge.queued}>
-                            <div
-                              className="sv2-progress-fill"
-                              style={{ width: `${badge.pct}%` }}
-                            />
-                          </div>
-                        )}
                       </div>
-                      <div className="sv2-upload-side">
-                        {!isProcessing && (
+                      {!isProcessing && (
+                        <div className="sv2-upload-side">
                           <button
                             type="button"
                             className="sv2-upload-card-remove"
@@ -331,15 +324,60 @@ export const UploadQueueDock = ({
                           >
                             <X size={13} />
                           </button>
-                        )}
-                        <span
-                          className="sv2-upload-badge"
-                          data-done={done}
+                        </div>
+                      )}
+                      {/* 진행률은 카드 하단에 꽉 붙은 얇은 선으로만 표시한다. 상태 문구는 aria로만 제공. */}
+                      {isProcessing && !done && (
+                        <div
+                          className="sv2-progress-bar sv2-card-progress"
                           data-queued={badge.queued}
+                          role="progressbar"
+                          aria-label={label}
+                          aria-valuenow={badge.pct}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
                         >
-                          {badge.active ? <ShimmeringText text={label} duration={0.9} /> : label}
-                        </span>
-                      </div>
+                          <div
+                            className="sv2-progress-fill"
+                            style={{ width: `${badge.pct}%` }}
+                          />
+                        </div>
+                      )}
+                      {/* 분석 중인 카드에만 React Bits Star Border를 얹어 어떤 영상이 진행 중인지 바로 알 수 있게 한다. */}
+                      {isProcessing && badge.active && (
+                        <StarBorder
+                          as="div"
+                          className="sv2-upload-star-border"
+                          theme="dark"
+                          color="#ffffff"
+                          trailColor="#ffffff"
+                          duration={4.5}
+                          thickness={1.2}
+                          radius={9}
+                          trailLength={0.16}
+                          stars={1}
+                          glow={0.45}
+                          sparkle={false}
+                          hover="none"
+                          clickPulse={false}
+                          backgroundColor="transparent"
+                          borderColor="transparent"
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'block',
+                            width: '100%',
+                            height: '100%',
+                            padding: 0,
+                            background: 'transparent',
+                            borderRadius: 'inherit',
+                            pointerEvents: 'none',
+                            // 라이트/다크 테마 모두에서 별이 보이도록 흰 빛을 배경색의 반전으로 그린다.
+                            mixBlendMode: 'difference',
+                            zIndex: 4,
+                          }}
+                        />
+                      )}
                     </div>
                   );
                 })}
