@@ -11,6 +11,7 @@
 //   4. Blob 단위 파싱 캐시
 //   5. edts/elst 미디어 오프셋 반영
 //   6. Dolby Vision(dvh1) 샘플 엔트리 파싱
+//   7. 키프레임 디코딩 진행 기반 타임아웃 / 정지 시 타임아웃·자원 정리
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -54,12 +55,18 @@ class FakeEncodedVideoChunk {
 
 class FakeVideoDecoder {
   static isConfigSupported = async () => ({ supported: true });
+  static outputDelayMs = 2;
+  static maxOutputs = Infinity; // 0이면 출력 정지, 1이면 첫 프레임만 출력 (타임아웃 재현)
+  static instances = [];
 
   constructor(callbacks) {
     this.callbacks = callbacks;
     this.decodeQueueSize = 0;
     this.pending = 0;
+    this.outputCount = 0;
+    this.frames = [];
     this.closed = false;
+    FakeVideoDecoder.instances.push(this);
   }
   configure(config) {
     this.config = config;
@@ -69,16 +76,26 @@ class FakeVideoDecoder {
     this.pending++;
     // 실제 하드웨어 디코더처럼 비동기로 출력 (프레임 드랍 재현에 중요)
     setTimeout(() => {
+      // 출력 정지 상태에서는 큐도 비워지지 않아야 실제 디코더 행정(정지)을 재현한다.
+      if (this.closed || this.outputCount >= FakeVideoDecoder.maxOutputs) return;
       this.decodeQueueSize--;
       this.pending--;
-      if (!this.closed) this.callbacks.output(new FakeVideoFrame(chunk.timestamp));
-    }, 2);
+      this.outputCount++;
+      const frame = new FakeVideoFrame(chunk.timestamp);
+      this.frames.push(frame);
+      this.callbacks.output(frame);
+    }, FakeVideoDecoder.outputDelayMs);
   }
   async flush() {
-    while (this.pending > 0) await new Promise((resolve) => setTimeout(resolve, 1));
+    // 타임아웃으로 close()된 경우 대기 중인 디코딩이 영원히 붙잡지 않도록 한다.
+    while (this.pending > 0 && !this.closed) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
   }
   close() {
     this.closed = true;
+    this.decodeQueueSize = 0;
+    this.pending = 0;
   }
 }
 
@@ -106,6 +123,7 @@ const fakeDocument = {
         }
         return canvas._ctx;
       },
+      toDataURL: () => 'data:image/jpeg;base64,AAAA',
     };
     createdCanvases.push(canvas);
     return canvas;
@@ -352,6 +370,64 @@ console.log('=== 5. Dolby Vision(dvh1) 샘플 엔트리 ===');
   const track = await mp4.parseMp4VideoTrack(buildMp4({ n: 60, entryType: 'dvh1' }));
   check('dvh1 → hvc1 코덱으로 파싱', track?.codec === 'hvc1', `codec=${track?.codec}`);
   check('해상도 파싱', track?.codedWidth === 1280 && track?.codedHeight === 720);
+}
+
+console.log('=== 7. 키프레임 디코딩 타임아웃 / 자원 정리 ===');
+{
+  // 키프레임 4장(0/1/2/3초). 출력을 90ms 간격으로 내면 총 소요는 120ms를 넘지만
+  // 매 프레임마다 유휴 타임아웃이 초기화되므로 성공해야 한다.
+  const blob = buildMp4({ n: 120, keyEvery: 30 });
+  {
+    const instanceIndex = FakeVideoDecoder.instances.length;
+    FakeVideoDecoder.outputDelayMs = 90;
+    FakeVideoDecoder.maxOutputs = Infinity;
+    const startedAt = Date.now();
+    const decoded = await mp4.decodeKeyframesNearTimes(blob, [0, 1, 2, 3], {
+      targetWidth: 320,
+      timeoutMs: 120,
+    });
+    const elapsed = Date.now() - startedAt;
+    check(
+      '진행 중이면 타임아웃 연장',
+      !!decoded && decoded.length === 4,
+      `elapsed=${elapsed}ms decoded=${decoded?.length ?? 'null'}`
+    );
+    check('누적 소요가 단일 제한시간 초과', elapsed > 120, `elapsed=${elapsed}ms`);
+    check('성공 경로 디코더 종료', FakeVideoDecoder.instances[instanceIndex]?.closed === true);
+  }
+
+  // 출력이 전혀 없으면 제한시간 뒤 null 폴백 + 디코더 정리.
+  {
+    const instanceIndex = FakeVideoDecoder.instances.length;
+    FakeVideoDecoder.outputDelayMs = 2;
+    FakeVideoDecoder.maxOutputs = 0;
+    const startedAt = Date.now();
+    const decoded = await mp4.decodeKeyframesNearTimes(blob, [0, 1, 2, 3], {
+      targetWidth: 320,
+      timeoutMs: 100,
+    });
+    const elapsed = Date.now() - startedAt;
+    check('출력 정지 시 null 폴백', decoded === null, `elapsed=${elapsed}ms`);
+    check('타임아웃 후 디코더 close', FakeVideoDecoder.instances[instanceIndex]?.closed === true);
+  }
+
+  // 한 프레임만 내고 멈춘 경우, 이미 만든 VideoFrame도 타임아웃 시 닫혀야 한다.
+  {
+    const instanceIndex = FakeVideoDecoder.instances.length;
+    FakeVideoDecoder.maxOutputs = 1;
+    const decoded = await mp4.decodeKeyframesNearTimes(blob, [0, 1, 2, 3], {
+      targetWidth: 320,
+      timeoutMs: 100,
+    });
+    const decoderInstance = FakeVideoDecoder.instances[instanceIndex];
+    check('부분 진행 후 정지도 null 폴백', decoded === null);
+    check(
+      '타임아웃 시 생성된 프레임 정리',
+      !!decoderInstance?.frames.length && decoderInstance.frames.every((f) => f.closed),
+      `frames=${decoderInstance?.frames.length ?? 0}`
+    );
+  }
+  FakeVideoDecoder.maxOutputs = Infinity;
 }
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
