@@ -950,11 +950,19 @@
   z-index: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(1.4px 1.4px at 24px 36px, rgba(15, 23, 42, 0.2) 50%, transparent 52%),
-    radial-gradient(1.1px 1.1px at 96px 112px, rgba(15, 23, 42, 0.14) 50%, transparent 52%),
-    radial-gradient(1.6px 1.6px at 158px 64px, rgba(15, 23, 42, 0.18) 50%, transparent 52%),
-    radial-gradient(1px 1px at 62px 156px, rgba(15, 23, 42, 0.12) 50%, transparent 52%);
-  background-size: 220px 200px;
+    radial-gradient(1.5px 1.5px at 18px 22px, rgba(15, 23, 42, 0.26) 50%, transparent 52%),
+    radial-gradient(1px 1px at 68px 44px, rgba(15, 23, 42, 0.2) 50%, transparent 52%),
+    radial-gradient(1.8px 1.8px at 122px 16px, rgba(15, 23, 42, 0.3) 50%, transparent 52%),
+    radial-gradient(1.1px 1.1px at 172px 58px, rgba(15, 23, 42, 0.22) 50%, transparent 52%),
+    radial-gradient(1.3px 1.3px at 36px 92px, rgba(15, 23, 42, 0.24) 50%, transparent 52%),
+    radial-gradient(1px 1px at 96px 118px, rgba(15, 23, 42, 0.18) 50%, transparent 52%),
+    radial-gradient(1.6px 1.6px at 148px 88px, rgba(15, 23, 42, 0.28) 50%, transparent 52%),
+    radial-gradient(1px 1px at 188px 132px, rgba(15, 23, 42, 0.2) 50%, transparent 52%),
+    radial-gradient(1.2px 1.2px at 12px 158px, rgba(15, 23, 42, 0.22) 50%, transparent 52%),
+    radial-gradient(1px 1px at 72px 178px, rgba(15, 23, 42, 0.18) 50%, transparent 52%),
+    radial-gradient(1.5px 1.5px at 128px 152px, rgba(15, 23, 42, 0.26) 50%, transparent 52%),
+    radial-gradient(1.1px 1.1px at 180px 186px, rgba(15, 23, 42, 0.2) 50%, transparent 52%);
+  background-size: 200px 200px;
   animation: sv2-stars-drift 40s linear infinite;
 }
 
@@ -963,9 +971,13 @@
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(1.2px 1.2px at 48px 88px, rgba(15, 23, 42, 0.12) 50%, transparent 52%),
-    radial-gradient(1px 1px at 180px 148px, rgba(15, 23, 42, 0.1) 50%, transparent 52%);
-  background-size: 260px 240px;
+    radial-gradient(0.9px 0.9px at 30px 70px, rgba(15, 23, 42, 0.16) 50%, transparent 52%),
+    radial-gradient(1px 1px at 90px 30px, rgba(15, 23, 42, 0.18) 50%, transparent 52%),
+    radial-gradient(0.9px 0.9px at 160px 110px, rgba(15, 23, 42, 0.16) 50%, transparent 52%),
+    radial-gradient(1px 1px at 50px 140px, rgba(15, 23, 42, 0.16) 50%, transparent 52%),
+    radial-gradient(0.9px 0.9px at 130px 180px, rgba(15, 23, 42, 0.14) 50%, transparent 52%),
+    radial-gradient(1px 1px at 200px 40px, rgba(15, 23, 42, 0.16) 50%, transparent 52%);
+  background-size: 220px 220px;
   animation: sv2-stars-twinkle 4.5s ease-in-out infinite;
 }
 
@@ -974,14 +986,14 @@
     background-position: 0 0;
   }
   to {
-    background-position: -220px -200px;
+    background-position: -200px -200px;
   }
 }
 
 @keyframes sv2-stars-twinkle {
   0%,
   100% {
-    opacity: 0.35;
+    opacity: 0.45;
   }
   50% {
     opacity: 1;
@@ -1105,9 +1117,9 @@
   place-items: center;
   overflow: hidden;
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  background: linear-gradient(155deg, #ffffff 0%, #f2f4f6 58%, #eceff2 100%);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: linear-gradient(155deg, #e4e9ee 0%, #d3dae1 55%, #c4cdd6 100%);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .sv2-preview-empty[data-orientation='portrait'] .sv2-preview-empty-card {
