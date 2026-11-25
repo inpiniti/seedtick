@@ -128,6 +128,36 @@ export const TimelineDock = (props: TimelineDockProps) => {
     }
   }, [playhead, layout]);
 
+  // 쉬프트를 누르지 않은 일반 마우스 휠로도 타임라인을 가로로 넘긴다.
+  // React의 onWheel은 passive로 등록돼 preventDefault가 동작하지 않으므로 네이티브 리스너를 쓴다.
+  // 드래그는 룰러 스크러빙·칩 선택과 겹치므로 건드리지 않는다.
+  useEffect(() => {
+    const el = tracksRef.current;
+    if (!el) return;
+
+    const onWheel = (event: WheelEvent) => {
+      // 트랙패드 가로 제스처·쉬프트+휠은 브라우저가 이미 처리한다.
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.deltaY === 0) return;
+
+      const maxScrollLeft = el.scrollWidth - el.clientWidth;
+      if (maxScrollLeft <= 1) return;
+
+      // Firefox 등 라인/페이지 단위 휠도 같은 체감이 되도록 픽셀로 환산한다.
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? el.clientWidth : 1;
+      const delta = event.deltaY * unit;
+      const atEdge =
+        (delta > 0 && el.scrollLeft >= maxScrollLeft - 1) ||
+        (delta < 0 && el.scrollLeft <= 1);
+      if (atEdge) return;
+
+      event.preventDefault();
+      el.scrollLeft = Math.min(maxScrollLeft, Math.max(0, el.scrollLeft + delta));
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [hasSegments]);
+
   const ticks = useMemo(() => {
     const total = model.total;
     if (total <= 0) return [];
