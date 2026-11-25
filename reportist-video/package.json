@@ -12,6 +12,7 @@
     "prebuild": "npm run seo",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
+    "verify:frame-drop": "node scripts/verify-frame-drop.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

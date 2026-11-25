@@ -727,6 +727,11 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [playhead, setPlayhead] = useState(0);
   const playheadRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  // 내보내기 시작 시 미리보기 재생을 즉시 멈춘다. 프리뷰 <video>의 디코더 점유와
+  // requestAnimationFrame 갱신이 내보내기 합성 루프와 GPU/메인 스레드를 경합한다.
+  useEffect(() => {
+    if (isReStitching) setIsPlaying(false);
+  }, [isReStitching]);
   // 인스펙터가 요청한 인트로/아웃트로 구간 단독 미리보기 상태.
   const [previewRange, setPreviewRange] = useState<PreviewRange | null>(null);
   const previewRef = useRef<PreviewRange | null>(null);
@@ -965,6 +970,16 @@ export const CenterStudioView = (props: StudioV2Props) => {
     setPreviewRange(null);
     setIsPlaying(true);
   }, [isPlaying]);
+
+  // CenterPreviewStage를 React.memo로 분리했으므로 콜백도 안정적인 참조를 넘긴다.
+  const pausePreview = useCallback(() => setIsPlaying(false), []);
+  const handlePreviewSeek = useCallback(
+    (time: number) => {
+      setPreviewRange(null);
+      seek(time);
+    },
+    [seek]
+  );
 
   // 룰러 드래그 시작 시 구간 미리보기를 해제한다.
   const onScrubStart = useCallback(() => clearPreview(), [clearPreview]);
@@ -1360,12 +1375,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
                 orientation={orientation}
                 totalDuration={model.total}
                 previewRange={previewRange}
+                isExporting={isReStitching}
                 onTogglePlay={togglePlay}
-                onPause={() => setIsPlaying(false)}
-                onSeek={(time) => {
-                  setPreviewRange(null);
-                  seek(time);
-                }}
+                onPause={pausePreview}
+                onSeek={handlePreviewSeek}
                 onOpenLocation={openLocation}
                 onUpdateSegment={updateSegment}
                 onUpdateOverlay={updateOverlay}

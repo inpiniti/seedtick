@@ -147,12 +147,55 @@ function findBoxes(
 }
 
 const VIDEO_SAMPLE_ENTRY_TYPES = new Set([
-  'avc1', 'avc3', 'hvc1', 'hev1', 'vp08', 'vp09', 'av01',
+  'avc1', 'avc3', 'hvc1', 'hev1', 'dvh1', 'dvhe', 'vp08', 'vp09', 'av01',
 ]);
 
 const CODEC_CONFIG_BOX_TYPES = new Set(['avcC', 'hvcC', 'vpcC', 'av1C']);
 
 const hex2 = (n: number) => n.toString(16).padStart(2, '0');
+
+/**
+ * hvcC 페이로드(ISO/IEC 14496-15 Annex E)로 WebCodecs 코덱 문자열 후보를 생성한다.
+ *
+ * 주의:
+ * - general_profile_compatibility_flags는 비트 순서를 역전시켜 표기한다.
+ *   (아이폰 Main 10의 0x20000000 → "4", 즉 `hvc1.2.4.L123.B0`)
+ * - constraint_indicator_flags 6바이트를 16진수로 붙이고, 뒤의 0 바이트는 생략한다.
+ * - 이전 구현은 compat 값의 *뒤* 0을 지워 값 자체를 바꾸고 constraint 바이트를
+ *   빼먹어 Chromium isConfigSupported가 전부 거부 → 실시간 <video> 경로로 폴백했다.
+ */
+export function buildHevcCodecCandidates(codec: string, description?: Uint8Array): string[] {
+  if ((codec !== 'hvc1' && codec !== 'hev1') || !description || description.length < 13) {
+    return [codec];
+  }
+
+  const profileByte = description[1];
+  const profileSpace = (profileByte >> 6) & 0x3;
+  const tierFlag = (profileByte >> 5) & 0x1;
+  const profileIdc = profileByte & 0x1f;
+  const levelIdc = description[12];
+
+  let compat = 0;
+  for (let i = 2; i < 6; i++) compat = (compat * 256 + description[i]) >>> 0;
+
+  let reversedCompat = 0;
+  for (let bit = 0; bit < 32; bit++) {
+    if ((compat >>> bit) & 1) reversedCompat = (reversedCompat | (1 << (31 - bit))) >>> 0;
+  }
+  const compatHex = reversedCompat.toString(16).toUpperCase();
+
+  const constraints = Array.from(description.slice(6, 12));
+  while (constraints.length > 0 && constraints[constraints.length - 1] === 0) constraints.pop();
+  const constraintSuffix =
+    constraints.length > 0 ? `.${constraints.map((b) => hex2(b).toUpperCase()).join('')}` : '';
+
+  const spacePrefix = profileSpace === 0 ? '' : String.fromCharCode(64 + profileSpace);
+  const tierLevel = `${tierFlag ? 'H' : 'L'}${levelIdc}`;
+  const full = `${codec}.${spacePrefix}${profileIdc}.${compatHex}.${tierLevel}${constraintSuffix}`;
+  const alternateCodec = codec === 'hvc1' ? 'hev1' : 'hvc1';
+
+  return [full, full.replace(codec, alternateCodec), codec, alternateCodec];
+}
 
 /**
  * moov 박스를 찾아 전체를 ArrayBuffer로 반환.
@@ -366,8 +409,10 @@ function parseStbl(buffer: ArrayBuffer, stbl: BoxView): SampleTables | null {
         if (cursor + 8 > ctts.payloadStart + ctts.payloadSize) break;
         const count = view.getUint32(cursor, false);
         const rawOffset = view.getUint32(cursor + 4, false);
-        // version 1부터 offset은 signed int32
-        const offset = cttsVersion === 1 ? (rawOffset | 0) : rawOffset;
+        // version 1은 signed int32. Apple QuickTime .MOV는 version 0에서도
+        // 음수 composition offset을 쓰므로 상위 비트가 설정되면 부호를 복원한다.
+        // (안 그러면 -1000 ticks가 7,158,278초로 폭주해 B-프레임 전진이 멈춤)
+        const offset = cttsVersion === 1 || rawOffset >= 0x80000000 ? (rawOffset | 0) : rawOffset;
         cursor += 8;
         for (let j = 0; j < count && sampleIndex < sampleCount; j++) {
           ctsTicks[sampleIndex] = dtsTicks[sampleIndex] + offset;
@@ -501,7 +546,13 @@ function parseStsdForCodec(buffer: ArrayBuffer, stbl: BoxView): {
         } else {
           codec = 'avc1';
         }
-      } else if (entryType === 'hvc1' || entryType === 'hev1') {
+      } else if (
+        entryType === 'hvc1' ||
+        entryType === 'hev1' ||
+        entryType === 'dvh1' ||
+        entryType === 'dvhe'
+      ) {
+        // Dolby Vision(dvh1/dvhe)도 베이스 레이어는 hvcC에 담겨 있다.
         codec = 'hvc1';
       } else if (entryType === 'vp09') {
         codec = 'vp09';
@@ -525,8 +576,22 @@ function parseStsdForCodec(buffer: ArrayBuffer, stbl: BoxView): {
   return null;
 }
 
-/** MP4/MOV 파일의 비디오 트랙 샘플 테이블을 파싱 */
+/**
+ * Blob은 불변이므로 동일 원본의 moov 파싱 결과를 재사용한다.
+ * 같은 영상에서 여러 컷을 만들 때 trak/stbl 반복 파싱을 피한다.
+ */
+const parsedTrackCache = new WeakMap<Blob, Promise<ParsedVideoTrack | null>>();
+
+/** MP4/MOV 파일의 비디오 트랙 샘플 테이블을 파싱 (Blob별 캐시 적용) */
 export async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack | null> {
+  const cached = parsedTrackCache.get(file);
+  if (cached) return cached;
+  const parsing = parseMp4VideoTrackUncached(file);
+  parsedTrackCache.set(file, parsing);
+  return parsing;
+}
+
+async function parseMp4VideoTrackUncached(file: Blob): Promise<ParsedVideoTrack | null> {
   const moovBuffer = await readMoovBuffer(file);
   if (!moovBuffer) return null;
 
@@ -575,7 +640,7 @@ export async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack |
     const sampleCount = sizes.length;
     if (sampleCount === 0) continue;
 
-    const presentationOffsetSec = parsePresentationOffsetFromEdts(moovBuffer, trak, timescale);
+    let presentationOffsetSec = parsePresentationOffsetFromEdts(moovBuffer, trak, timescale);
 
     const keyframeSet = new Set(keyframeIndices);
     const samples: ParsedVideoSample[] = new Array(sampleCount);
@@ -590,6 +655,19 @@ export async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack |
       };
     }
 
+    // QuickTime .MOV의 음수 ctts 오프셋으로 ctsSec가 음수가 될 수 있다.
+    // WebCodecs 타임스탬프는 0 이상이어야 하므로 전체 타임라인을 양수로 정규화하고
+    // movie 시간(ctsSec - presentationOffsetSec)이 그대로 유지되도록 오프셋도 함께 이동한다.
+    let minCtsSec = 0;
+    for (const sample of samples) {
+      if (sample.ctsSec < minCtsSec) minCtsSec = sample.ctsSec;
+    }
+    const ctsShiftSec = -minCtsSec;
+    if (ctsShiftSec > 0) {
+      for (const sample of samples) sample.ctsSec += ctsShiftSec;
+      presentationOffsetSec += ctsShiftSec;
+    }
+
     const tkhd = findBox(moovBuffer, trak.payloadStart, trakEnd, 'tkhd');
     const rotation = tkhd ? parseRotationFromTkhd(tkhd) : 0;
 
@@ -599,7 +677,7 @@ export async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack |
         : movieDuration && movieDuration.durationSec > 0
           ? movieDuration.durationSec
           : samples.length > 0
-            ? samples[samples.length - 1].ctsSec
+            ? samples[samples.length - 1].ctsSec - ctsShiftSec
             : 0;
 
     return {
@@ -732,9 +810,12 @@ export async function decodeKeyframesNearTimes(
     }
   }
 
-  // 디코더 구성
-  const buildConfig = (hardwareAcceleration: HardwareAcceleration): VideoDecoderConfig => ({
-    codec: track.codec,
+  // 디코더 구성 (hvcC 전체 문자열 후보로 아이폰 HEVC 10-bit 적중률을 높인다)
+  const buildConfig = (
+    codec: string,
+    hardwareAcceleration: HardwareAcceleration
+  ): VideoDecoderConfig => ({
+    codec,
     codedWidth: track.codedWidth || undefined,
     codedHeight: track.codedHeight || undefined,
     description: track.description,
@@ -743,16 +824,17 @@ export async function decodeKeyframesNearTimes(
   } as VideoDecoderConfig);
 
   let config: VideoDecoderConfig | null = null;
-  try {
-    const preferred = await VideoDecoder.isConfigSupported(buildConfig('prefer-hardware'));
-    if (preferred?.supported) {
-      config = buildConfig('prefer-hardware');
-    } else {
-      const fallback = await VideoDecoder.isConfigSupported(buildConfig('prefer-software'));
-      if (fallback?.supported) config = buildConfig('prefer-software');
+  for (const codec of buildHevcCodecCandidates(track.codec, track.description)) {
+    for (const hardwareAcceleration of ['prefer-hardware', 'prefer-software'] as const) {
+      const candidate = buildConfig(codec, hardwareAcceleration);
+      try {
+        if ((await VideoDecoder.isConfigSupported(candidate)).supported) {
+          config = candidate;
+          break;
+        }
+      } catch {}
     }
-  } catch {
-    config = null;
+    if (config) break;
   }
   if (!config) return null;
 
@@ -787,7 +869,7 @@ export async function decodeKeyframesNearTimes(
         decoder.decode(
           new EncodedVideoChunk({
             type: 'key',
-            timestamp: Math.max(0, Math.round(sample.ctsSec * 1_000_000)),
+            timestamp: Math.round(sample.ctsSec * 1_000_000),
             data,
           })
         );
@@ -831,7 +913,7 @@ export async function decodeKeyframesNearTimes(
     const keyPos = requestToKeyframe.get(i);
     if (keyPos === undefined) continue;
     const sample = keySamples[keyPos];
-    const tsMicros = Math.max(0, Math.round(sample.ctsSec * 1_000_000));
+    const tsMicros = Math.round(sample.ctsSec * 1_000_000);
     const frame = framesByTimestamp.get(tsMicros);
     if (!frame) continue;
 

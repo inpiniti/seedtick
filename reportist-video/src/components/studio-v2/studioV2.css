@@ -2368,8 +2368,9 @@
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: color-mix(in srgb, var(--sv2-surface) 86%, transparent);
-  backdrop-filter: blur(4px);
+  /* 내보내기 중 매 프레임 전체 뷰포트를 재합성하는 backdrop blur는 GPU를
+     프리뷰/인코더와 경합시킨다. 불투명 배경으로 변경해 합성 비용을 제거한다. */
+  background: var(--sv2-surface);
   z-index: 40;
 }
 .sv2-processing-card {

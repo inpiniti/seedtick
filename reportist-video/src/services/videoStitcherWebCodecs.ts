@@ -744,7 +744,10 @@ export async function stitchVideosWebCodecs({
         });
 
       try {
-        let lastMediaTimeSeen = Math.max(workerVideo.currentTime, latestRvfcMediaTime);
+        // rvfc가 있으면 실제 디코딩 완료 시각만 진실 공급원으로 삼는다.
+        // currentTime과의 Math.max는 4K HEVC가 벽시계보다 조금만 늦어도
+        // 갱신되지 않은 이전 텍스처를 중복 캡처하고 중간 프레임을 건너뛴다.
+        let lastMediaTimeSeen = hasRvfc ? latestRvfcMediaTime : workerVideo.currentTime;
         let lastMediaAdvanceWall = performance.now();
 
         for (let f = 0; f < segFrames; f++) {
@@ -773,9 +776,7 @@ export async function stitchVideosWebCodecs({
                 void workerVideo.play().catch(() => {});
               }
 
-              const curMediaPos = hasRvfc
-                ? Math.max(workerVideo.currentTime, latestRvfcMediaTime)
-                : workerVideo.currentTime;
+              const curMediaPos = hasRvfc ? latestRvfcMediaTime : workerVideo.currentTime;
               const now = performance.now();
 
               if (Math.abs(curMediaPos - lastMediaTimeSeen) >= 0.001) {
@@ -940,7 +941,10 @@ export async function stitchVideosWebCodecs({
 
     const duration = Math.max(0.05, rangeEnd - rangeStart);
     const segFrames = Math.max(2, Math.round(duration * targetFps));
-    const segTimeStep = duration / segFrames;
+    // 출력 프레임 간격(frameDurationMicros)과 1:1로 맞춘다.
+    // duration / segFrames를 쓰면 29.97fps VFR 원본에서 목표 시각이 어긋나
+    // 주기적으로 같은 프레임이 두 번 들어가거나(저더) 건너뛴다.
+    const segTimeStep = 1 / targetFps;
 
     try {
       for (let f = 0; f < segFrames; f++) {
@@ -1245,7 +1249,10 @@ export async function stitchVideosWebCodecs({
     // -------------------------------------------------------------------------
     // STEP D. 오디오 렌더링 & AudioEncoder 주입 (원본 비디오 오디오 + BGM 믹싱)
     // -------------------------------------------------------------------------
-    const totalVideoDurationSec = actualIntroDuration + totalSegmentsDuration + actualOutroDuration;
+    // 오디오 타임라인을 실제 인코딩된 프레임 수에 맞춘다.
+    // 구간별 duration을 더한 값은 프레임 단위 반올림만큼 영상 트랙보다 길어져
+    // 재생 후반에 영상/음식 싱크 오차와 빈 오디오 꼬리가 생길 수 있다.
+    const totalVideoDurationSec = totalFramesEncoded / targetFps;
 
     if (audioEncoder && audioDataAvailable) {
       try {

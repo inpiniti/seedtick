@@ -8,7 +8,11 @@
 // 모바일에서는 사용하지 않는다 (AGENTS.md 옵션 1). 파싱/코덱/디코딩이 실패하면
 // null을 반환하거나 예외를 던져 호출부가 기존 <video> 경로로 자동 폴백하도록 한다.
 
-import { parseMp4VideoTrack, type ParsedVideoTrack } from './mp4KeyframeDecoder.ts';
+import {
+  buildHevcCodecCandidates,
+  parseMp4VideoTrack,
+  type ParsedVideoTrack,
+} from './mp4KeyframeDecoder.ts';
 
 export interface OfflineFrameSourceOptions {
   signal?: AbortSignal;
@@ -40,28 +44,6 @@ export function isOfflineFrameDecoderAvailable(): boolean {
   return isVideoDecoderUsable();
 }
 
-/**
- * hvcC(avcC가 아닌 HEVC) 박스에서 전체 코덱 문자열을 만들어 isConfigSupported 성공률을 높인다.
- * 실패 시 짧은 코덱 문자열도 후보에 남겨 폴백 경로를 확보한다.
- */
-function buildCodecCandidates(codec: string, description?: Uint8Array): string[] {
-  if ((codec === 'hvc1' || codec === 'hev1') && description && description.length >= 13) {
-    const profileByte = description[1];
-    const profileSpace = (profileByte >> 6) & 0x3;
-    const tierFlag = (profileByte >> 5) & 0x1;
-    const profileIdc = profileByte & 0x1f;
-    const levelIdc = description[12];
-
-    let compat = 0;
-    for (let i = 2; i < 6; i++) compat = (compat * 256 + description[i]) >>> 0;
-    const compatHex = compat.toString(16).toUpperCase().replace(/0+$/, '') || '0';
-    const spacePrefix = profileSpace === 0 ? '' : String.fromCharCode(64 + profileSpace);
-    const full = `${codec}.${spacePrefix}${profileIdc}.${compatHex}.${tierFlag ? 'H' : 'L'}${levelIdc}`;
-    return [full, codec];
-  }
-  return [codec];
-}
-
 class OfflineFrameSourceImpl implements OfflineFrameSource {
   private readonly decoder: VideoDecoder;
   private readonly displayCanvas: HTMLCanvasElement;
@@ -71,6 +53,7 @@ class OfflineFrameSourceImpl implements OfflineFrameSource {
 
   private outputFrames: Array<{ frame: VideoFrame; timeSec: number }> = [];
   private currentFrame: VideoFrame | null = null;
+  private drawnFrame: VideoFrame | null = null;
   private waiters: Array<() => void> = [];
   private pumpPromise: Promise<void> | null = null;
   private feedDone = false;
@@ -106,7 +89,15 @@ class OfflineFrameSourceImpl implements OfflineFrameSource {
         }
         // 디코더 타임스탬프는 미디어 시간 → edit list 오프셋을 빼 movie 시간으로 변환
         const timeSec = frame.timestamp / 1_000_000 - this.track.presentationOffsetSec;
-        this.outputFrames.push({ frame, timeSec });
+        // B-프레임 리오더/비동기 출력에 대비해 timeSec 오름차순으로 삽입한다.
+        let lo = 0;
+        let hi = this.outputFrames.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (this.outputFrames[mid].timeSec <= timeSec) lo = mid + 1;
+          else hi = mid;
+        }
+        this.outputFrames.splice(lo, 0, { frame, timeSec });
         this.notify();
       },
       error: (e) => {
@@ -167,7 +158,8 @@ class OfflineFrameSourceImpl implements OfflineFrameSource {
         this.decoder.decode(
           new EncodedVideoChunk({
             type: sample.isKey ? 'key' : 'delta',
-            timestamp: Math.max(0, Math.round(sample.ctsSec * 1_000_000)),
+            // ctsSec는 파싱 단계에서 0 이상으로 정규화되어 있다.
+            timestamp: Math.round(sample.ctsSec * 1_000_000),
             duration,
             data,
           })
@@ -196,10 +188,10 @@ class OfflineFrameSourceImpl implements OfflineFrameSource {
     const target = Math.max(0, targetTimeSec);
     const tolerance = 0.0002;
 
-    // 디코더 출력은 presentation order(타임스탬프 단조 증가)로 들어온다.
     // target 시각을 커버하는 프레임 = target 이하의 마지막 프레임.
-    // 단, 구간 시작이 B-frame 리오더로 첫 프레임보다 앞서면 현재 프레임이 없으므로
-    // 이때는 가장 이른 프레임을 무조건 커버 프레임으로 삼는다.
+    // 출력 큐가 비어 있는 것은 "디코딩이 아직 진행 중"일 뿐이므로 절대 여기서
+    // 탈출하지 않는다. 예전의 `!head` 조기 break 때문에 첫 키프레임 한 장만
+    // 공급된 뒤 나머지 30fps 프레임 전부가 같은 정지 화면으로 인코딩되었다.
     for (let guard = 0; guard < 200_000; guard++) {
       while (this.outputFrames.length > 0) {
         const head = this.outputFrames[0];
@@ -215,7 +207,9 @@ class OfflineFrameSourceImpl implements OfflineFrameSource {
       if (this.feedDone || this.error) break;
 
       const head = this.outputFrames[0];
-      if (this.currentFrame && (!head || head.timeSec > target + tolerance)) break;
+      // 다음 출력 프레임이 이미 target을 넘었으면 현재 프레임이 커버 프레임이다.
+      // 출력이 아직 없으면(head === undefined) 디코더/플러시를 기다린다.
+      if (this.currentFrame && head && head.timeSec > target + tolerance) break;
 
       await this.waitForChange();
     }
@@ -236,6 +230,10 @@ class OfflineFrameSourceImpl implements OfflineFrameSource {
 
   private drawCurrentFrame(): void {
     const frame = this.currentFrame!;
+    // 29.97fps 원본을 30fps CFR로 샘플링하면 같은 프레임이 두 번 커버될 수 있다.
+    // 캔버스는 그대로이므로 중복 드로잉(4K 리샘플링)을 건너뛴다.
+    if (this.drawnFrame === frame) return;
+    this.drawnFrame = frame;
     const ctx = this.displayCtx;
     ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
 
@@ -262,6 +260,7 @@ class OfflineFrameSourceImpl implements OfflineFrameSource {
       try { this.currentFrame.close(); } catch {}
       this.currentFrame = null;
     }
+    this.drawnFrame = null;
     for (const item of this.outputFrames) {
       try { item.frame.close(); } catch {}
     }
@@ -282,16 +281,21 @@ export async function createOfflineFrameSource(
   rangeEnd: number,
   options: OfflineFrameSourceOptions = {}
 ): Promise<OfflineFrameSource | null> {
-  if (!isVideoDecoderUsable()) return null;
-  if (typeof document === 'undefined') return null;
-  if (!blob || blob.size === 0) return null;
+  const fallback = (reason: string): null => {
+    console.warn(`[offlineFrameDecoder] 실시간 경로로 폴백: ${reason}`);
+    return null;
+  };
+
+  if (!isVideoDecoderUsable()) return fallback('WebCodecs VideoDecoder 미지원');
+  if (typeof document === 'undefined') return fallback('document 없음');
+  if (!blob || blob.size === 0) return fallback('빈 Blob');
   if (options.signal?.aborted) throw new Error('작업 취소');
 
   let track: ParsedVideoTrack | null = null;
   try {
     track = await parseMp4VideoTrack(blob);
-  } catch {
-    return null;
+  } catch (err) {
+    return fallback(`MP4/MOV 파싱 실패 (${String(err)})`);
   }
   if (
     !track ||
@@ -300,17 +304,20 @@ export async function createOfflineFrameSource(
     track.codedHeight <= 0 ||
     track.durationSec <= 0
   ) {
-    return null;
+    return fallback(`사용 가능한 비디오 트랙 없음 (codec=${track?.codec ?? 'none'})`);
   }
 
   const samples = track.samples;
-  const startLimit = Math.max(0, rangeStart);
+  // rangeStart/rangeEnd는 movie 시간, samples[].dtsSec는 media 시간이다.
+  // edts/elst 오프셋을 더해 같은 타임라인에서 비교해야 구간 끝이 잘리지 않는다.
+  const mediaStart = Math.max(0, rangeStart + track.presentationOffsetSec);
+  const mediaEnd = Math.max(mediaStart, rangeEnd + track.presentationOffsetSec);
 
   // decode order(dts) 기준으로 rangeStart 직전/직후 키프레임부터 공급 시작
   let startIdx = -1;
   for (let i = 0; i < samples.length; i++) {
-    if (samples[i].isKey && samples[i].dtsSec <= startLimit + 0.0001) startIdx = i;
-    if (samples[i].dtsSec > startLimit + 0.0001) break;
+    if (samples[i].isKey && samples[i].dtsSec <= mediaStart + 0.0001) startIdx = i;
+    if (samples[i].dtsSec > mediaStart + 0.0001) break;
   }
   if (startIdx < 0) startIdx = 0;
 
@@ -318,21 +325,22 @@ export async function createOfflineFrameSource(
   const tailSec = 0.25;
   let endIdx = -1;
   for (let i = startIdx; i < samples.length; i++) {
-    if (samples[i].dtsSec > Math.max(startLimit, rangeEnd) + tailSec) break;
+    if (samples[i].dtsSec > mediaEnd + tailSec) break;
     endIdx = i;
   }
-  if (endIdx < startIdx) return null;
+  if (endIdx < startIdx) return fallback('구간에 해당하는 샘플 없음');
 
   let config: VideoDecoderConfig | null = null;
-  for (const codec of buildCodecCandidates(track.codec, track.description)) {
+  for (const codec of buildHevcCodecCandidates(track.codec, track.description)) {
     for (const hardwareAcceleration of ['prefer-hardware', 'prefer-software'] as const) {
+      // optimizeForLatency를 켜면 하드웨어 디코더의 B-frame 리오더 버퍼가
+      // 비활성화되어 프레임이 드랍/역전된다. 기본(품질 우선) 모드를 사용한다.
       const candidate = {
         codec,
         codedWidth: track.codedWidth,
         codedHeight: track.codedHeight,
         description: track.description,
         hardwareAcceleration,
-        optimizeForLatency: true,
       } as VideoDecoderConfig;
       try {
         const support = await VideoDecoder.isConfigSupported(candidate);
@@ -344,7 +352,7 @@ export async function createOfflineFrameSource(
     }
     if (config) break;
   }
-  if (!config) return null;
+  if (!config) return fallback(`디코더 설정 미지원 (${track.codec})`);
 
   return new OfflineFrameSourceImpl(blob, track, startIdx, endIdx, config, options);
 }

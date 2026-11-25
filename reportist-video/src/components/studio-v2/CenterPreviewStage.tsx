@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { Tilt, TiltContent } from '@animate-ui/react/primitives/effects/tilt';
 import {
@@ -32,6 +32,8 @@ interface CenterPreviewStageProps {
   orientation: VideoOrientation;
   totalDuration: number;
   previewRange?: PreviewRange | null;
+  /** 내보내기 중에는 <video> 선로드를 중단해 디코더/GPU 경합을 막는다. */
+  isExporting?: boolean;
   /** 설정 모달에서 날짜 형식·나이 옵션을 바꾼 경우 캔버스를 다시 그리기 위한 신호. */
   revision?: number;
   onTogglePlay: () => void;
@@ -42,7 +44,7 @@ interface CenterPreviewStageProps {
   onUpdateOverlay: (patch: Partial<VideoOverlayOptions>) => void;
 }
 
-export const CenterPreviewStage = ({
+const CenterPreviewStageImpl = ({
   frame,
   model,
   playhead,
@@ -52,6 +54,7 @@ export const CenterPreviewStage = ({
   orientation,
   totalDuration,
   previewRange,
+  isExporting = false,
   revision = 0,
   onTogglePlay,
   onPause,
@@ -336,7 +339,7 @@ export const CenterPreviewStage = ({
             src={video.url}
             muted
             playsInline
-            preload="auto"
+            preload={isExporting ? 'none' : 'auto'}
             onLoadedData={() => setRedrawTick((t) => t + 1)}
             onSeeked={() => setRedrawTick((t) => t + 1)}
             style={{
@@ -356,7 +359,7 @@ export const CenterPreviewStage = ({
             src={customVideoUrls.intro}
             muted
             playsInline
-            preload="auto"
+            preload={isExporting ? 'none' : 'auto'}
             onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
           />
         )}
@@ -367,7 +370,7 @@ export const CenterPreviewStage = ({
             src={customVideoUrls.outro}
             muted
             playsInline
-            preload="auto"
+            preload={isExporting ? 'none' : 'auto'}
             onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
           />
         )}
@@ -429,3 +432,6 @@ export const CenterPreviewStage = ({
     </>
   );
 };
+
+/** 내보내기 진행률 갱신(상위 리렌더) 때 프리뷰 전체가 다시 그려지지 않도록 분리한다. */
+export const CenterPreviewStage = memo(CenterPreviewStageImpl);
