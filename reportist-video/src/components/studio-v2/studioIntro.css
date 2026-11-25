@@ -53,6 +53,11 @@
 
 /* ---------- 상단바 브랜드: 중앙 드로잉 → 제자리 ---------- */
 
+/* 배경이 투명 → 실선으로 바뀔 때 한 프레임 튀지 않도록 색 전환을 둔다. */
+.sv2-root .sv2-topbar {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
 /* 드로잉 동안에는 상단바 배경과 다른 컨트롤을 숨긴다. */
 .sv2-root[data-intro='intro'] .sv2-topbar,
 .sv2-root[data-intro='flying'] .sv2-topbar {
@@ -71,7 +76,8 @@
   display: inline-block;
 }
 
-.sv2-root[data-intro='intro'] .sv2-brand-logo {
+/* 단계가 바뀌는 프레임에 애니메이션이 빠지면서 깜박이지 않도록 done 전까지 유지한다. */
+.sv2-root:not([data-intro='done']) .sv2-brand-logo {
   animation: sv2-brand-draw 1.25s cubic-bezier(0.65, 0, 0.35, 1) both;
 }
 
@@ -84,7 +90,7 @@
   }
 }
 
-.sv2-root[data-intro='intro'] .sv2-brand-text {
+.sv2-root:not([data-intro='done']) .sv2-brand-text {
   animation: sv2-brand-text-in 0.36s ease 1s both;
 }
 
@@ -112,8 +118,9 @@
   border-bottom-color: var(--sv2-border);
 }
 
-.sv2-root[data-intro='revealing'] .sv2-topbar > :not(.sv2-brand) {
-  animation: sv2-intro-topbar-in 0.52s ease-out both;
+/* 브랜드는 이미 제자리에 앉은 뒤이므로 상단바 전체가 다시 내려온다. */
+.sv2-root[data-intro='revealing'] .sv2-topbar {
+  animation: sv2-intro-drop 0.55s ease-out both;
 }
 
 .sv2-root[data-intro='revealing'] .sv2-timeline {
@@ -129,10 +136,20 @@
   animation: sv2-intro-pop 0.68s ease-out 1.3s both;
 }
 
-@keyframes sv2-intro-topbar-in {
+@keyframes sv2-intro-drop {
   0% {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-100%);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(8px);
+  }
+  78% {
+    transform: translateY(-4px);
+  }
+  92% {
+    transform: translateY(2px);
   }
   100% {
     opacity: 1;

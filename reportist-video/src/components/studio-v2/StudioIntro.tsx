@@ -85,11 +85,14 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
     }
 
     if (phase === 'done') {
-      const brand = brandRef.current;
-      if (brand) {
+      // 인라인 스타일 정리가 애니메이션 마지막 프레임과 같은 페인트에 일어나지 않게 한다.
+      const raf = window.requestAnimationFrame(() => {
+        const brand = brandRef.current;
+        if (!brand) return;
         brand.style.transition = '';
         brand.style.transform = '';
-      }
+      });
+      return () => window.cancelAnimationFrame(raf);
     }
 
     return;
