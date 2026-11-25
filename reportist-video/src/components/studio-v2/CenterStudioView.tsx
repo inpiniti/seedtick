@@ -57,6 +57,11 @@ import type { VideoShareItem } from '../../types/share.ts';
 import { TimelineDock } from './TimelineDock.tsx';
 import { RightInspectorDrawer } from './RightInspectorDrawer.tsx';
 import {
+  StudioIntro,
+  shouldSkipStudioIntro,
+  type StudioIntroPhase,
+} from './StudioIntro.tsx';
+import {
   collapseFlightCard,
   flyCutsIn,
   flyCutsOut,
@@ -137,6 +142,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
     onLoadSampleVideos,
     isLoadingSample,
   } = props;
+
+  // ---------- 첫 진입 인트로 ----------
+  // 자식과 동일한 판정으로 초기화해 첫 페인트에서 패널이 깜빡이지 않게 한다.
+  const [introPhase, setIntroPhase] = useState<StudioIntroPhase>(() =>
+    shouldSkipStudioIntro() ? 'done' : 'intro'
+  );
 
   // ---------- 뷰포트 가드 ----------
   const [isWide, setIsWide] = useState(
@@ -1199,7 +1210,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
   };
 
   return (
-    <div className="sv2-root" data-subtitle-refreshed={subtitleRefreshed}>
+    <div className="sv2-root" data-intro={introPhase} data-subtitle-refreshed={subtitleRefreshed}>
+      <StudioIntro initialPhase={introPhase} onPhaseChange={setIntroPhase} />
+
       <StudioTopBar
         projectName={projectName}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
