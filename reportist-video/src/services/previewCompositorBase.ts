@@ -209,7 +209,10 @@ export function resolveMetaTexts(
             currentSegment?.subtitleDate || overlayOptions.subtitleDateText,
             currentSegment?.recordedTimestamp
           ),
-    locationText: currentSegment?.locationName || overlayOptions.subtitleLocationText || '',
+    locationText:
+      overlayOptions.showLocation === false
+        ? ''
+        : currentSegment?.locationName || overlayOptions.subtitleLocationText || '',
   };
 }
 

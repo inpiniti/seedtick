@@ -597,6 +597,7 @@ const CenterPreviewStageImpl = ({
               else setIsEditingCaption(editing);
             }}
             showSubtitle={overlayOptions.showSubtitle !== false}
+            showLocation={overlayOptions.showLocation !== false}
           />
         )}
       </div>

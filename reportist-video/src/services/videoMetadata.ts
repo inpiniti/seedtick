@@ -27,6 +27,7 @@ export const DEFAULT_DATE_FORMAT: DateFormatOption = 'YYYY.MM.DD';
 export const SHOW_AGE_STORAGE_KEY = 'reportist_video_show_age';
 export const BIRTH_DATE_STORAGE_KEY = 'reportist_video_birth_date';
 export const SHOW_DATE_STORAGE_KEY = 'reportist_video_show_date';
+export const SHOW_LOCATION_STORAGE_KEY = 'reportist_video_show_location';
 export const SHOW_SUBTITLE_STORAGE_KEY = 'reportist_video_show_subtitle';
 export const SHOW_TITLE_STORAGE_KEY = 'reportist_video_show_title';
 export const AUTO_SORT_BY_RECORDED_TIME_STORAGE_KEY = 'reportist_video_auto_sort_by_recorded_time';
@@ -322,6 +323,27 @@ export function getStoredShowDate(): boolean {
 export function setStoredShowDate(show: boolean): void {
   try {
     localStorage.setItem(SHOW_DATE_STORAGE_KEY, String(show));
+  } catch {}
+}
+
+/**
+ * 촬영 위치 표시 옵션 활성화 여부 불러오기 (기본값: true)
+ */
+export function getStoredShowLocation(): boolean {
+  try {
+    const saved = localStorage.getItem(SHOW_LOCATION_STORAGE_KEY);
+    if (saved === null) return true;
+    return saved === 'true';
+  } catch {}
+  return true;
+}
+
+/**
+ * 촬영 위치 표시 옵션 localStorage에 저장
+ */
+export function setStoredShowLocation(show: boolean): void {
+  try {
+    localStorage.setItem(SHOW_LOCATION_STORAGE_KEY, String(show));
   } catch {}
 }
 

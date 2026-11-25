@@ -24,6 +24,7 @@ import {
   getStoredDateFormat,
   setStoredDateFormat,
   setStoredShowDate,
+  setStoredShowLocation,
   setStoredShowSubtitle,
   setStoredShowTitle,
   sortSegmentsByRecordedTime,
@@ -395,6 +396,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
       // 미리보기 아래 스위치로 바꾼 표시 옵션도 설정 모달·새 프로젝트에서 그대로 보이게 저장한다.
       if (patch.showTitle !== undefined) setStoredShowTitle(patch.showTitle);
       if (patch.showDate !== undefined) setStoredShowDate(patch.showDate);
+      if (patch.showLocation !== undefined) setStoredShowLocation(patch.showLocation);
       if (patch.showSubtitle !== undefined) setStoredShowSubtitle(patch.showSubtitle);
       onOverlayOptionsChange?.(next);
     },

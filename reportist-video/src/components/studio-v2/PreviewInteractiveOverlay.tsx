@@ -183,6 +183,8 @@ interface PreviewInteractiveOverlayProps {
   onEditingChange: (kind: EditableKind, editing: boolean) => void;
   /** 영상 자막 표시가 꺼져 있으면 캔버스와 인터랙션을 일치시키기 위해 히트박스도 숨긴다. */
   showSubtitle?: boolean;
+  /** 위치 표시가 꺼져 있으면 위치 히트박스도 숨긴다. */
+  showLocation?: boolean;
 }
 
 export const PreviewInteractiveOverlay = ({
@@ -198,6 +200,7 @@ export const PreviewInteractiveOverlay = ({
   onCaptionCommit,
   onEditingChange,
   showSubtitle = true,
+  showLocation = true,
 }: PreviewInteractiveOverlayProps) => {
   const { ui } = useI18n();
   const addCaptionText = ui('자막 추가');
@@ -249,21 +252,23 @@ export const PreviewInteractiveOverlay = ({
         onCommit={onTitleCommit}
         onEditingChange={onEditingChange}
       />
-      <Tooltip
-        content={locationLabel ? ui('위치 수정') : ui('{date} · 위치 추가', { date: dateLabel })}
-      >
-        <button
-          type="button"
-          className="sv2-hit sv2-hit-location"
-          style={locationBoxStyle}
-          onClick={onLocationClick}
+      {showLocation && (
+        <Tooltip
+          content={locationLabel ? ui('위치 수정') : ui('{date} · 위치 추가', { date: dateLabel })}
         >
-          <span className="sv2-hit-affordance">
-            <MapPin size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
-            {locationLabel ? ui('클릭해서 수정') : ui('위치 추가')}
-          </span>
-        </button>
-      </Tooltip>
+          <button
+            type="button"
+            className="sv2-hit sv2-hit-location"
+            style={locationBoxStyle}
+            onClick={onLocationClick}
+          >
+            <span className="sv2-hit-affordance">
+              <MapPin size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
+              {locationLabel ? ui('클릭해서 수정') : ui('위치 추가')}
+            </span>
+          </button>
+        </Tooltip>
+      )}
       <EditableTextOverlay
         kind="caption"
         frame={frame}

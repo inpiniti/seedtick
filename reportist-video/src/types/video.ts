@@ -186,6 +186,7 @@ export interface VideoOverlayOptions {
   channelText: string;
   showSubtitle: boolean;
   showDate?: boolean; // 촬영 날짜 표시 여부 (기본 true)
+  showLocation?: boolean; // 촬영 위치 표시 여부 (기본 true)
   subtitleDateText?: string;
   subtitleLocationText?: string;
   showIntro: boolean;

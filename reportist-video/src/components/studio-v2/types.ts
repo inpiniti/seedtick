@@ -16,6 +16,7 @@ import type {
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import {
   getStoredShowDate,
+  getStoredShowLocation,
   getStoredShowSubtitle,
   getStoredShowTitle,
   formatDateByPattern,
@@ -139,6 +140,7 @@ export const DEFAULT_OVERLAY_OPTIONS: VideoOverlayOptions = {
   channelText: '',
   showSubtitle: true,
   showDate: true,
+  showLocation: true,
   subtitleDateText: '',
   subtitleLocationText: '',
   showIntro: true,
@@ -164,6 +166,7 @@ export function createDefaultOverlayOptions(defaultTitleText = ''): VideoOverlay
     ...DEFAULT_OVERLAY_OPTIONS,
     titleText: defaultTitleText,
     showDate: getStoredShowDate(),
+    showLocation: getStoredShowLocation(),
     showSubtitle: getStoredShowSubtitle(),
     showTitle: getStoredShowTitle(),
     showCredit: getStoredShowCredit(),

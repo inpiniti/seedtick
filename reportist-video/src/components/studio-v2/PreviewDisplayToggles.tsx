@@ -1,4 +1,4 @@
-import { CalendarDays, Captions, Eye, EyeOff, Type } from 'lucide-react';
+import { CalendarDays, Captions, Eye, EyeOff, MapPin, Type } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { VideoOverlayOptions } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
@@ -6,10 +6,10 @@ import { Tooltip } from '../ui/Tooltip.tsx';
 
 // components/studio-v2/PreviewDisplayToggles.tsx
 // 미리보기 아래에 붙는 표시 on/off 스위치.
-// 설정 모달까지 들어가지 않고도 제목·날짜·자막을 바로 끄고 켤 수 있다.
+// 설정 모달까지 들어가지 않고도 제목·날짜·위치·자막을 바로 끄고 켤 수 있다.
 // 스위치는 실제 내보내기 옵션(overlayOptions)을 직접 바꾸므로 미리보기와 결과물이 항상 같다.
 
-type DisplayKey = 'showTitle' | 'showDate' | 'showSubtitle';
+type DisplayKey = 'showTitle' | 'showDate' | 'showLocation' | 'showSubtitle';
 
 interface DisplayToggleItem {
   key: DisplayKey;
@@ -41,6 +41,12 @@ export const PreviewDisplayToggles = ({
       label: ui('날짜'),
       Icon: CalendarDays,
       on: overlayOptions.showDate !== false,
+    },
+    {
+      key: 'showLocation',
+      label: ui('위치'),
+      Icon: MapPin,
+      on: overlayOptions.showLocation !== false,
     },
     {
       key: 'showSubtitle',
@@ -84,7 +90,12 @@ export const PreviewDisplayToggles = ({
           aria-label={masterLabel}
           onClick={() => {
             const next = !allOn;
-            onUpdateOverlay({ showTitle: next, showDate: next, showSubtitle: next });
+            onUpdateOverlay({
+              showTitle: next,
+              showDate: next,
+              showLocation: next,
+              showSubtitle: next,
+            });
           }}
         >
           {allOn ? (

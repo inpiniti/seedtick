@@ -111,8 +111,9 @@ export function evaluateChapterBridge(
   }
 
   const dateVisible = overlayOptions?.showDate !== false;
+  const locationVisible = overlayOptions?.showLocation !== false;
   const fallbackDate = dateVisible ? normalizeMeta(overlayOptions?.subtitleDateText) : '';
-  const fallbackLoc = normalizeMeta(overlayOptions?.subtitleLocationText);
+  const fallbackLoc = locationVisible ? normalizeMeta(overlayOptions?.subtitleLocationText) : '';
 
   const fromDate = dateVisible
     ? normalizeMeta(prevSegment.subtitleDate) || fallbackDate
@@ -121,8 +122,8 @@ export function evaluateChapterBridge(
     ? normalizeMeta(nextSegment.subtitleDate) || fallbackDate
     : '';
 
-  const fromLocation = normalizeMeta(prevSegment.locationName) || fallbackLoc;
-  const toLocation = normalizeMeta(nextSegment.locationName) || fallbackLoc;
+  const fromLocation = locationVisible ? normalizeMeta(prevSegment.locationName) || fallbackLoc : '';
+  const toLocation = locationVisible ? normalizeMeta(nextSegment.locationName) || fallbackLoc : '';
 
   const isDateChanged = Boolean(fromDate && toDate && fromDate !== toDate);
   const isLocationChanged = Boolean(fromLocation && toLocation && fromLocation !== toLocation);

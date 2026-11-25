@@ -551,7 +551,7 @@ function drawKineticSlideIntro(
   // 3. 서브 메타 태그 (날짜, 장소, 채널명)
   const metaParts = [
     options?.showDate !== false ? options?.subtitleDateText : null,
-    options?.subtitleLocationText,
+    options?.showLocation !== false ? options?.subtitleLocationText : null,
     options?.channelText,
   ].filter(Boolean) as string[];
 
@@ -686,7 +686,7 @@ function drawSplitFlapIntro(
     ctx.globalAlpha = state.metaAlpha;
     const subParts = [
       options?.showDate !== false ? options?.subtitleDateText : null,
-      options?.subtitleLocationText,
+      options?.showLocation !== false ? options?.subtitleLocationText : null,
       options?.channelText,
     ].filter(Boolean);
     if (subParts.length > 0) {
@@ -846,7 +846,7 @@ function drawFilmCountdownIntro(
       ctx.font = `600 ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       const meta = [
         options?.showDate !== false ? options?.subtitleDateText : null,
-        options?.subtitleLocationText,
+        options?.showLocation !== false ? options?.subtitleLocationText : null,
         options?.channelText,
       ].filter(Boolean).join('  •  ');
       if (meta) ctx.fillText(meta, cx, cy + 36 * scale, w * 0.9);
