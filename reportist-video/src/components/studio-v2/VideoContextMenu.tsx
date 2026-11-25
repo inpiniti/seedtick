@@ -50,13 +50,12 @@ export const VideoContextMenu = ({
             className="sv2-context-popup"
             aria-label={ui('원본 영상 메뉴')}
           >
-            <AnimateContextMenu.Item className="sv2-context-item" data-danger="true" onClick={onDelete}>
+            <AnimateContextMenu.Item className="sv2-context-item" onClick={onDelete}>
               <Trash2 size={14} />
               <span>{ui('삭제')}</span>
             </AnimateContextMenu.Item>
             <AnimateContextMenu.Item
               className="sv2-context-item"
-              data-danger="true"
               disabled={!hasAbove}
               onClick={onDeleteAbove}
             >
@@ -65,7 +64,6 @@ export const VideoContextMenu = ({
             </AnimateContextMenu.Item>
             <AnimateContextMenu.Item
               className="sv2-context-item"
-              data-danger="true"
               disabled={!hasBelow}
               onClick={onDeleteBelow}
             >
