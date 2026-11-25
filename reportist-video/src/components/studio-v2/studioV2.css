@@ -1094,6 +1094,15 @@
   max-height: calc(100vh - var(--sv2-topbar-h) - var(--sv2-timeline-h) - 110px);
   object-fit: contain;
 }
+/* 세로 프레임이 가로 최대폭(760px)을 그대로 쓰면 9:16 높이가 스테이지를 넘어
+   상·하가 타임라인에 가려진다. 메타·재생바·여백을 뺀 높이에서 폭도 함께 제한한다. */
+.sv2-preview-frame[data-orientation='portrait'] {
+  max-width: min(
+    100%,
+    420px,
+    calc((100vh - var(--sv2-topbar-h) - var(--sv2-timeline-h) - 150px) * 9 / 16)
+  );
+}
 .sv2-preview-frame[data-orientation='portrait'] canvas {
   max-height: calc(100vh - var(--sv2-topbar-h) - var(--sv2-timeline-h) - 110px);
 }
@@ -1128,7 +1137,13 @@
 }
 
 .sv2-preview-empty[data-orientation='portrait'] .sv2-preview-empty-tilt {
-  width: min(420px, 100%);
+  /* 폭 420px의 9:16 카드는 높이 747px이라 스테이지 밖으로 넘친다.
+     안내 문구·여백을 뺀 남은 높이에 맞춰 폭을 역산해 제한한다. */
+  width: min(
+    420px,
+    100%,
+    calc((100vh - var(--sv2-topbar-h) - var(--sv2-timeline-h) - 110px) * 9 / 16)
+  );
 }
 
 .sv2-preview-empty[data-orientation='portrait'] .sv2-preview-empty-card {
