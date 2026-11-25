@@ -1,0 +1,69 @@
+/* videoContextMenu.css — Animate UI(Base UI) 컨텍스트 메뉴 스타일.
+   팝업은 body 포털이므로 .sv2-root 토큰이 닿지 않는다. 전역 --ui-* 토큰을 써야
+   배경이 투명해지지 않고 다크 테마도 따라온다. */
+
+.sv2-context-positioner {
+  z-index: 100000;
+  /* Animate UI가 popup에 scale 애니메이션을 적용하므로 positioner는 변형하지 않는다. */
+  transform: none;
+}
+
+.sv2-context-popup {
+  min-width: 188px;
+  padding: 6px;
+  border: 1px solid var(--ui-border, #e5e8eb);
+  border-radius: var(--ui-r-md, 10px);
+  background: var(--ui-surface, #ffffff);
+  color: var(--ui-text, #191f28);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18), 0 1px 3px rgba(15, 23, 42, 0.1);
+  font-family: inherit;
+  font-size: var(--ui-fs-sm, 12.5px);
+  font-weight: var(--ui-fw, 600);
+  user-select: none;
+}
+
+.sv2-context-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: var(--ui-h-xs, 28px);
+  padding: 6px 9px;
+  border: 0;
+  border-radius: var(--ui-r-xs, 7px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Animate UI의 이동하는 하이라이트가 이 배경색을 읽어 따라온다. */
+.sv2-context-item[data-highlighted] {
+  background: var(--ui-surface-muted, #f2f4f6);
+}
+
+.sv2-context-item:focus-visible {
+  box-shadow: var(--ui-focus-ring, 0 0 0 3px rgba(15, 23, 42, 0.12));
+}
+
+.sv2-context-item[data-disabled] {
+  color: var(--ui-text-subtle, #8b95a1);
+  cursor: not-allowed;
+}
+
+.sv2-context-item[data-danger='true'],
+.sv2-context-item[data-danger='true'] svg {
+  color: var(--ui-danger, #ef4444);
+}
+
+.sv2-context-item[data-danger='true'][data-highlighted] {
+  background: var(--ui-danger-surface, #fef2f2);
+}
+
+.sv2-context-separator {
+  height: 1px;
+  margin: 4px 4px;
+  background: var(--ui-border, #e5e8eb);
+}
