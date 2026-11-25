@@ -43,6 +43,7 @@ import {
   setStudioOnboardingActive,
 } from '../../services/studioTour.ts';
 import { useOnboardingTour } from '../../hooks/useOnboardingTour.ts';
+import { useModalFocusTrap } from '../../hooks/useModalFocusTrap.ts';
 import { ShimmeringText } from '../common/ShimmeringText.tsx';
 import { OnboardingWelcomeModal } from './OnboardingWelcomeModal.tsx';
 import { OnboardingCelebration } from './OnboardingCelebration.tsx';
@@ -685,6 +686,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
   }, [isProcessing]);
   const [exportResolution, setExportResolution] = useState<ExportResolution>('1080p');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const studioRootRef = useRef<HTMLDivElement>(null);
+  const exportProgressRef = useRef<HTMLDivElement>(null);
+
+  // 내보내기 진행 중에는 포커스와 입력을 진행 오버레이로 격리한다.
+  // (타임라인 클립/상단바 버튼에 포커스 링이 남거나 클릭이 먹는 현상 방지)
+  useModalFocusTrap(isReStitching, {
+    dialogRef: exportProgressRef,
+    inertRootRef: studioRootRef,
+  });
 
   const activeSegment = useMemo(
     () => displaySegments.find((s) => s.id === selectedSegmentId) ?? displaySegments[0] ?? null,
@@ -1214,7 +1224,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
   };
 
   return (
-    <div className="sv2-root" data-intro={introPhase} data-subtitle-refreshed={subtitleRefreshed}>
+    <div
+      ref={studioRootRef}
+      className="sv2-root"
+      data-intro={introPhase}
+      data-subtitle-refreshed={subtitleRefreshed}
+    >
       <StudioIntro initialPhase={introPhase} onPhaseChange={setIntroPhase} />
 
       <StudioTopBar
@@ -1456,26 +1471,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
           </Suspense>
         )}
 
-        {isReStitching && (
-          <div className="sv2-processing sv2-processing-elevated">
-            <div className="sv2-processing-card">
-              <div className="sv2-processing-title">
-                <Loader2 size={18} className="sv2-spin sv2-loader-inline" />
-                {ui('MP4로 내보내고 있어요')}
-              </div>
-              <div className="sv2-processing-sub">
-                {reStitchProgress?.statusMessage ||
-                  ui('미리보기와 똑같은 화면으로 인코딩하고 있어요.')}
-              </div>
-              <div className="sv2-progress-bar sv2-progress-track">
-                <div
-                  className="sv2-progress-fill"
-                  style={{ width: `${reStitchProgress?.progressPercent ?? 0}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 타임라인은 좌·우 사이드 영역과 무관하게 창 전체 폭을 사용한다. */}
@@ -1540,6 +1535,34 @@ export const CenterStudioView = (props: StudioV2Props) => {
           >
             <X size={16} />
           </button>
+        </div>
+      )}
+
+      {isReStitching && (
+        <div
+          ref={exportProgressRef}
+          className="sv2-processing sv2-processing-elevated sv2-export-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sv2-export-progress-title"
+          tabIndex={-1}
+        >
+          <div className="sv2-processing-card">
+            <div className="sv2-processing-title" id="sv2-export-progress-title">
+              <Loader2 size={18} className="sv2-spin sv2-loader-inline" />
+              {ui('MP4로 내보내고 있어요')}
+            </div>
+            <div className="sv2-processing-sub" role="status" aria-live="polite">
+              {reStitchProgress?.statusMessage ||
+                ui('미리보기와 똑같은 화면으로 인코딩하고 있어요.')}
+            </div>
+            <div className="sv2-progress-bar sv2-progress-track">
+              <div
+                className="sv2-progress-fill"
+                style={{ width: `${reStitchProgress?.progressPercent ?? 0}%` }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

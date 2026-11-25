@@ -2422,6 +2422,13 @@
 .sv2-processing-elevated {
   z-index: 60;
 }
+/* 내보내기 진행 오버레이는 상단바·타임라인까지 덮고 포커스를 가둔다. */
+.sv2-export-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  outline: none;
+}
 
 /* ---------- V2 슬림 설정 모달 ---------- */
 .sv2-settings-trigger {
