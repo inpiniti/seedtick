@@ -6,6 +6,7 @@ import type {
 } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import type { InspectorTarget, PreviewRequest } from './types.ts';
+import { CutInspectorPanel } from './CutInspectorPanel.tsx';
 import { LocationInspectorPanel } from './LocationInspectorPanel.tsx';
 import { IntroOutroInspectorPanel } from './IntroOutroInspectorPanel.tsx';
 import { MusicInspectorPanel, type MusicInspectorProps } from './MusicInspectorPanel.tsx';
@@ -24,6 +25,9 @@ interface RightInspectorDrawerProps {
   overlayOptions: VideoOverlayOptions;
   orientation: VideoOrientation;
   onUpdateSegment: (segmentId: string, patch: Partial<HighlightSegment>) => void;
+  onDeleteSegment: (segmentId: string) => void;
+  onTrimSegment: (segment: HighlightSegment) => void;
+  onOpenLocation: (segmentId: string) => void;
   onApplyToVideo: (sourceVideoId: string, locationName: string) => void;
   onOverlayChange: (patch: Partial<VideoOverlayOptions>) => void;
   onPreviewRequest: (request: PreviewRequest) => void;
@@ -39,6 +43,9 @@ export const RightInspectorDrawer = ({
   overlayOptions,
   orientation,
   onUpdateSegment,
+  onDeleteSegment,
+  onTrimSegment,
+  onOpenLocation,
   onApplyToVideo,
   onOverlayChange,
   onPreviewRequest,
@@ -47,7 +54,9 @@ export const RightInspectorDrawer = ({
 }: RightInspectorDrawerProps) => {
   const { ui, t } = useI18n();
   const title =
-    target?.type === 'location'
+    target?.type === 'cut'
+      ? ui('컷 편집')
+      : target?.type === 'location'
       ? ui('촬영 위치 수정')
       : target?.type === 'intro'
       ? ui('인트로 설정')
@@ -70,6 +79,16 @@ export const RightInspectorDrawer = ({
           </button>
         </div>
 
+        {target?.type === 'cut' && (
+          <CutInspectorPanel
+            segment={segment}
+            thumbnailUrl={thumbnailUrl}
+            onUpdateSegment={onUpdateSegment}
+            onDelete={onDeleteSegment}
+            onTrim={onTrimSegment}
+            onOpenLocation={onOpenLocation}
+          />
+        )}
         {target?.type === 'location' && (
           <LocationInspectorPanel
             segment={segment}

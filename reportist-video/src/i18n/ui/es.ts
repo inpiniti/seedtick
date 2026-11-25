@@ -722,6 +722,7 @@ export const uiEs: Record<string, string> = {
   "{date} · 위치 추가": "{date} · Añadir ubicación",
   "타임라인": "Línea de tiempo",
   "컷을 클릭하면 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요": "Haz clic en un corte para editar su subtítulo y ubicación en la vista previa · Arrastra la regla para mover la posición",
+  "컷을 클릭하면 오른쪽에서 회전·삭제하고 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요": "Haz clic en un corte para girarlo o eliminarlo a la derecha y editar su subtítulo y ubicación en la vista previa · Arrastra la regla para mover la posición",
   "타임라인 재생 위치": "Posición de reproducción de la línea de tiempo",
   "AI 컷 분석이 끝나면 영상 트랙이 채워지고, 미리보기에서 자막을 바로 수정할 수 있어요. 음악은 미리 넣어둘 수 있어요.": "Cuando termine el análisis de cortes de IA, la pista de vídeo se llenará y podrás editar subtítulos en la vista previa. Puedes añadir música antes.",
   "영상": "Vídeo",
@@ -856,4 +857,11 @@ export const uiEs: Record<string, string> = {
   "다크 테마로 전환": "Cambiar a tema oscuro",
   "라이트 테마로 전환": "Cambiar a tema claro",
   "화면 도구": "Controles de pantalla",
+  // 컷 인스펙터 (타임라인 컷 클릭 → 회전·삭제)
+  '컷 편집': 'Editar clip',
+  '빠른 편집': 'Edición rápida',
+  '타임라인의 컷을 누르면 이곳에서 회전하거나 삭제할 수 있어요.':
+    'Pulsa un clip en la línea de tiempo para girarlo o eliminarlo aquí.',
+  '이 컷을 삭제할까요?': '¿Eliminar este clip?',
+  '삭제하면 되돌릴 수 없어요.': 'Esta acción no se puede deshacer.',
 };

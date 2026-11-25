@@ -175,7 +175,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
       <div className="sv2-timeline-head">
         <span className="sv2-timeline-label">{ui('타임라인')}</span>
         <span className="sv2-timeline-hint">
-          {ui('컷을 클릭하면 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요')}
+          {ui('컷을 클릭하면 오른쪽에서 회전·삭제하고 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요')}
         </span>
       </div>
       {hasSegments ? (

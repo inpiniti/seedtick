@@ -723,6 +723,7 @@ export const uiFr: Record<string, string> = {
   "{date} · 위치 추가": "{date} · Ajouter un lieu",
   "타임라인": "Timeline",
   "컷을 클릭하면 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요": "Cliquez sur un clip pour modifier son sous-titre et son lieu dans l’aperçu · Faites glisser la règle pour déplacer la position",
+  "컷을 클릭하면 오른쪽에서 회전·삭제하고 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요": "Cliquez sur un clip pour le faire pivoter ou le supprimer à droite, et modifier son sous-titre et son lieu dans l’aperçu · Faites glisser la règle pour déplacer la position",
   "타임라인 재생 위치": "Position de lecture de la timeline",
   "AI 컷 분석이 끝나면 영상 트랙이 채워지고, 미리보기에서 자막을 바로 수정할 수 있어요. 음악은 미리 넣어둘 수 있어요.": "Une fois l’analyse des clips IA terminée, la piste vidéo se remplit et vous pouvez modifier les sous-titres dans l’aperçu. Vous pouvez ajouter la musique à l’avance.",
   "영상": "Vidéo",
@@ -857,4 +858,11 @@ export const uiFr: Record<string, string> = {
   "다크 테마로 전환": "Passer au thème sombre",
   "라이트 테마로 전환": "Passer au thème clair",
   "화면 도구": "Commandes d’affichage",
+  // 컷 인스펙터 (타임라인 컷 클릭 → 회전·삭제)
+  '컷 편집': 'Modifier le clip',
+  '빠른 편집': 'Modifications rapides',
+  '타임라인의 컷을 누르면 이곳에서 회전하거나 삭제할 수 있어요.':
+    'Cliquez sur un clip de la timeline pour le faire pivoter ou le supprimer ici.',
+  '이 컷을 삭제할까요?': 'Supprimer ce clip ?',
+  '삭제하면 되돌릴 수 없어요.': 'Cette action est irréversible.',
 };

@@ -85,6 +85,10 @@
 :root.dark .sv2-model-warn {
   color: #fbbf24;
 }
+/* 다크 모드의 밝은 빨간 버튼은 흰 글씨보다 어두운 글씨가 대비가 높다. */
+:root.dark .sv2-cut-confirm-delete {
+  color: #1a1010;
+}
 
 /* 빈 미리보기 카드도 다크 팔레트의 표면·경계 토큰과 같은 톤으로 맞춘다. */
 :root.dark .sv2-preview-empty-card {

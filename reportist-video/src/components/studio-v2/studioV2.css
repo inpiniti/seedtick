@@ -1924,6 +1924,147 @@
   flex-direction: column;
   gap: 10px;
 }
+/* 컷 인스펙터: 회전된 썸네일이 잘리지 않도록 고정 크기 래퍼를 둔다. */
+.sv2-cut-thumb-wrap {
+  flex: 0 0 92px;
+  width: 92px;
+  height: 56px;
+  border-radius: 8px;
+  background: var(--sv2-surface-3);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.sv2-cut-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+.sv2-cut-rotate-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.sv2-cut-rotate-btn {
+  width: 38px;
+  height: 34px;
+  border-radius: var(--sv2-radius-sm);
+  border: 1px solid var(--sv2-border-strong);
+  background: var(--sv2-surface);
+  color: var(--sv2-text-2);
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.sv2-cut-rotate-btn:hover {
+  color: var(--sv2-accent);
+  border-color: var(--sv2-accent);
+  background: var(--sv2-accent-soft);
+}
+.sv2-cut-angle {
+  min-width: 52px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--sv2-accent);
+  background: var(--sv2-accent-soft);
+  color: var(--sv2-accent);
+  font-size: 12px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+.sv2-cut-angle[data-zero='true'] {
+  border-color: var(--sv2-border-strong);
+  background: var(--sv2-surface-3);
+  color: var(--sv2-text-3);
+}
+.sv2-cut-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.sv2-cut-action-btn {
+  height: 38px;
+  border-radius: var(--sv2-radius-sm);
+  border: 1px solid var(--sv2-border-strong);
+  background: var(--sv2-surface);
+  color: var(--sv2-text);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.sv2-cut-action-btn:hover {
+  color: var(--sv2-accent);
+  border-color: var(--sv2-accent);
+  background: var(--sv2-accent-soft);
+}
+.sv2-cut-delete-btn {
+  height: 38px;
+  border-radius: var(--sv2-radius-sm);
+  border: 1px solid var(--sv2-border-strong);
+  background: var(--sv2-surface);
+  color: var(--sv2-danger);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.sv2-cut-delete-btn:hover {
+  border-color: var(--sv2-danger);
+  background: rgba(229, 72, 77, 0.1);
+}
+.sv2-cut-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--sv2-radius-sm);
+  border: 1px solid var(--sv2-danger);
+  background: rgba(229, 72, 77, 0.06);
+}
+.sv2-cut-confirm strong {
+  font-size: 13px;
+  color: var(--sv2-text);
+}
+.sv2-cut-confirm span {
+  font-size: 11px;
+  color: var(--sv2-text-2);
+}
+.sv2-cut-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.sv2-cut-confirm-actions > button {
+  flex: 1;
+}
+.sv2-cut-confirm-delete {
+  background: var(--sv2-danger);
+  border-color: var(--sv2-danger);
+  color: #fff;
+}
+.sv2-cut-confirm-delete:hover:not(:disabled) {
+  background: var(--sv2-danger);
+  filter: brightness(0.95);
+}
+.sv2-cut-rotate-btn:focus-visible,
+.sv2-cut-angle:focus-visible,
+.sv2-cut-action-btn:focus-visible,
+.sv2-cut-delete-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--sv2-focus-ring);
+}
 .sv2-field-label {
   font-size: 12px;
   font-weight: 800;

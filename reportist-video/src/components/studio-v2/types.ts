@@ -107,6 +107,7 @@ export interface StudioV2Props {
 }
 
 export type InspectorTarget =
+  | { type: 'cut'; segmentId: string }
   | { type: 'location'; segmentId: string }
   | { type: 'intro' }
   | { type: 'outro' }

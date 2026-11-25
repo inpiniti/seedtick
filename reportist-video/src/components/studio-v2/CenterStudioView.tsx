@@ -704,9 +704,14 @@ export const CenterStudioView = (props: StudioV2Props) => {
     inertRootRef: studioRootRef,
   });
 
+  // 인스펙터가 열려 있으면 그 컷을, 아니면 선택된 컷을 패널 기준으로 삼는다.
+  const inspectorSegmentId =
+    activeInspector?.type === 'cut' || activeInspector?.type === 'location'
+      ? activeInspector.segmentId
+      : selectedSegmentId;
   const activeSegment = useMemo(
-    () => displaySegments.find((s) => s.id === selectedSegmentId) ?? displaySegments[0] ?? null,
-    [displaySegments, selectedSegmentId]
+    () => displaySegments.find((s) => s.id === inspectorSegmentId) ?? displaySegments[0] ?? null,
+    [displaySegments, inspectorSegmentId]
   );
 
   const applyToVideo = useCallback(
@@ -827,7 +832,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
   }, [model, playhead]);
 
   useEffect(() => {
-    if (activeInspector?.type !== 'location' || !previewedSegmentId) return;
+    if (activeInspector?.type !== 'cut' && activeInspector?.type !== 'location') return;
+    if (!previewedSegmentId) return;
     if (
       selectedSegmentId === previewedSegmentId &&
       activeInspector.segmentId === previewedSegmentId
@@ -835,7 +841,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
       return;
     }
     setSelectedSegmentId(previewedSegmentId);
-    setActiveInspector({ type: 'location', segmentId: previewedSegmentId });
+    setActiveInspector({ type: activeInspector.type, segmentId: previewedSegmentId });
   }, [activeInspector, previewedSegmentId, selectedSegmentId]);
 
   /** 컷의 위치 버튼으로 인스펙터를 열면 미리보기도 해당 컷으로 이동시킨다. */
@@ -935,6 +941,26 @@ export const CenterStudioView = (props: StudioV2Props) => {
       if (item) seek(item.start);
     },
     [model.items, seek]
+  );
+
+  /** 타임라인에서 컷을 누르면 미리보기 이동과 함께 오른쪽 컷 인스펙터를 연다. */
+  const openCutInspector = useCallback(
+    (id: string) => {
+      selectSegment(id);
+      setActiveInspector({ type: 'cut', segmentId: id });
+    },
+    [selectSegment]
+  );
+
+  /** 컷을 삭제하면 그 컷을 가리키던 인스펙터도 함께 닫는다. */
+  const deleteCut = useCallback(
+    (id: string) => {
+      deleteSegment(id);
+      setActiveInspector((prev) =>
+        (prev?.type === 'cut' || prev?.type === 'location') && prev.segmentId === id ? null : prev
+      );
+    },
+    [deleteSegment]
   );
 
   // 온보딩에서 첫 샘플 컷이 생기면 재생 위치를 그 컷으로 옮긴다.
@@ -1137,7 +1163,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
         setSelectedSegmentId(null);
       }
       if (
-        activeInspector?.type === 'location' &&
+        (activeInspector?.type === 'cut' || activeInspector?.type === 'location') &&
         targetSegments.some((s) => s.id === activeInspector.segmentId)
       ) {
         setActiveInspector(null);
@@ -1422,6 +1448,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
           overlayOptions={overlayOptions}
           orientation={orientation}
           onUpdateSegment={updateSegment}
+          onDeleteSegment={deleteCut}
+          onTrimSegment={setTrimSegment}
+          onOpenLocation={openLocation}
           onApplyToVideo={applyToVideo}
           onOverlayChange={updateOverlay}
           onPreviewRequest={handlePreviewRequest}
@@ -1568,9 +1597,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
         onOpenMusic={openMusic}
         onToggleMusic={toggleMusic}
         musicInspectorOpen={activeInspector?.type === 'music'}
-        onSelect={selectSegment}
+        onSelect={openCutInspector}
         onUpdateSegment={updateSegment}
-        onDelete={deleteSegment}
+        onDelete={deleteCut}
         onTrim={setTrimSegment}
         onOpenLocation={openLocation}
         onOpenIntro={openIntro}

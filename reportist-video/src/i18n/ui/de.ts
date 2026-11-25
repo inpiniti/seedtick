@@ -723,6 +723,7 @@ export const uiDe: Record<string, string> = {
   "{date} · 위치 추가": "{date} · Ort hinzufügen",
   "타임라인": "Timeline",
   "컷을 클릭하면 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요": "Klick auf einen Clip bearbeitet Untertitel und Ort in der Vorschau · Lineal ziehen verschiebt die Wiedergabeposition",
+  "컷을 클릭하면 오른쪽에서 회전·삭제하고 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요": "Klick auf einen Clip dreht oder löscht ihn rechts und bearbeitet Untertitel und Ort in der Vorschau · Lineal ziehen verschiebt die Wiedergabeposition",
   "타임라인 재생 위치": "Wiedergabeposition der Timeline",
   "AI 컷 분석이 끝나면 영상 트랙이 채워지고, 미리보기에서 자막을 바로 수정할 수 있어요. 음악은 미리 넣어둘 수 있어요.": "Nach der KI-Clip-Analyse füllt sich die Videospur und Untertitel können in der Vorschau bearbeitet werden. Musik kann vorab hinzugefügt werden.",
   "영상": "Video",
@@ -857,4 +858,11 @@ export const uiDe: Record<string, string> = {
   "다크 테마로 전환": "Zum dunklen Design wechseln",
   "라이트 테마로 전환": "Zum hellen Design wechseln",
   "화면 도구": "Anzeige-Steuerung",
+  // 컷 인스펙터 (타임라인 컷 클릭 → 회전·삭제)
+  '컷 편집': 'Clip bearbeiten',
+  '빠른 편집': 'Schnellbearbeitung',
+  '타임라인의 컷을 누르면 이곳에서 회전하거나 삭제할 수 있어요.':
+    'Klicke auf einen Clip in der Timeline, um ihn hier zu drehen oder zu löschen.',
+  '이 컷을 삭제할까요?': 'Diesen Clip löschen?',
+  '삭제하면 되돌릴 수 없어요.': 'Das Löschen kann nicht rückgängig gemacht werden.',
 };
