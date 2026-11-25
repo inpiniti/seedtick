@@ -233,7 +233,7 @@ export async function stitchHighlightedSegments({
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
   }
 
-  // 0. 최신 브라우저: GPU 하드웨어 가속(WebCodecs 60fps 무결점) 렌더러 우선 시도
+  // 0. 최신 브라우저: GPU 하드웨어 가속(WebCodecs 30fps CFR 무결점) 렌더러 우선 시도
   if (isWebCodecsSupported()) {
     try {
       return await stitchVideosWebCodecs({
@@ -300,8 +300,10 @@ export async function stitchHighlightedSegments({
   const targetHeight = frame.height;
   const recorderBitrate = targetResolution === '1080p' ? (IS_IOS ? 6_500_000 : 14_000_000) : (IS_IOS ? 3_200_000 : 6_500_000);
 
-  // iOS는 하드웨어 인코더/메모리 안정성을 위해 30fps 유지, 데스크탑은 60fps 고주사율로 부드러움 극대화
-  const targetFps = IS_IOS ? 30 : 60;
+  // 원본(24~30fps)과 1:1 CFR 동기화. 실시간 captureStream에서 60fps를 강제하면
+  // 디코더가 아직 이전 프레임인데도 캡처 타이머가 먼저 방출되어 프레임 스킵/중복이 생긴다.
+  // 아래 정밀 프레임 스텝 폴백도 30fps로 동작하므로 파이프라인 전체를 30fps로 통일한다.
+  const targetFps = 30;
   const targetFrameIntervalMs = 1000 / targetFps;
 
   const canvas = document.createElement('canvas');
@@ -376,7 +378,7 @@ export async function stitchHighlightedSegments({
     }
   }
 
-  // 비디오 스트림 캡처 (iOS 30fps, 데스크탑 60fps)
+  // 비디오 스트림 캡처 (전 플랫폼 30fps CFR)
   const canvasStream = canvas.captureStream(targetFps);
   const canvasVideoTrack = (canvasStream.getVideoTracks()[0] || null) as CanvasCaptureTrackWithRequestFrame | null;
   let lastCanvasDrawAt = performance.now();

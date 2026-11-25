@@ -1,4 +1,4 @@
-// services/videoStitcherWebCodecs.ts - GPU 하드웨어 가속(WebCodecs) 기반 고화질 60fps 무결점 비디오 병합 엔진
+// services/videoStitcherWebCodecs.ts - GPU 하드웨어 가속(WebCodecs) 기반 고화질 30fps CFR 무결점 비디오 병합 엔진
 // VideoEncoder + mp4-muxer + OfflineAudioContext를 활용하여 실시간 녹화의 프레임 누락(Stuttering)을 완전 제거합니다.
 
 import { Muxer } from 'mp4-muxer';
@@ -387,8 +387,11 @@ export async function stitchVideosWebCodecs({
   const targetHeight = frame.height;
   const is1080p = requestedResolution === '1080p';
 
-  // 모바일/아이폰은 배터리 및 하드웨어 디코더 부하를 줄이고 인코딩 속도를 2배 단축하기 위해 30fps 적용, 데스크톱은 60fps 고주사율 유지
-  const targetFps = IS_MOBILE ? 30 : 60;
+  // 원본 영상(아이폰 .MOV 포함 대부분 24~30fps)과 1:1 CFR로 맞춘다.
+  // 데스크톱에서 60fps로 강제하면 실타임 디코더가 30fps 프레임을 내놓기 전에
+  // 벽시계 기준 캡처가 먼저 끝나 프레임이 앞당겨지거나 건너뛰어(지터·스킵)
+  // 미리보기보다 내보내기에서 더 심한 끊김이 발생한다. 30fps 고정으로 해결.
+  const targetFps = 30;
   const targetBitrate = is1080p
     ? (IS_MOBILE ? 9_000_000 : 18_000_000)
     : (IS_MOBILE ? 4_500_000 : 10_000_000);
@@ -401,7 +404,7 @@ export async function stitchVideosWebCodecs({
         ? '모바일 전력/메모리 최적화 모드'
         : OFFLINE_DECODE_ENABLED
           ? '데스크톱 오프라인 디코딩 모드'
-          : '데스크톱 60fps 최고화질 모드'
+          : '데스크톱 고화질 모드'
     })`
   );
 
@@ -517,7 +520,8 @@ export async function stitchVideosWebCodecs({
   });
 
   // 고품질 H.264 하드웨어 가속 설정
-  // 1080p 60fps는 Level 4.2 (avc1.64002a), 1080p 30fps/720p 60fps는 Level 4.0 (avc1.640028)
+  // 30fps CFR 기준 1080p는 Level 4.0 (avc1.640028), 720p는 Level 3.1 (avc1.4d401f)이면 충분하다.
+  // 상위 레벨 후보는 하드웨어 인코더가 더 높은 프로파일만 지원하는 기기 대비용으로 남긴다.
   const candidateCodecs = is1080p
     ? ['avc1.64002a', 'avc1.640028', 'avc1.4d4028', 'avc1.420028', 'avc1.42001f']
     : ['avc1.640028', 'avc1.4d401f', 'avc1.42001f'];
