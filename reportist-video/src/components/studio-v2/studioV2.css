@@ -1109,9 +1109,13 @@
   height: 100%;
 }
 
+.sv2-preview-empty-tilt {
+  width: min(760px, 100%);
+}
+
 .sv2-preview-empty-card {
   position: relative;
-  width: min(760px, 100%);
+  width: 100%;
   aspect-ratio: 16 / 9;
   display: grid;
   place-items: center;
@@ -1122,8 +1126,11 @@
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
-.sv2-preview-empty[data-orientation='portrait'] .sv2-preview-empty-card {
+.sv2-preview-empty[data-orientation='portrait'] .sv2-preview-empty-tilt {
   width: min(420px, 100%);
+}
+
+.sv2-preview-empty[data-orientation='portrait'] .sv2-preview-empty-card {
   aspect-ratio: 9 / 16;
 }
 

@@ -2,6 +2,9 @@
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 영어 번역.
 // 키는 화면에 남아 있던 한국어 원문(공백 정규화)이며, 기존 dict에 없는 문구만 담는다.
 export const uiEn: Record<string, string> = {
+  '영상을 추가하면 미리보기가 나타나요': 'Add a video to see the preview',
+  '원본 영상을 올리면 컷과 자막을 여기서 확인할 수 있어요':
+    'Upload your clips to check cuts and captions here',
   '공유': 'Share',
   '공유 영상 미리보기': 'Shared video preview',
   '스튜디오로 돌아가기': 'Back to studio',

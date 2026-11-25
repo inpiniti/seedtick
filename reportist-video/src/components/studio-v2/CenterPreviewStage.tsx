@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
+import { Tilt, TiltContent } from '@animate-ui/react/primitives/effects/tilt';
 import {
   computeMetaLayoutFromTexts,
   drawCompositorCoverFrame,
@@ -200,12 +201,14 @@ export const CenterPreviewStage = ({
   if (!hasContent) {
     return (
       <div className="sv2-preview-empty" data-orientation={orientation}>
-        <div className="sv2-preview-empty-card">
-          <span className="sv2-preview-empty-sheen" aria-hidden="true" />
-          <span className="sv2-preview-empty-play" aria-hidden="true">
-            <Play size={26} fill="currentColor" strokeWidth={1.5} />
-          </span>
-        </div>
+        <Tilt maxTilt={8} className="sv2-preview-empty-tilt">
+          <TiltContent className="sv2-preview-empty-card">
+            <span className="sv2-preview-empty-sheen" aria-hidden="true" />
+            <span className="sv2-preview-empty-play" aria-hidden="true">
+              <Play size={26} fill="currentColor" strokeWidth={1.5} />
+            </span>
+          </TiltContent>
+        </Tilt>
         <div className="sv2-preview-empty-copy">
           <strong>{ui('영상을 추가하면 미리보기가 나타나요')}</strong>
           <span>{ui('원본 영상을 올리면 컷과 자막을 여기서 확인할 수 있어요')}</span>

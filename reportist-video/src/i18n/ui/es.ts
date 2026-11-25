@@ -1,6 +1,9 @@
 // src/i18n/ui/es.ts
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 스페인어 번역.
 export const uiEs: Record<string, string> = {
+  '영상을 추가하면 미리보기가 나타나요': 'Añade un vídeo para ver la vista previa',
+  '원본 영상을 올리면 컷과 자막을 여기서 확인할 수 있어요':
+    'Sube tus clips para ver los cortes y subtítulos aquí',
   '공유': 'Compartir',
   '공유 영상 미리보기': 'Vista previa del vídeo compartido',
   '스튜디오로 돌아가기': 'Volver al estudio',
