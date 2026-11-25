@@ -9,28 +9,23 @@ import './studioIntro.css';
 
 export type StudioIntroPhase = 'intro' | 'flying' | 'revealing' | 'done';
 
-const DRAW_MS = 1100;
-const FLY_MS = 620;
-const REVEAL_MS = 900;
-const INTRO_SEEN_KEY = 'sv2-intro-seen';
+// 각 단계 지속 시간은 studioIntro.css의 전환/애니메이션 길이와 일치시킨다.
+const DRAW_MS = 1400;
+const FLY_MS = 820;
+const HAND_OFF_MS = 120;
+const REVEAL_MS = 1350;
 
 /**
  * 인트로를 건너뛸지 판단한다.
- * - 모션 감소 설정/세션 내 재방문은 즉시 본 화면으로 진입
- * - ?intro=1 이면 세션 기록과 무관하게 다시 재생 (개발·데모용)
- * - ?intro=0 이면 명시적으로 비활성화
+ * 새로고침·재방문에도 매번 재생하고, 모션 감소 설정 또는 ?intro=0 에서만 생략한다.
+ * (?intro=1 은 재생을 명시적으로 강제하는 플래그)
  */
 export function shouldSkipStudioIntro(): boolean {
   if (typeof window === 'undefined') return true;
   const params = new URLSearchParams(window.location.search);
   if (params.get('intro') === '1') return false;
   if (params.get('intro') === '0') return true;
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return true;
-  try {
-    return window.sessionStorage.getItem(INTRO_SEEN_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
 interface StudioIntroProps {
@@ -42,7 +37,6 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
   const [phase, setPhase] = useState<StudioIntroPhase>(initialPhase);
   const [drawn, setDrawn] = useState(false);
   const groupRef = useRef<HTMLDivElement>(null);
-  const iconRef = useRef<HTMLSpanElement>(null);
   const flightRef = useRef<Animation | null>(null);
 
   // 부모의 루트 data-intro 속성과 내부 위상을 항상 동기화한다.
@@ -72,22 +66,20 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
 
     if (phase === 'flying') {
       const group = groupRef.current;
-      const icon = iconRef.current;
       // 상단바는 아직 투명하지만 레이아웃은 잡혀 있어 목표 좌표를 측정할 수 있다.
+      // 감싼 span(80×80)이 아니라 실제 SVG(≈61×80)를 기준으로 스케일을 계산해야
+      // 상단바 로고와 크기·중심이 정확히 일치한다.
+      const icon = group?.querySelector('svg');
       const target = document.querySelector('.sv2-brand-logo');
-      if (group && icon && target) {
-        const g = group.getBoundingClientRect();
-        const i = icon.getBoundingClientRect();
-        const t = target.getBoundingClientRect();
-        const scale = i.width > 0 && t.width > 0 ? Math.max(0.05, t.width / i.width) : 0.3;
-        const gx = g.left + g.width / 2;
-        const gy = g.top + g.height / 2;
-        // 그룹 중심 기준으로 스케일링하므로 아이콘 중심이 목표에 정확히 닿도록 보정한다.
-        const dx = t.left + t.width / 2 - gx - (i.left + i.width / 2 - gx) * scale;
-        const dy = t.top + t.height / 2 - gy - (i.top + i.height / 2 - gy) * scale;
+      if (icon && target) {
+        const from = icon.getBoundingClientRect();
+        const to = target.getBoundingClientRect();
+        const scale = from.width > 0 ? to.width / from.width : 0.325;
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
 
         flightRef.current?.cancel();
-        flightRef.current = group.animate(
+        flightRef.current = icon.animate(
           [
             { transform: 'translate(0px, 0px) scale(1)' },
             { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
@@ -99,21 +91,13 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
           }
         );
       }
-      const timer = window.setTimeout(() => setPhase('revealing'), FLY_MS);
+      const timer = window.setTimeout(() => setPhase('revealing'), FLY_MS + HAND_OFF_MS);
       return () => window.clearTimeout(timer);
     }
 
     if (phase === 'revealing') {
       const timer = window.setTimeout(() => setPhase('done'), REVEAL_MS);
       return () => window.clearTimeout(timer);
-    }
-
-    if (phase === 'done') {
-      try {
-        window.sessionStorage.setItem(INTRO_SEEN_KEY, '1');
-      } catch {
-        // storage 차단 환경에서는 세션 내 반복 재생을 허용한다.
-      }
     }
 
     return;
@@ -133,7 +117,7 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
     <div className="sv2-intro-overlay" data-phase={phase} data-drawn={drawn} aria-hidden="true">
       <div className="sv2-intro-glow" />
       <div className="sv2-intro-group" ref={groupRef} data-phase={phase} data-drawn={drawn}>
-        <span className="sv2-intro-icon" ref={iconRef}>
+        <span className="sv2-intro-icon">
           <PenguinLogo size={80} color="#191f28" />
         </span>
         <span className="sv2-intro-wordmark">PenguinCut</span>
