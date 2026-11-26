@@ -9,6 +9,7 @@ import { decisionsRoute } from './routes/decisions.ts';
 import { healthRoute } from './routes/health.ts';
 import { imagesRoute } from './routes/images.ts';
 import { modelsRoute } from './routes/models.ts';
+import { trendsRoute } from './routes/trends.ts';
 import { yahooRoute } from './routes/yahoo.ts';
 
 export const app = new Elysia()
@@ -30,4 +31,5 @@ export const app = new Elysia()
   .use(chatRoute)
   .use(decisionsRoute)
   .use(yahooRoute)
+  .use(trendsRoute)
   .use(debugRoute);

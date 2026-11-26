@@ -22,7 +22,6 @@ import { ANIMAL_SPECIES, getSpeciesGait, type AnimalSpecies } from './species.ts
 import {
   requestAnimalLine,
   requestDiscussionTopic,
-  getFallbackTopic,
   type DiscussionEntry,
 } from '../../../services/animalChatService.ts';
 import type {
@@ -261,6 +260,7 @@ export const StudioPenguinStage = forwardRef<
 
     interface Discussion {
       topic: string;
+      context?: string;
       memberIds: number[];
       turns: number;
       history: DiscussionEntry[];
@@ -272,58 +272,57 @@ export const StudioPenguinStage = forwardRef<
       const agents = agentsRef.current;
       if (agents.length < 2 || chatInFlightRef.current || pendingSpeech) return;
 
-      if (!discussion || discussion.turns >= MAX_TURNS_PER_TOPIC) {
-        const anchor = agents[Math.floor(Math.random() * agents.length)];
-        const nearest = agents
-          .filter((a) => a !== anchor)
-          .sort(
-            (a, b) =>
-              Math.hypot(a.physics.x - anchor.physics.x, a.physics.y - anchor.physics.y) -
-              Math.hypot(b.physics.x - anchor.physics.x, b.physics.y - anchor.physics.y)
-          );
-        const members = [anchor];
-        for (const candidate of nearest) {
-          if (members.length >= DISCUSSION_GROUP_SIZE) break;
-          members.push(candidate);
-        }
-        const started: Discussion = {
-          topic: getFallbackTopic(performance.now()),
-          memberIds: members.map((m) => m.id),
-          turns: 0,
-          history: [],
-        };
-        discussion = started;
-        void requestDiscussionTopic()
-          .then((topic) => {
-            if (discussion === started) started.topic = topic;
-          })
-          .catch(() => undefined);
-      }
+      void (async () => {
+        chatInFlightRef.current = true;
+        const controller = new AbortController();
+        chatAbortRef.current = controller;
+        try {
+          if (!discussion || discussion.turns >= MAX_TURNS_PER_TOPIC) {
+            const anchor = agents[Math.floor(Math.random() * agents.length)];
+            const nearest = agents
+              .filter((a) => a !== anchor)
+              .sort(
+                (a, b) =>
+                  Math.hypot(a.physics.x - anchor.physics.x, a.physics.y - anchor.physics.y) -
+                  Math.hypot(b.physics.x - anchor.physics.x, b.physics.y - anchor.physics.y)
+              );
+            const members = [anchor];
+            for (const candidate of nearest) {
+              if (members.length >= DISCUSSION_GROUP_SIZE) break;
+              members.push(candidate);
+            }
+            // 주제를 먼저 확정한 뒤 1번 발언을 요청해 첫 마디 엇박자를 제거한다.
+            const topicInfo = await requestDiscussionTopic(controller.signal);
+            if (controller.signal.aborted) return;
+            discussion = {
+              topic: topicInfo.topic,
+              context: topicInfo.context,
+              memberIds: members.map((m) => m.id),
+              turns: 0,
+              history: [],
+            };
+          }
 
-      const current = discussion;
-      const members = current.memberIds
-        .map((id) => agents.find((a) => a.id === id))
-        .filter((a): a is (typeof agents)[number] => Boolean(a));
-      if (members.length < 2) {
-        discussion = null;
-        return;
-      }
-      const speaker = members[current.turns % members.length];
-      const listener = members[(current.turns + 1) % members.length];
+          const current = discussion;
+          const members = current.memberIds
+            .map((id) => agents.find((a) => a.id === id))
+            .filter((a): a is (typeof agents)[number] => Boolean(a));
+          if (members.length < 2) {
+            discussion = null;
+            return;
+          }
+          const speaker = members[current.turns % members.length];
+          const listener = members[(current.turns + 1) % members.length];
 
-      chatInFlightRef.current = true;
-      const controller = new AbortController();
-      chatAbortRef.current = controller;
-
-      void requestAnimalLine({
-        speaker: speaker.species,
-        listener: listener.species,
-        topic: current.topic,
-        history: current.history,
-        wantImage: Math.random() < 0.08 && current.turns % 5 === 0,
-        signal: controller.signal,
-      })
-        .then((speech) => {
+          const speech = await requestAnimalLine({
+            speaker: speaker.species,
+            listener: listener.species,
+            topic: current.topic,
+            topicContext: current.context,
+            history: current.history,
+            wantImage: Math.random() < 0.08 && current.turns % 5 === 0,
+            signal: controller.signal,
+          });
           if (controller.signal.aborted || exportingRef.current) return;
           pendingSpeech = {
             agentId: speaker.id,
@@ -333,12 +332,13 @@ export const StudioPenguinStage = forwardRef<
           current.turns += 1;
           current.history.push({ speaker: speaker.species, text: speech.text });
           if (current.history.length > 5) current.history.shift();
-        })
-        .catch(() => undefined)
-        .finally(() => {
+        } catch {
+          // 실패 시 다음 프레임에서 다시 시도한다.
+        } finally {
           if (chatAbortRef.current === controller) chatAbortRef.current = null;
           chatInFlightRef.current = false;
-        });
+        }
+      })();
     };
 
     let raf = 0;

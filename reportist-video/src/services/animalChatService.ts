@@ -16,6 +16,12 @@ export interface DiscussionEntry {
   text: string;
 }
 
+/** 게이트웨이 /v1/trends가 내려주는 토론 주제 정보. */
+export interface DiscussionTopicInfo {
+  topic: string;
+  context?: string;
+}
+
 /** 게이트웨이 실패·쿼터 고갈 시 사용하는 종별 한국어 대사. */
 const FALLBACK_LINES: Record<AnimalSpecies, string[]> = {
   penguin: ['오늘 설원 좀 춥네?', '같이 걸을래?', '발자국 남겼어!', '여기서 기다릴게.'],
@@ -86,48 +92,67 @@ export function getFallbackTopic(now: number): string {
   return FALLBACK_TOPICS[Math.floor(now / 22000) % FALLBACK_TOPICS.length];
 }
 
-/** 토론 주제를 모델 지정 없이 받는다. 실패 시 로컬 주제로 대체. */
-export async function requestDiscussionTopic(signal?: AbortSignal): Promise<string> {
+const TREND_CLIENT_TTL_MS = 15 * 60 * 1000;
+const TREND_FETCH_TIMEOUT_MS = 3000;
+let cachedTrendPool: DiscussionTopicInfo[] = [];
+let trendPoolFetchedAt = 0;
+let trendCursor = 0;
+let trendFetchPromise: Promise<DiscussionTopicInfo[]> | null = null;
+
+function loadTrendPool(signal?: AbortSignal): Promise<DiscussionTopicInfo[]> {
+  if (trendFetchPromise) return trendFetchPromise;
   const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
-  const controller = fetchWithTimeout(CHAT_TIMEOUT_MS, signal);
-  try {
-    const response = await fetch(`${base}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${DEFAULT_CONFIG.gatewaySecret}`,
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content:
-              '너는 아기 동물들이 모여 이야기하는 설원의 진행자다. 오직 한국어 토론 주제 한 줄만 출력한다. 설명·영어·따옴표·이모지 금지. 18자 이내. 요즘 사람들이 많이 이야기하는 화제를 골라주면 좋다.',
-          },
-          { role: 'user', content: '요즘 화제성 있는 이야기 중 귀여운 동물들이 토론할 만한 짧은 주제 하나 줘.' },
-        ],
-        temperature: 1.1,
-        max_tokens: 32,
-        stream: false,
-      }),
-      signal: controller,
-    });
-    if (response.ok) {
-      const result = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
+  const controller = fetchWithTimeout(TREND_FETCH_TIMEOUT_MS, signal);
+  trendFetchPromise = (async (): Promise<DiscussionTopicInfo[]> => {
+    try {
+      const response = await fetch(`${base}/v1/trends`, {
+        headers: { Accept: 'application/json' },
+        signal: controller,
+      });
+      if (!response.ok) return [];
+      const payload = (await response.json()) as {
+        items?: Array<{ topic?: string; context?: string }>;
       };
-      const content = result.choices?.[0]?.message?.content;
-      if (typeof content === 'string') {
-        const cleaned = cleanLine(content);
-        if (isValidLine(cleaned)) return cleaned;
-      }
+      const items = (payload.items ?? [])
+        .map((item) => ({
+          topic: typeof item.topic === 'string' ? item.topic.trim().slice(0, 42) : '',
+          context: typeof item.context === 'string' ? item.context.trim().slice(0, 80) : undefined,
+        }))
+        .filter((item) => item.topic.length >= 4);
+      if (items.length === 0) return [];
+      cachedTrendPool = items;
+      trendPoolFetchedAt = performance.now();
+      trendCursor = 0;
+      return items;
+    } catch {
+      return [];
+    } finally {
+      cleanupFetchSignal(controller);
+      trendFetchPromise = null;
     }
-  } catch {
-    // 로컬 주제로 대체한다.
-  } finally {
-    cleanupFetchSignal(controller);
+  })();
+  return trendFetchPromise;
+}
+
+/** 게이트웨이 /v1/trends 캐시 풀에서 주제를 순환 반환. 실패 시 로컬 주제. */
+export async function requestDiscussionTopic(
+  signal?: AbortSignal
+): Promise<DiscussionTopicInfo> {
+  if (
+    cachedTrendPool.length > 0 &&
+    performance.now() - trendPoolFetchedAt < TREND_CLIENT_TTL_MS
+  ) {
+    const item = cachedTrendPool[trendCursor % cachedTrendPool.length];
+    trendCursor += 1;
+    if (item) return item;
   }
-  return getFallbackTopic(performance.now());
+  const pool = await loadTrendPool(signal);
+  if (pool.length > 0) {
+    const item = pool[trendCursor % pool.length] ?? pool[0];
+    trendCursor += 1;
+    if (item) return item;
+  }
+  return { topic: getFallbackTopic(performance.now()) };
 }
 
 const CHAT_TIMEOUT_MS = 7000;
@@ -169,8 +194,12 @@ function cleanLine(raw: string): string {
 /** 모델이 대사 대신 설명을 내놓을 때를 걸러낸다. */
 function isValidLine(text: string): boolean {
   if (text.length < 2 || text.length > 42) return false;
-  if (/[A-Za-z]{3,}/.test(text)) return false;
-  if (/(user|assistant|system|want|act as|prompt|프롬프트|대사만)/i.test(text)) return false;
+  // 순수 영어 응답은 차단하되 MBTI·OTT·ChatGPT 같은 짧은 약어는 허용한다.
+  if ((text.match(/[가-힣]/g)?.length ?? 0) < 2) return false;
+  if ((text.match(/[A-Za-z]/g)?.length ?? 0) > 10) return false;
+  if (/(user|assistant|system|thinking|sure,|here is|act as|prompt|프롬프트|대사만)/i.test(text)) {
+    return false;
+  }
   return true;
 }
 
@@ -183,6 +212,7 @@ export async function requestAnimalLine(params: {
   previousSpeaker?: AnimalSpecies;
   /** 토론 모드: 주제와 최근 발언 목록을 함께 넘긴다. */
   topic?: string;
+  topicContext?: string;
   history?: DiscussionEntry[];
   wantImage?: boolean;
   signal?: AbortSignal;
@@ -193,6 +223,7 @@ export async function requestAnimalLine(params: {
     previousText,
     previousSpeaker,
     topic,
+    topicContext,
     history,
     wantImage,
     signal,
@@ -206,8 +237,9 @@ export async function requestAnimalLine(params: {
     .slice(-3)
     .map((entry) => `${ANIMAL_LABELS[entry.speaker]}: ${entry.text}`)
     .join('\n');
+  const contextLine = topicContext ? `오늘의 화제 배경: ${topicContext}\n` : '';
   const userPrompt = topic
-    ? `오늘 토론 주제: "${topic}"\n지금까지의 발언:\n${transcript || '(아직 없음)'}\n${speakerLabel}로서 이 주제에 대한 네 의견을 한국어 한 줄로 말해줘. 앞선 말에 동의하거나 반박해도 좋아.`
+    ? `오늘 토론 주제: "${topic}"\n${contextLine}지금까지의 발언:\n${transcript || '(아직 없음)'}\n${speakerLabel}로서 이 주제에 대한 네 솔직한 취향이나 의견을 한국어 반말 한 줄로 말해줘. 앞선 친구 말에 맞장구치거나 반박해도 좋아.`
     : isReply
       ? `방금 ${previousSpeakerLabel}이 "${previousText}"라고 했어. ${speakerLabel}로서 자연스럽게 받아치는 한국어 대사 한 줄만 써.`
       : `${listenerLabel}에게 다정하게 말 걸어줘. 예: "안녕! 같이 놀래?" 와 같은 대사만 써.`;
