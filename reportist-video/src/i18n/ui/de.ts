@@ -2,6 +2,7 @@
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 독일어 번역.
 export const uiDe: Record<string, string> = {
   '주제: {topic}': 'Thema: {topic}',
+  '배경: {context}': 'Hintergrund: {context}',
   '영상을 추가하면 미리보기가 나타나요': 'Füge ein Video hinzu, um die Vorschau zu sehen',
   '원본 영상을 올리면 컷과 자막을 여기서 확인할 수 있어요':
     'Lade deine Clips hoch, um Schnitte und Untertitel hier zu prüfen',

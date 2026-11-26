@@ -3,6 +3,7 @@
 // 키는 화면에 남아 있던 한국어 원문(공백 정규화)이며, 기존 dict에 없는 문구만 담는다.
 export const uiEn: Record<string, string> = {
   '주제: {topic}': 'Topic: {topic}',
+  '배경: {context}': 'Context: {context}',
   '영상을 추가하면 미리보기가 나타나요': 'Add a video to see the preview',
   '원본 영상을 올리면 컷과 자막을 여기서 확인할 수 있어요':
     'Upload your clips to check cuts and captions here',

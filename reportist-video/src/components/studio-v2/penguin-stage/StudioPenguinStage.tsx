@@ -186,6 +186,7 @@ export const StudioPenguinStage = forwardRef<
   const [briefing, setBriefing] = useState<DiscussionBriefing | null>(null);
   // 모듈에 남아 있는 토론을 리마운트 뒤에도 그대로 표시한다.
   const [topic, setTopic] = useState(() => activeDiscussion?.topic ?? '');
+  const [topicContext, setTopicContext] = useState(() => activeDiscussion?.context ?? '');
   const [showTranscript, setShowTranscript] = useState(false);
   const advanceRef = useRef<() => void>(() => undefined);
 
@@ -411,6 +412,7 @@ export const StudioPenguinStage = forwardRef<
       setTranscript([]);
       setBriefing(null);
       setTopic('');
+      setTopicContext('');
       nextTurnAt = 0;
     };
     advanceRef.current = advanceTopic;
@@ -458,6 +460,7 @@ export const StudioPenguinStage = forwardRef<
             };
             setBriefing(prepared);
             setTopic(topicInfo.topic);
+            setTopicContext(topicInfo.context ?? '');
             setTranscript([]);
           }
 
@@ -727,9 +730,18 @@ export const StudioPenguinStage = forwardRef<
     <div className="sv2-stage-shell">
       <canvas ref={canvasRef} className="sv2-penguin-stage" aria-hidden="true" />
       {topic && (
-        <p className="sv2-discussion-topic" role="status" title={topic}>
-          {ui('주제: {topic}', { topic })}
-        </p>
+        <div
+          className="sv2-discussion-topic"
+          role="status"
+          title={`${topic}${topicContext ? `\n${topicContext}` : ''}`}
+        >
+          <p>{ui('주제: {topic}', { topic })}</p>
+          {topicContext && (
+            <p className="sv2-discussion-topic-context">
+              {ui('배경: {context}', { context: topicContext })}
+            </p>
+          )}
+        </div>
       )}
       <div className="sv2-discussion-controls">
         <button

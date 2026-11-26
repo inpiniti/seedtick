@@ -955,27 +955,32 @@
   z-index: 0;
   pointer-events: none;
 }
-/* 동물 토론의 현재 주제. 스테이지 왼쪽 위에 항상 떠 있어 주제를 바로 알 수 있다. */
+/* 동물 토론의 현재 주제와 화제 배경. 스테이지 왼쪽 위에 항상 떠 있다. */
 .sv2-discussion-topic {
   position: absolute;
   left: 14px;
   top: 14px;
   z-index: 1;
-  max-width: min(360px, 48vw);
-  margin: 0;
-  padding: 6px 12px;
+  max-width: min(380px, 50vw);
+  padding: 8px 12px;
   border: 1px solid var(--sv2-border);
-  border-radius: 999px;
+  border-radius: var(--sv2-radius);
   background: color-mix(in srgb, var(--sv2-surface) 92%, transparent);
   box-shadow: var(--sv2-shadow);
   color: var(--sv2-text-2);
   font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.5;
+  word-break: keep-all;
   pointer-events: auto;
+}
+.sv2-discussion-topic p {
+  margin: 0;
+  font-weight: 600;
+}
+.sv2-discussion-topic-context {
+  margin-top: 3px;
+  color: var(--sv2-text-3);
+  font-weight: 500;
 }
 .sv2-discussion-controls {
   position: absolute;

@@ -2,6 +2,7 @@
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 스페인어 번역.
 export const uiEs: Record<string, string> = {
   '주제: {topic}': 'Tema: {topic}',
+  '배경: {context}': 'Contexto: {context}',
   '영상을 추가하면 미리보기가 나타나요': 'Añade un vídeo para ver la vista previa',
   '원본 영상을 올리면 컷과 자막을 여기서 확인할 수 있어요':
     'Sube tus clips para ver los cortes y subtítulos aquí',
