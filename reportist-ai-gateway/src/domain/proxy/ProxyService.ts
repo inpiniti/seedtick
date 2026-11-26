@@ -217,7 +217,8 @@ export class ProxyService {
   private async resolveTargetModels(
     requestedModel: string | undefined,
     requiredInputs: Array<'text' | 'image' | 'audio' | 'video'>,
-    outputModality: 'text' | 'image' | 'audio' | 'video'
+    outputModality: 'text' | 'image' | 'audio' | 'video',
+    textOnlyModels = false
   ): Promise<string[]> {
     const direct = requestedModel?.trim();
     if (direct) return [direct];
@@ -231,6 +232,7 @@ export class ProxyService {
         outputModality,
         requiredInputs,
         excludeIds,
+        textOnly: textOnlyModels,
       });
       if (!selected?.id) break;
       candidates.push(selected.id);
@@ -238,7 +240,10 @@ export class ProxyService {
     }
 
     if (candidates.length === 0) {
-      return ['nvidia/nemotron-3.5-super-vl:free'];
+      // 텍스트 전용 요청은 멀티모달 폴백 모델을 절대 사용하지 않는다.
+      return [
+        textOnlyModels ? 'nvidia/nemotron-3.5-lightning:free' : 'nvidia/nemotron-3.5-super-vl:free',
+      ];
     }
 
     const start = this.autoModelCursor % candidates.length;
@@ -393,7 +398,8 @@ export class ProxyService {
 
   async chat(
     request: ChatRequest,
-    opencodeKeyOverride?: string
+    opencodeKeyOverride?: string,
+    options?: { textOnlyModels?: boolean }
   ): Promise<ChatResponse | GatewayError> {
     const attempts: GatewayAttempt[] = [];
     const directModel = request.model?.trim();
@@ -401,7 +407,12 @@ export class ProxyService {
       return this.chatOpenCode(request, directModel, opencodeKeyOverride);
     }
     const requiredInputs = this.inferRequiredInputs(request);
-    const targetModels = await this.resolveTargetModels(request.model, requiredInputs, 'text');
+    const targetModels = await this.resolveTargetModels(
+      request.model,
+      requiredInputs,
+      'text',
+      options?.textOnlyModels === true
+    );
     const isGeminiDirectRequest = Boolean(request.model?.trim().startsWith('gemini'));
 
     for (const targetModel of targetModels) {
@@ -506,8 +517,9 @@ export class ProxyService {
     }
 
     // 2. Gemini 직통 또는 통합 풀 소진 시 Gemini 폴백
+    // 텍스트 전용 요청에서는 멀티모달 Gemini로 새지 않도록 폴백을 건너뛴다.
     const geminiAdapter = this.adapters.get('gemini');
-    if (geminiAdapter && env.geminiKeys.length > 0) {
+    if (!options?.textOnlyModels && geminiAdapter && env.geminiKeys.length > 0) {
       const geminiModel = isGeminiDirectRequest
         ? request.model?.trim() || 'gemini-3.5-flash-lite'
         : 'gemini-3.5-flash-lite';

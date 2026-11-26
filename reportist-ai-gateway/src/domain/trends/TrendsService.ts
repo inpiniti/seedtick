@@ -331,23 +331,26 @@ export class TrendsService {
     const timer = setTimeout(() => controller.abort(), LLM_CURATE_TIMEOUT_MS);
     try {
       const result = await Promise.race([
-        proxyService.chat({
-          messages: [
-            {
-              role: 'system',
-              content:
-                `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.${avoidLine}`,
-            },
-            {
-              role: 'user',
-              content: numbered,
-            },
-          ],
-          temperature: 0.5,
-          max_tokens: 900,
-          reasoning_effort: 'none',
-          stream: false,
-        }),
+        proxyService.chat(
+          {
+            messages: [
+              {
+                role: 'system',
+                content: `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.${avoidLine}`,
+              },
+              {
+                role: 'user',
+                content: numbered,
+              },
+            ],
+            temperature: 0.5,
+            max_tokens: 900,
+            reasoning_effort: 'none',
+            stream: false,
+          },
+          undefined,
+          { textOnlyModels: true }
+        ),
         new Promise<never>((_resolve, reject) => {
           controller.signal.addEventListener('abort', () => reject(new Error('timeout')), {
             once: true,

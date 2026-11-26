@@ -114,29 +114,33 @@ export class DiscussionPrepService {
     const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
     try {
       const result = await Promise.race([
-        proxyService.chat({
-          messages: [
-            {
-              role: 'system',
-              content:
-                '너는 아기 동물 토론방의 자료 조사원이다. 주제와 아래 검색 결과만 근거로 삼아 ' +
-                '순수 JSON 객체 하나만 출력한다. 형식: {"background":"주제 배경 2~3문장",' +
-                '"facts":[{"claim":"확인된 사실 한 줄","source":"출처명","url":"링크"}],' +
-                '"questions":["토론할 쟁점 질문","토론할 쟁점 질문"],' +
-                '"limitation":"확인하지 못한 부분이나 주의점(없으면 빈 문자열)"}。' +
-                '검색 결과에 없는 날짜·수치·인물은 만들지 말고, 불확실하면 limitation에 적어라. ' +
-                'facts는 최대 4개, questions는 최대 3개. 마크다운 코드블록 없이 JSON만 출력해라.',
-            },
-            {
-              role: 'user',
-              content: `토론 주제: ${topic}\n화제 배경: ${context ?? '(없음)'}\n\n검색 결과:\n${numbered || '(검색 결과 없음)'}`,
-            },
-          ],
-          temperature: 0.3,
-          max_tokens: 700,
-          reasoning_effort: 'none',
-          stream: false,
-        }),
+        proxyService.chat(
+          {
+            messages: [
+              {
+                role: 'system',
+                content:
+                  '너는 아기 동물 토론방의 자료 조사원이다. 주제와 아래 검색 결과만 근거로 삼아 ' +
+                  '순수 JSON 객체 하나만 출력한다. 형식: {"background":"주제 배경 2~3문장",' +
+                  '"facts":[{"claim":"확인된 사실 한 줄","source":"출처명","url":"링크"}],' +
+                  '"questions":["토론할 쟁점 질문","토론할 쟁점 질문"],' +
+                  '"limitation":"확인하지 못한 부분이나 주의점(없으면 빈 문자열)"}。' +
+                  '검색 결과에 없는 날짜·수치·인물은 만들지 말고, 불확실하면 limitation에 적어라. ' +
+                  'facts는 최대 4개, questions는 최대 3개. 마크다운 코드블록 없이 JSON만 출력해라.',
+              },
+              {
+                role: 'user',
+                content: `토론 주제: ${topic}\n화제 배경: ${context ?? '(없음)'}\n\n검색 결과:\n${numbered || '(검색 결과 없음)'}`,
+              },
+            ],
+            temperature: 0.3,
+            max_tokens: 700,
+            reasoning_effort: 'none',
+            stream: false,
+          },
+          undefined,
+          { textOnlyModels: true }
+        ),
         new Promise<never>((_resolve, reject) => {
           controller.signal.addEventListener('abort', () => reject(new Error('timeout')), {
             once: true,

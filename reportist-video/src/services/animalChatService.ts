@@ -4,7 +4,9 @@ import {
   ANIMAL_PERSONAS,
   type AnimalSpecies,
 } from '../components/studio-v2/penguin-stage/species.ts';
+import { isTextOnlyChatModel, type FreeModelMeta } from '../types/gateway.ts';
 import { DEFAULT_CONFIG } from './gatewayClient.ts';
+import { isGuardrailModel, sortModelsBySpeed } from './modelMetrics.ts';
 
 /** 말풍선에 들어갈 내용. 전체 텍스트이며 화면에서는 잘려 보일 수 있다. */
 export interface AnimalSpeech {
@@ -384,6 +386,89 @@ const LOCAL_FALLBACK_COOLDOWN_MS = 30_000;
 let consecutiveFailures = 0;
 let localFallbackUntil = 0;
 
+// 동물 대화는 텍스트만 주고받는다. 게이트웨이 모델 목록에서 입력 text/tools · 출력 text
+// 모델만 골라 사용하고, 이미지·영상·오디오를 받는 멀티모달 모델은 후보에 넣지 않는다.
+const ANIMAL_CHAT_MODELS_TTL_MS = 30 * 60 * 1000;
+const ANIMAL_CHAT_MODELS_TIMEOUT_MS = 8000;
+const ANIMAL_CHAT_MODEL_LIMIT = 8;
+/** /v1/models 조회 실패 시 사용하는 텍스트 전용 무료 모델(입력 text, 출력 text). */
+const FALLBACK_ANIMAL_CHAT_MODEL_IDS = [
+  'nvidia/nemotron-3.5-lightning:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'cohere/north-mini-code:free',
+  'poolside/laguna-xs-2.1:free',
+  'xingchen-agi/xing4.0-29b-a4b:free',
+];
+let animalChatModelIds: string[] = [];
+let animalChatModelsFetchedAt = 0;
+let animalChatModelsPromise: Promise<string[]> | null = null;
+let animalChatModelCursor = 0;
+const failedAnimalChatModels = new Set<string>();
+
+function cacheAnimalChatModelIds(ids: string[]): string[] {
+  animalChatModelIds = ids;
+  animalChatModelsFetchedAt = performance.now();
+  return animalChatModelIds;
+}
+
+async function loadAnimalChatModelIds(): Promise<string[]> {
+  if (
+    animalChatModelIds.length > 0 &&
+    performance.now() - animalChatModelsFetchedAt < ANIMAL_CHAT_MODELS_TTL_MS
+  ) {
+    return animalChatModelIds;
+  }
+  if (animalChatModelsPromise) return animalChatModelsPromise;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ANIMAL_CHAT_MODELS_TIMEOUT_MS);
+  const task = (async (): Promise<string[]> => {
+    try {
+      const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
+      const response = await fetch(`${base}/v1/models`, {
+        headers: { Authorization: `Bearer ${DEFAULT_CONFIG.gatewaySecret}` },
+        signal: controller.signal,
+      });
+      if (response.ok) {
+        const payload = (await response.json()) as { data?: FreeModelMeta[] };
+        const models = Array.isArray(payload.data) ? payload.data : [];
+        // 가드레일(안전성 검증) 모델은 대화용이 아니므로 제외한다.
+        const textOnlyModels = models.filter(
+          (model) => isTextOnlyChatModel(model) && !isGuardrailModel(model)
+        );
+        const ids = sortModelsBySpeed(textOnlyModels)
+          .map((model) => model.id)
+          .filter(Boolean)
+          .slice(0, ANIMAL_CHAT_MODEL_LIMIT);
+        if (ids.length > 0) return cacheAnimalChatModelIds(ids);
+      }
+    } catch {
+      // 목록 조회 실패 시 아래 정적 후보로 대화를 이어간다.
+    } finally {
+      clearTimeout(timer);
+      animalChatModelsPromise = null;
+    }
+    return cacheAnimalChatModelIds([...FALLBACK_ANIMAL_CHAT_MODEL_IDS]);
+  })();
+  animalChatModelsPromise = task;
+  return task;
+}
+
+/** 실패한 모델은 잠시 건너뛰고 남은 후보를 순환한다. */
+function pickAnimalChatModel(ids: string[]): string | undefined {
+  if (ids.length === 0) return undefined;
+  const available = ids.filter((id) => !failedAnimalChatModels.has(id));
+  if (available.length === 0) failedAnimalChatModels.clear();
+  const pool = available.length > 0 ? available : ids;
+  const modelId = pool[animalChatModelCursor % pool.length];
+  animalChatModelCursor = (animalChatModelCursor + 1) % Number.MAX_SAFE_INTEGER;
+  return modelId;
+}
+
+function markAnimalChatModelFailed(modelId: string | undefined): void {
+  if (modelId) failedAnimalChatModels.add(modelId);
+}
+
 function cleanLine(raw: string): string {
   return raw
     .replace(/^["'“”]+|["'“”]+$/g, '')
@@ -444,6 +529,10 @@ export async function requestAnimalLine(params: {
 
   if (signal?.aborted || now < localFallbackUntil) return fallback();
 
+  // 자동 모델 선택은 멀티모달 모델을 고를 수 있으므로, 텍스트 전용 후보에서 명시적으로 고른다.
+  const modelId = pickAnimalChatModel(await loadAnimalChatModelIds());
+  if (signal?.aborted) return fallback();
+
   const speakerLabel = ANIMAL_LABELS[speaker];
   const listenerLabel = ANIMAL_LABELS[listener];
   const persona = ANIMAL_PERSONAS[speaker];
@@ -477,8 +566,11 @@ export async function requestAnimalLine(params: {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${DEFAULT_CONFIG.gatewaySecret}`,
+        // 게이트웨이 폴백도 텍스트 전용 모델로 제한한다.
+        'X-Text-Only-Models': '1',
       },
       body: JSON.stringify({
+        ...(modelId ? { model: modelId } : {}),
         messages: [
           {
             role: 'system',
@@ -511,6 +603,7 @@ export async function requestAnimalLine(params: {
       }
     }
     if (!text) {
+      markAnimalChatModelFailed(modelId);
       consecutiveFailures += 1;
       if (consecutiveFailures >= 3) {
         localFallbackUntil = performance.now() + LOCAL_FALLBACK_COOLDOWN_MS;
@@ -518,6 +611,7 @@ export async function requestAnimalLine(params: {
       }
     }
   } catch {
+    markAnimalChatModelFailed(modelId);
     consecutiveFailures += 1;
     if (consecutiveFailures >= 3) {
       localFallbackUntil = performance.now() + LOCAL_FALLBACK_COOLDOWN_MS;

@@ -15,6 +15,9 @@ export const chatRoute = new Elysia().post(
     const userModel = headers['x-user-model'];
     const userBaseUrl = headers['x-user-base-url'];
     const opencodeKeyOverride = headers['x-opencode-api-key'];
+    // 동물 대화처럼 텍스트만 주고받는 요청은 멀티모달 모델/폴백을 쓰지 않는다.
+    const textOnlyHeader = headers['x-text-only-models'];
+    const textOnlyModels = textOnlyHeader === '1' || textOnlyHeader === 'true';
 
     if (userApiKey && typeof userApiKey === 'string' && userApiKey.trim()) {
       const passConfig = {
@@ -75,7 +78,8 @@ export const chatRoute = new Elysia().post(
       chatReq,
       typeof opencodeKeyOverride === 'string' && opencodeKeyOverride.trim()
         ? opencodeKeyOverride.trim()
-        : undefined
+        : undefined,
+      { textOnlyModels }
     );
 
     // GatewayError인 경우 503 반환

@@ -23,6 +23,9 @@ export interface FreeModelMeta {
   description?: string;
   modality?: string;
   inputModalities?: string[];
+  outputModalities?: string[];
+  /** 텍스트 프롬프트로 이미지를 생성하는 모델 여부 */
+  isImageGenerationModel?: boolean;
   intelligenceIndex?: number | null;
   codingIndex?: number | null;
   agenticIndex?: number | null;
@@ -60,6 +63,40 @@ export function getModelInputModalities(model?: FreeModelMeta | null): string[] 
     return inputs.length > 0 ? inputs : ['text'];
   }
   return ['text'];
+}
+
+/** 출력 모달리티. 메타데이터가 없으면 modality 문자열의 '->' 뒤를 사용한다. */
+export function getModelOutputModalities(model?: FreeModelMeta | null): string[] {
+  if (!model) return ['text'];
+  if (Array.isArray(model.outputModalities) && model.outputModalities.length > 0) {
+    return model.outputModalities;
+  }
+  if (model.modality && model.modality.includes('->')) {
+    const outputs = model.modality
+      .split('->')[1]
+      .split('+')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return outputs.length > 0 ? outputs : ['text'];
+  }
+  return ['text'];
+}
+
+/**
+ * 텍스트 전용 대화(동물 수다)에 쓸 수 있는 모델인지 확인한다.
+ * 입력은 text/tools만, 출력은 text만 허용하고 이미지·오디오·비디오 입출력 모델은 제외한다.
+ */
+export function isTextOnlyChatModel(model?: FreeModelMeta | null): boolean {
+  if (!model || typeof model.id !== 'string' || !model.id.trim()) return false;
+  if (model.isImageGenerationModel === true) return false;
+
+  const inputs = getModelInputModalities(model).map((m) => m.trim().toLowerCase());
+  const outputs = getModelOutputModalities(model).map((m) => m.trim().toLowerCase());
+
+  if (!inputs.includes('text') || !outputs.includes('text')) return false;
+  if (inputs.some((m) => m !== 'text' && m !== 'tools')) return false;
+  if (outputs.some((m) => m !== 'text')) return false;
+  return true;
 }
 
 export type ReasoningEffortOption = 'high' | 'medium' | 'low' | 'minimal' | 'none' | 'max';

@@ -146,6 +146,48 @@ describe('ModelService & Models Route', () => {
     expect(best?.dataPolicy?.training).toBe(false);
   });
 
+  it('ModelService.selectBestModel() should exclude multimodal models when textOnly is set', async () => {
+    fetchSpy?.mockImplementation((async (input: Parameters<typeof fetch>[0]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes('/api/frontend/v1/models/find')) {
+        return new Response(JSON.stringify({ data: { endpoint_perf: {}, models: [] } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'test/vision-model:free',
+              name: 'Vision Model',
+              created: 1792627200,
+              context_length: 262144,
+              description: 'vision model',
+              architecture: {
+                modality: 'text+image->text',
+                input_modalities: ['text', 'image'],
+                output_modalities: ['text'],
+              },
+              supported_parameters: ['temperature', 'tools'],
+            },
+            FIXTURE_MODELS[0],
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    }) as unknown as typeof fetch);
+    resetModelCache();
+
+    const best = await modelService.selectBestModel({
+      outputModality: 'text',
+      requiredInputs: ['text'],
+      textOnly: true,
+    });
+
+    expect(best?.id).toBe('test/fixture-model-0:free');
+  });
+
   it('GET /v1/models/status should include policy summary', async () => {
     const response = await app.handle(
       new Request('http://localhost/v1/models/status?refresh=1', {

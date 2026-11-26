@@ -25,6 +25,8 @@ interface SelectModelOptions {
   requiredInputs?: Array<'text' | 'image' | 'audio' | 'video'>;
   excludeIds?: string[];
   excludeProviderPrefixes?: string[];
+  /** 입력은 text/tools만, 출력은 text만 허용한다 (동물 대화 등 텍스트 전용 용도). */
+  textOnly?: boolean;
 }
 
 // 17개 기본 모델 (OpenRouter API 일시 장애 시 완벽한 폴백 보장)
@@ -812,6 +814,22 @@ export class ModelService {
         if (!options.requiredInputs || options.requiredInputs.length === 0) return true;
         const inputs = model.inputModalities?.length ? model.inputModalities : ['text'];
         return options.requiredInputs.every((required) => inputs.includes(required));
+      })
+      .filter((model) => {
+        if (!options.textOnly) return true;
+        const inputs = (model.inputModalities?.length ? model.inputModalities : ['text']).map((m) =>
+          m.trim().toLowerCase()
+        );
+        const outputs = (model.outputModalities?.length ? model.outputModalities : ['text']).map(
+          (m) => m.trim().toLowerCase()
+        );
+        return (
+          model.isImageGenerationModel !== true &&
+          inputs.includes('text') &&
+          inputs.every((m) => m === 'text' || m === 'tools') &&
+          outputs.includes('text') &&
+          outputs.every((m) => m === 'text')
+        );
       })
       .filter((model) => {
         if (!options.excludeProviderPrefixes || options.excludeProviderPrefixes.length === 0) {
