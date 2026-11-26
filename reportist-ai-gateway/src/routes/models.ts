@@ -7,7 +7,7 @@ import type { FreeModelMeta, LLMProvider } from '../domain/types.ts';
 
 const PROVIDERS: LLMProvider[] = ['openrouter', 'cline', 'kilo', 'opencode', 'gemini'];
 
-type KeyMatrixCell = { status: 'y' | 'n'; reason: 'available' | 'cooldown' | 'daily_exhausted' };
+type KeyMatrixCell = { status: 'y' | 'n'; reason?: 'cooldown' | 'daily_exhausted' };
 type KeyMatrixRow = {
   keyLabel: string;
   provider: LLMProvider;
@@ -122,7 +122,13 @@ export const modelsRoute = new Elysia()
 
           modelStates[model.id] = {
             status: blocked ? 'n' : 'y',
-            reason: isExhausted ? 'daily_exhausted' : isCoolingDown ? 'cooldown' : 'available',
+            reason: blocked
+              ? isExhausted
+                ? 'daily_exhausted'
+                : isCoolingDown
+                  ? 'cooldown'
+                  : undefined
+              : undefined,
           };
         }
 
@@ -178,6 +184,7 @@ export const modelsRoute = new Elysia()
     .matrix table { min-width: 860px; }
     .y { color: #03b26c; font-weight: 700; }
     .n { color: #f04452; font-weight: 700; }
+    .reason { color: #8b95a1; font-size: 11px; margin-top: 2px; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -236,12 +243,15 @@ export const modelsRoute = new Elysia()
               const cell = row.modelStates?.[modelId];
               const text = cell?.status || 'n';
               const cls = text === 'y' ? 'y' : 'n';
+              if (text === 'y') {
+                return '<td class="' + cls + '">y</td>';
+              }
               const reason = cell?.reason === 'daily_exhausted'
                 ? '일일 소진'
                 : cell?.reason === 'cooldown'
                   ? '쿨다운'
-                  : '사용 가능';
-              return '<td class="' + cls + '" title="' + reason + '">' + text + '</td>';
+                  : '오류';
+              return '<td title="' + reason + '"><div class="' + cls + '">n</div><div class="reason">' + reason + '</div></td>';
             })
             .join('');
           return (
