@@ -26,10 +26,26 @@ const FALLBACK_LINES: Record<AnimalSpecies, string[]> = {
   owl: ['후~ 잘 보고 있어.', '가슴 깃이 간지러워.', '밤이 오면 신나.', '조용히 지켜볼게.'],
 };
 
+/** 답변 폴백 — 이전 말을 받아 친근하게 받아치는 짧은 한국어 대사. */
+const FALLBACK_REPLIES = [
+  '그래! 같이 가자.',
+  '오, 나도 그랬어!',
+  '좋아, 같이 해보자.',
+  '진짜? 나도 궁금했어.',
+  'ㅋㅋ 귀엽다!',
+  '응, 여기서 기다릴게.',
+  '나도 그 생각 했어.',
+  '그럼 같이 가보자!',
+];
+
 export function getFallbackLine(species: AnimalSpecies, now: number): string {
   const lines = FALLBACK_LINES[species];
   const index = Math.floor(now / 1700) % lines.length;
   return lines[index];
+}
+
+export function getFallbackReply(now: number): string {
+  return FALLBACK_REPLIES[Math.floor(now / 1400) % FALLBACK_REPLIES.length];
 }
 
 const CHAT_TIMEOUT_MS = 7000;
@@ -63,6 +79,7 @@ function cleanLine(raw: string): string {
   return raw
     .replace(/^["'“”]+|["'“”]+$/g, '')
     .replace(/\s+/g, ' ')
+    .replace(/([?!.,~])\1+/g, '$1')
     .trim()
     .slice(0, 42);
 }
@@ -79,13 +96,21 @@ function isValidLine(text: string): boolean {
 export async function requestAnimalLine(params: {
   speaker: AnimalSpecies;
   listener: AnimalSpecies;
+  /** 바로 전에 상대가 한 말. 있으면 답변으로 처리한다. */
+  previousText?: string;
+  previousSpeaker?: AnimalSpecies;
   wantImage?: boolean;
   signal?: AbortSignal;
 }): Promise<AnimalSpeech> {
-  const { speaker, listener, wantImage, signal } = params;
+  const { speaker, listener, previousText, previousSpeaker, wantImage, signal } = params;
   const speakerLabel = ANIMAL_LABELS[speaker];
   const listenerLabel = ANIMAL_LABELS[listener];
   const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
+  const isReply = Boolean(previousText);
+  const previousSpeakerLabel = previousSpeaker ? ANIMAL_LABELS[previousSpeaker] : listenerLabel;
+  const userPrompt = isReply
+    ? `방금 ${previousSpeakerLabel}이 "${previousText}"라고 했어. ${speakerLabel}로서 자연스럽게 받아치는 한국어 대사 한 줄만 써.`
+    : `${listenerLabel}에게 다정하게 말 걸어줘. 예: "안녕! 같이 놀래?" 와 같은 대사만 써.`;
 
   const chatSignal = fetchWithTimeout(CHAT_TIMEOUT_MS, signal);
   let text: string | undefined;
@@ -102,10 +127,7 @@ export async function requestAnimalLine(params: {
             role: 'system',
             content: `너는 PenguinCut 설원에 사는 아기 ${speakerLabel}이다. 오직 한국어 대사 한 줄만 출력한다. 설명·분석·영어·따옴표·이모지는 절대 쓰지 않는다. 20자 이내.`,
           },
-          {
-            role: 'user',
-            content: `${listenerLabel}에게 다정하게 말 걸어줘. 예: "안녕! 같이 놀래?" 와 같은 대사만 써.`,
-          },
+          { role: 'user', content: userPrompt },
         ],
         temperature: 1,
         max_tokens: 64,
@@ -160,8 +182,11 @@ export async function requestAnimalLine(params: {
     }
   }
 
+  const fallback = isReply
+    ? getFallbackReply(performance.now())
+    : getFallbackLine(speaker, performance.now());
   return {
-    text: text ?? getFallbackLine(speaker, performance.now()),
+    text: text ?? fallback,
     imageUrl,
   };
 }

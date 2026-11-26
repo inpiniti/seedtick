@@ -250,47 +250,89 @@ export const StudioPenguinStage = forwardRef<
     };
     host.addEventListener('click', onClick);
 
-    let chatElapsed = 0;
-    let nextChatDelay = 3000 + Math.random() * 2000;
+    const BUBBLE_DURATION_MS = 3000;
+    const PREFETCH_MS = 1200;
+    const MAX_TURNS_PER_PAIR = 6;
+
+    interface ChatTurn {
+      aId: number;
+      bId: number;
+      turns: number;
+      lastSpeakerId: number;
+      lastText: string;
+      lastSpeakerSpecies: AnimalSpecies | null;
+    }
+    let conversation: ChatTurn | null = null;
+    let pendingSpeech: { agentId: number; text: string; imageUrl?: string } | null = null;
 
     const startConversationTurn = (): void => {
       const agents = agentsRef.current;
-      if (agents.length < 2 || chatInFlightRef.current) return;
-      const speaker = agents[Math.floor(Math.random() * agents.length)];
-      let listener: (typeof agents)[number] | null = null;
-      let nearest = 160;
-      for (const candidate of agents) {
-        if (candidate === speaker) continue;
-        const distance = Math.hypot(
-          candidate.physics.x - speaker.physics.x,
-          candidate.physics.y - speaker.physics.y
-        );
-        if (distance < nearest) {
-          nearest = distance;
-          listener = candidate;
+      if (agents.length < 2 || chatInFlightRef.current || pendingSpeech) return;
+
+      if (!conversation || conversation.turns >= MAX_TURNS_PER_PAIR) {
+        const first = agents[Math.floor(Math.random() * agents.length)];
+        let second: (typeof agents)[number] | null = null;
+        let nearest = 160;
+        for (const candidate of agents) {
+          if (candidate === first) continue;
+          const distance = Math.hypot(
+            candidate.physics.x - first.physics.x,
+            candidate.physics.y - first.physics.y
+          );
+          if (distance < nearest) {
+            nearest = distance;
+            second = candidate;
+          }
         }
+        if (!second) second = agents[(agents.indexOf(first) + 1) % agents.length];
+        conversation = {
+          aId: first.id,
+          bId: second.id,
+          turns: 0,
+          lastSpeakerId: -1,
+          lastText: '',
+          lastSpeakerSpecies: null,
+        };
       }
-      if (!listener) listener = agents[(agents.indexOf(speaker) + 1) % agents.length];
+
+      const current = conversation;
+      const speakerAgent = agents.find((a) => a.id === current.aId);
+      const listenerAgent = agents.find((a) => a.id === current.bId);
+      if (!speakerAgent || !listenerAgent) {
+        conversation = null;
+        return;
+      }
+      const speaker =
+        current.turns === 0 || current.lastSpeakerId === current.bId
+          ? speakerAgent
+          : listenerAgent;
+      const listener = speaker === speakerAgent ? listenerAgent : speakerAgent;
+      const previousText = current.turns === 0 ? undefined : current.lastText;
+      const previousSpeaker = current.lastSpeakerSpecies ?? undefined;
 
       chatInFlightRef.current = true;
       const controller = new AbortController();
       chatAbortRef.current = controller;
-      const listenerSpecies = listener.species;
 
       void requestAnimalLine({
         speaker: speaker.species,
-        listener: listenerSpecies,
-        wantImage: Math.random() < 0.12,
+        listener: listener.species,
+        previousText,
+        previousSpeaker,
+        wantImage: Math.random() < 0.1 && current.turns % 4 === 0,
         signal: controller.signal,
       })
         .then((speech) => {
           if (controller.signal.aborted || exportingRef.current) return;
-          speaker.bubble = {
+          pendingSpeech = {
+            agentId: speaker.id,
             text: speech.text,
             imageUrl: speech.imageUrl,
-            bornAt: performance.now(),
-            durationMs: 4200,
           };
+          current.turns += 1;
+          current.lastSpeakerId = speaker.id;
+          current.lastText = speech.text;
+          current.lastSpeakerSpecies = speaker.species;
         })
         .catch(() => undefined)
         .finally(() => {
@@ -368,11 +410,36 @@ export const StudioPenguinStage = forwardRef<
         }
       }
 
-      chatElapsed += dt * 1000;
-      if (chatElapsed >= nextChatDelay) {
-        chatElapsed = 0;
-        nextChatDelay = 3000 + Math.random() * 2000;
-        startConversationTurn();
+      if (pendingSpeech) {
+        const hasActiveBubble = agents.some(
+          (a) => a.bubble && now - a.bubble.bornAt < a.bubble.durationMs
+        );
+        if (!hasActiveBubble) {
+          const target = agents.find((a) => a.id === pendingSpeech?.agentId);
+          if (target) {
+            target.bubble = {
+              text: pendingSpeech.text,
+              imageUrl: pendingSpeech.imageUrl,
+              bornAt: now,
+              durationMs: BUBBLE_DURATION_MS,
+            };
+          }
+          pendingSpeech = null;
+        }
+      }
+      if (!chatInFlightRef.current && !pendingSpeech) {
+        const active = agents.filter(
+          (a) => a.bubble && now - a.bubble.bornAt < a.bubble.durationMs
+        );
+        const remaining =
+          active.length > 0
+            ? Math.min(
+                ...active.map(
+                  (a) => (a.bubble?.bornAt ?? 0) + (a.bubble?.durationMs ?? 0) - now
+                )
+              )
+            : 0;
+        if (active.length === 0 || remaining < PREFETCH_MS) startConversationTurn();
       }
 
       stepParticles(particlesRef.current, dt, grid.width, grid.height, reducedMotionRef.current);
@@ -397,8 +464,6 @@ export const StudioPenguinStage = forwardRef<
       running = true;
       last = 0;
       accumulator = 0;
-      chatElapsed = 0;
-      nextChatDelay = 3000 + Math.random() * 2000;
       raf = requestAnimationFrame(frame);
     };
 
@@ -409,6 +474,7 @@ export const StudioPenguinStage = forwardRef<
       chatAbortRef.current?.abort();
       chatAbortRef.current = null;
       chatInFlightRef.current = false;
+      pendingSpeech = null;
     }
 
     loopControlRef.current = { schedule, stop };
