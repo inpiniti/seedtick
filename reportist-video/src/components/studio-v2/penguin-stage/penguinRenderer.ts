@@ -1,3 +1,4 @@
+import { placeBubble, type BubbleBox } from './bubblePlacement.ts';
 import { FOOTPRINT_LIFETIME } from './penguinPhysics.ts';
 import {
   getAgentTheme,
@@ -10,6 +11,7 @@ import type {
   Palette,
   PenguinState,
   Ping,
+  Rect,
   SnowParticle,
   StageAgent,
 } from './types.ts';
@@ -106,6 +108,8 @@ export interface RenderOptions {
   palette: Palette;
   reducedMotion: boolean;
   selectedSpecies: AnimalSpecies;
+  /** 캔버스 위의 DOM 오버레이 영역. 말풍선을 이 밖에 배치한다. */
+  obstacles: Rect[];
 }
 
 /** 레이어 순서: 눈송이 → 발자국 → 목표 파동 → 개체(접지점 y 깊이순) → 말풍선. */
@@ -154,7 +158,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): vo
       o.reducedMotion
     );
   }
-  drawBubbles(ctx, o.agents, o.now, o.width, o.height, o.palette);
+  drawBubbles(ctx, o.agents, o.now, o.width, o.height, o.palette, o.obstacles);
 }
 
 function paletteFromTheme(t: SpeciesTheme, dark: boolean): Palette {
@@ -266,19 +270,20 @@ function wrapBubbleText(
   return lines;
 }
 
-/** 개체 위치에 따라 위/아래로 열리는 말풍선. 다른 풍선과 겹치지 않게 밀어낸다. */
+/** 개체 위치에 따라 위/아래/좌/우로 열리는 말풍선. 오버레이·다른 풍선과 겹치지 않게 배치한다. */
 function drawBubbles(
   ctx: CanvasRenderingContext2D,
   agents: StageAgent[],
   now: number,
   width: number,
   height: number,
-  palette: Palette
+  palette: Palette,
+  obstacles: Rect[]
 ): void {
   const dark = palette.snowBg === '#0e1116';
   const background = dark ? 'rgba(22, 27, 34, 0.94)' : 'rgba(255, 255, 255, 0.95)';
   const foreground = dark ? '#f2f4f6' : '#1b2029';
-  const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+  const placed: BubbleBox[] = [];
 
   ctx.save();
   ctx.font = '600 10.5px system-ui, sans-serif';
@@ -317,44 +322,52 @@ function drawBubbles(
 
     const anchorX = agent.physics.x;
     const anchorY = agent.physics.y;
-    const above = anchorY > height * 0.5;
-    let x = clamp(anchorX - bubbleWidth / 2, 6, width - bubbleWidth - 6);
-    let y = above ? anchorY - 36 - bubbleHeight : anchorY + 12;
-
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const collision = placed.find(
-        (p) =>
-          x < p.x + p.w + 5 &&
-          x + bubbleWidth + 5 > p.x &&
-          y < p.y + p.h + 5 &&
-          y + bubbleHeight + 5 > p.y
-      );
-      if (!collision) break;
-      y = above ? collision.y - bubbleHeight - 8 : collision.y + collision.h + 8;
-    }
-    y = clamp(y, 6, height - bubbleHeight - 6);
-    placed.push({ x, y, w: bubbleWidth, h: bubbleHeight });
+    const { x, y, w, h, tail } = placeBubble({
+      anchorX,
+      anchorY,
+      width: bubbleWidth,
+      height: bubbleHeight,
+      canvasWidth: width,
+      canvasHeight: height,
+      obstacles,
+      occupied: placed,
+      preferAbove: anchorY > height * 0.5,
+    });
+    placed.push({ x, y, w, h });
 
     ctx.globalAlpha = alpha;
     ctx.fillStyle = background;
     ctx.strokeStyle = rgba(palette.inkRgb, 0.55);
     ctx.lineWidth = 1.1;
     ctx.beginPath();
-    ctx.roundRect(x, y, bubbleWidth, bubbleHeight, 8);
+    ctx.roundRect(x, y, w, h, 8);
     ctx.fill();
     ctx.stroke();
 
-    // 말하는 개체 쪽을 가리키는 꼬리
-    const tailX = clamp(anchorX, x + 8, x + bubbleWidth - 8);
+    // 말하는 개체(머리 위치) 쪽을 가리키는 꼬리. 풍선이 옆으로 이동해도 화자를 가리킨다.
     ctx.beginPath();
-    if (above) {
-      ctx.moveTo(tailX - 4, y + bubbleHeight - 1);
-      ctx.lineTo(tailX, y + bubbleHeight + 6);
-      ctx.lineTo(tailX + 4, y + bubbleHeight - 1);
+    if (tail === 'top' || tail === 'bottom') {
+      const tx = clamp(anchorX, x + 8, x + w - 8);
+      if (tail === 'bottom') {
+        ctx.moveTo(tx - 4, y + h - 1);
+        ctx.lineTo(tx, y + h + 6);
+        ctx.lineTo(tx + 4, y + h - 1);
+      } else {
+        ctx.moveTo(tx - 4, y + 1);
+        ctx.lineTo(tx, y - 6);
+        ctx.lineTo(tx + 4, y + 1);
+      }
     } else {
-      ctx.moveTo(tailX - 4, y + 1);
-      ctx.lineTo(tailX, y - 6);
-      ctx.lineTo(tailX + 4, y + 1);
+      const ty = clamp(anchorY - 22, y + 8, y + h - 8);
+      if (tail === 'left') {
+        ctx.moveTo(x + 1, ty - 4);
+        ctx.lineTo(x - 6, ty);
+        ctx.lineTo(x + 1, ty + 4);
+      } else {
+        ctx.moveTo(x + w - 1, ty - 4);
+        ctx.lineTo(x + w + 6, ty);
+        ctx.lineTo(x + w - 1, ty + 4);
+      }
     }
     ctx.closePath();
     ctx.fill();
@@ -370,9 +383,9 @@ function drawBubbles(
     if (image) {
       ctx.save();
       ctx.beginPath();
-      ctx.roundRect(x + 7, textY, bubbleWidth - 14, 30, 5);
+      ctx.roundRect(x + 7, textY, w - 14, 30, 5);
       ctx.clip();
-      ctx.drawImage(image, x + 7, textY, bubbleWidth - 14, 30);
+      ctx.drawImage(image, x + 7, textY, w - 14, 30);
       ctx.restore();
       textY += 34;
     }

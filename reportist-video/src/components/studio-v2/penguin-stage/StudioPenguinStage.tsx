@@ -633,6 +633,8 @@ export const StudioPenguinStage = forwardRef<
         palette: paletteRef.current,
         reducedMotion: reducedMotionRef.current,
         selectedSpecies: speciesRef.current,
+        // 동물이 피한 장애물 영역은 말풍선도 피해야 미리보기에 가리지 않는다.
+        obstacles: grid.obstacles,
       });
     };
 
