@@ -26,9 +26,9 @@ import {
   type AnimalSpecies,
 } from './species.ts';
 import {
-  getLocalScript,
-  requestDiscussionScript,
-  type DiscussionScript,
+  requestAnimalLine,
+  requestDiscussionTopic,
+  type DiscussionEntry,
 } from '../../../services/animalChatService.ts';
 import type {
   Footprint,
@@ -262,35 +262,18 @@ export const StudioPenguinStage = forwardRef<
 
     const BUBBLE_DURATION_MS = 3600;
     const TURN_GAP_MS = 600;
+    const MAX_TURNS_PER_TOPIC = 8;
 
-    // 모든 대사는 /v1/trends 단일 응답에서 미리 받아 재생한다. 턴마다 LLM을 호출하지 않는다.
-    let script: DiscussionScript = getLocalScript(performance.now());
-    let nextScript: DiscussionScript | null = null;
-    let scriptCursor = 0;
+    interface Discussion {
+      topic: string;
+      context?: string;
+      memberIds: number[];
+      turns: number;
+      history: DiscussionEntry[];
+    }
+    let discussion: Discussion | null = null;
     let nextTurnAt = 0;
     let pendingSpeech: { agentId: number; text: string; mbti: string } | null = null;
-    let scriptFetchAbort: AbortController | null = null;
-
-    const prefetchScript = (): void => {
-      scriptFetchAbort?.abort();
-      const controller = new AbortController();
-      scriptFetchAbort = controller;
-      void requestDiscussionScript(controller.signal)
-        .then((next) => {
-          if (controller.signal.aborted || exportingRef.current) return;
-          // 첫 한 마디 전이라면 바로 갈아끼우고, 이미 말이 시작됐으면 다음 순환에 쓴다.
-          if (scriptCursor <= 1) {
-            script = next;
-            scriptCursor = 0;
-          } else {
-            nextScript = next;
-          }
-        })
-        .catch(() => {
-          // 실패해도 로컬 MBTI 대본이 계속 재생된다.
-        });
-    };
-    prefetchScript();
 
     const startConversationTurn = (now: number): void => {
       const agents = agentsRef.current;
@@ -308,24 +291,53 @@ export const StudioPenguinStage = forwardRef<
         const controller = new AbortController();
         chatAbortRef.current = controller;
         try {
-          if (scriptCursor >= script.lines.length) {
-            script = nextScript ?? getLocalScript(now);
-            nextScript = null;
-            scriptCursor = 0;
-            prefetchScript();
+          if (!discussion || discussion.turns >= MAX_TURNS_PER_TOPIC) {
+            const members = [...agents];
+            for (let i = members.length - 1; i > 0; i -= 1) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [members[i], members[j]] = [members[j], members[i]];
+            }
+            // 주제는 /v1/trends에서 한 번만 가져온다.
+            const topicInfo = await requestDiscussionTopic(controller.signal);
+            if (controller.signal.aborted) return;
+            discussion = {
+              topic: topicInfo.topic,
+              context: topicInfo.context,
+              memberIds: members.map((m) => m.id),
+              turns: 0,
+              history: [],
+            };
           }
-          const line = script.lines[scriptCursor];
-          if (!line) return;
-          scriptCursor += 1;
 
-          const speaker =
-            agents.find((a) => a.species === line.speaker) ?? agents[scriptCursor % agents.length];
-          if (!speaker) return;
+          const current = discussion;
+          const members = current.memberIds
+            .map((id) => agents.find((a) => a.id === id))
+            .filter((a): a is (typeof agents)[number] => Boolean(a));
+          if (members.length < 2) {
+            discussion = null;
+            return;
+          }
+          const speaker = members[current.turns % members.length];
+          const listener = members[(current.turns + 1) % members.length];
+
+          // 대사는 매 턴 /v1/chat/completions로 생성한다. MBTI 성향이 프롬프트에 반영된다.
+          const speech = await requestAnimalLine({
+            speaker: speaker.species,
+            listener: listener.species,
+            topic: current.topic,
+            topicContext: current.context,
+            history: current.history,
+            signal: controller.signal,
+          });
+          if (controller.signal.aborted || exportingRef.current) return;
           pendingSpeech = {
             agentId: speaker.id,
-            text: line.text,
-            mbti: line.mbti || ANIMAL_MBTI[speaker.species],
+            text: speech.text,
+            mbti: ANIMAL_MBTI[speaker.species],
           };
+          current.turns += 1;
+          current.history.push({ speaker: speaker.species, text: speech.text });
+          if (current.history.length > 5) current.history.shift();
         } catch {
           // 실패 시 다음 프레임에서 다시 시도한다.
         } finally {
@@ -458,8 +470,6 @@ export const StudioPenguinStage = forwardRef<
       raf = 0;
       chatAbortRef.current?.abort();
       chatAbortRef.current = null;
-      scriptFetchAbort?.abort();
-      scriptFetchAbort = null;
       chatInFlightRef.current = false;
       pendingSpeech = null;
     }
