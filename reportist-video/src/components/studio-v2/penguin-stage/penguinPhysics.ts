@@ -1,4 +1,10 @@
-import { ejectFromObstacles, type NavGrid } from './navigationGrid.ts';
+import {
+  EDGE_MARGIN,
+  ejectFromObstacles,
+  findNearestWalkable,
+  findPath,
+  type NavGrid,
+} from './navigationGrid.ts';
 import type { Footprint, PenguinState, Vec2 } from './types.ts';
 
 /** 보행 속도·가속도. normalize된 dt 기반이라 60Hz/120Hz 모두 동일한 속도다. */
@@ -10,6 +16,11 @@ const TURN_SPEED = 9;
 const CORNER_LOOKAHEAD = 18;
 const WALK_STRIDE = 7;
 const FOOT_OFFSET = 3.6;
+/** 우클릭 명령이 없으면 이만큼 기다린 뒤 혼자 산책을 시작한다. */
+const WANDER_IDLE_MS = 5200;
+const WANDER_SPEED_SCALE = 0.58;
+const WANDER_MIN_DISTANCE = 70;
+const WANDER_MAX_DISTANCE = 280;
 
 export const FOOTPRINT_LIFETIME = 7200;
 export const MAX_FOOTPRINTS = 160;
@@ -49,7 +60,37 @@ export function createPenguin(x: number, y: number, now: number): PenguinState {
     nextBlinkAt: now + 2000 + Math.random() * 2200,
     blinkUntil: 0,
     squash: 0,
+    nextWanderAt: now + WANDER_IDLE_MS + Math.random() * 1600,
+    isWandering: false,
   };
+}
+
+/** 명령 후 다시 배회할 때까지의 유휴 시간을 초기화한다. */
+export function resetWanderTimer(state: PenguinState, now: number): void {
+  state.isWandering = false;
+  state.nextWanderAt = now + WANDER_IDLE_MS + Math.random() * 1600;
+}
+
+/** 장애물 회피가 반영된 산책 목적지를 무작위로 고른다. */
+function pickWanderGoal(grid: NavGrid, from: Vec2): Vec2 | null {
+  const minX = EDGE_MARGIN + 12;
+  const minY = EDGE_MARGIN + 12;
+  const maxX = grid.width - EDGE_MARGIN - 12;
+  const maxY = grid.height - EDGE_MARGIN - 12;
+  if (maxX <= minX || maxY <= minY) return null;
+
+  for (let attempt = 0; attempt < 14; attempt++) {
+    const raw = {
+      x: minX + Math.random() * (maxX - minX),
+      y: minY + Math.random() * (maxY - minY),
+    };
+    const distance = Math.hypot(raw.x - from.x, raw.y - from.y);
+    if (distance < WANDER_MIN_DISTANCE || distance > WANDER_MAX_DISTANCE) continue;
+    const goal = findNearestWalkable(grid, raw);
+    if (Math.hypot(goal.x - raw.x, goal.y - raw.y) > 26) continue;
+    return goal;
+  }
+  return null;
 }
 
 /** 새 목적지로 경로를 갈아탄다. 속도·위치를 유지해 멈칫하지 않는다. */
@@ -64,6 +105,7 @@ export function setDestination(
   state.lookTarget = 0;
   state.lookOffset *= 0.4;
   state.nextIdleAt = now + 3000 + Math.random() * 3000;
+  resetWanderTimer(state, now);
 }
 
 /**
@@ -104,6 +146,27 @@ export function stepPenguin(
 
   if (state.waypoints.length === 0) {
     if (state.target !== null) state.target = null;
+    if (state.isWandering) {
+      // 산책 도착 — 잠시 쉬었다가 다시 배회한다.
+      state.isWandering = false;
+      state.nextWanderAt = now + 2200 + Math.random() * 3200;
+    }
+    if (now >= state.nextWanderAt) {
+      const from = { x: state.x, y: state.y };
+      const goal = pickWanderGoal(grid, from);
+      const path = goal ? findPath(grid, from, goal) : [];
+      if (goal && path.length > 0) {
+        state.waypoints = path;
+        state.target = goal;
+        state.isWandering = true;
+        state.nextWanderAt = Number.POSITIVE_INFINITY;
+        state.lookTarget = 0;
+        state.lookOffset *= 0.5;
+        state.nextIdleAt = now + 4000;
+      } else {
+        state.nextWanderAt = now + 1400;
+      }
+    }
     state.moveBlend = approach(state.moveBlend, 0, dt * 2.4);
     state.vx = approach(state.vx, 0, MAX_ACCEL * dt);
     state.vy = approach(state.vy, 0, MAX_ACCEL * dt);
@@ -128,7 +191,10 @@ export function stepPenguin(
     const dx = wp.x - state.x;
     const dy = wp.y - state.y;
     const dist = Math.max(1, Math.hypot(dx, dy));
-    const speed = MAX_SPEED * Math.min(1, dist / SLOW_RADIUS);
+    const speed =
+      MAX_SPEED *
+      (state.isWandering ? WANDER_SPEED_SCALE : 1) *
+      Math.min(1, dist / SLOW_RADIUS);
     const desiredVx = (dx / dist) * speed;
     const desiredVy = (dy / dist) * speed;
 

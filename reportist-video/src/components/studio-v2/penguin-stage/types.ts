@@ -67,6 +67,10 @@ export interface PenguinState {
   blinkUntil: number;
   /** 착지 순간의 스쿼시&스트레치 임펄스(0~1, 감쇠). */
   squash: number;
+  /** 마지막 이동 명령 이후 자동 배회를 시작할 시각(performance.now()). */
+  nextWanderAt: number;
+  /** 배회 중에는 보행 속도를 낮춘다. */
+  isWandering: boolean;
 }
 
 /** 테마 토큰 + 아기 펭귄 포인트 컬러. RGB 삼원조는 rgba() 합성에 재사용한다. */

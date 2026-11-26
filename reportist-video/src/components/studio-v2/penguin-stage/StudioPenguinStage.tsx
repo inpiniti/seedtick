@@ -9,6 +9,7 @@ import {
 import {
   createPenguin,
   pruneFootprints,
+  resetWanderTimer,
   setDestination,
   stepPenguin,
 } from './penguinPhysics.ts';
@@ -149,6 +150,8 @@ export const StudioPenguinStage = forwardRef<
         });
         state.x = spawn.x;
         state.y = spawn.y;
+        // useRef 초기값은 now=0으로 만들어졌으므로 실제 마운트 시각으로 보정한다.
+        resetWanderTimer(state, performance.now());
         initializedRef.current = true;
       } else if (state.target) {
         const goal = findNearestWalkable(grid, state.target);
