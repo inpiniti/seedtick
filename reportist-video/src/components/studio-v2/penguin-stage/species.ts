@@ -12,6 +12,10 @@ export const ANIMAL_SPECIES = [
   'raccoon',
   'polar-bear',
   'owl',
+  'deer',
+  'elephant',
+  'hedgehog',
+  'frog',
 ] as const;
 
 export type AnimalSpecies = (typeof ANIMAL_SPECIES)[number];
@@ -29,6 +33,10 @@ export const ANIMAL_LABELS: Record<AnimalSpecies, string> = {
   raccoon: '너구리',
   'polar-bear': '북극곰',
   owl: '올빼미',
+  deer: '사슴',
+  elephant: '코끼리',
+  hedgehog: '고슴도치',
+  frog: '개구리',
 };
 
 /** 동물별 MBTI 성향 — 게이트웨이 /v1/trends 배정표와 1:1 대응. */
@@ -45,6 +53,10 @@ export const ANIMAL_MBTI: Record<AnimalSpecies, string> = {
   raccoon: 'ESTP',
   'polar-bear': 'INFJ',
   owl: 'INTJ',
+  deer: 'ISFP',
+  elephant: 'ESFJ',
+  hedgehog: 'ISTJ',
+  frog: 'ESTP',
 };
 
 export interface AnimalPersonaInfo {
@@ -114,6 +126,26 @@ export const ANIMAL_PERSONAS: Record<AnimalSpecies, AnimalPersonaInfo> = {
     keyword: '밤의 전략가',
     style: '유행 이면의 흐름과 결론을 차분히 정리',
   },
+  deer: {
+    mbti: ANIMAL_MBTI.deer,
+    keyword: '조용한 관찰가',
+    style: '가볍게 두리번거리며 분위기를 살짝 건드림',
+  },
+  elephant: {
+    mbti: ANIMAL_MBTI.elephant,
+    keyword: '든든한 기억력',
+    style: '예전 이야기를 꺼내며 다정하게 정리해줌',
+  },
+  hedgehog: {
+    mbti: ANIMAL_MBTI.hedgehog,
+    keyword: '조심스러운 원칙가',
+    style: '한 가지씩 따져보고 조용히 의견을 냄',
+  },
+  frog: {
+    mbti: ANIMAL_MBTI.frog,
+    keyword: '통통 튀는 분위기메이커',
+    style: '뜬금없이 튀는 농담으로 대화를 살림',
+  },
 };
 
 export type AnimalArchetype =
@@ -126,7 +158,11 @@ export type AnimalArchetype =
   | 'koala'
   | 'rodent'
   | 'bandit'
-  | 'owl';
+  | 'owl'
+  | 'cervid'
+  | 'proboscidean'
+  | 'spiny'
+  | 'amphibian';
 
 export type AnimalGait = 'waddle' | 'trot' | 'hop';
 
@@ -154,6 +190,8 @@ export function getSpeciesGait(species: AnimalSpecies): AnimalGait {
   if (species === 'cat' || species === 'dog' || species === 'fox' || species === 'raccoon') {
     return 'trot';
   }
+  if (species === 'deer' || species === 'hedgehog') return 'trot';
+  if (species === 'frog') return 'hop';
   return 'waddle';
 }
 
@@ -240,6 +278,38 @@ export function getSpeciesTheme(id: AnimalSpecies, dark: boolean): SpeciesTheme 
       coat: dark ? '#6d5c50' : '#7c695b',
       mask: '#f5ece2', belly: '#fbf6f0', accent: '#57473c',
       innerEar: '#57473c', nose: '#f2b84b', paw: '#e8ad43',
+    },
+    deer: {
+      archetype: 'cervid', gait: 'trot',
+      coat: dark ? '#9d6a48' : '#b87550',
+      mask: dark ? '#d9c2a4' : '#f1d9b9',
+      belly: dark ? '#d9c2a4' : '#f1d9b9',
+      accent: '#80604c', innerEar: '#e6b894',
+      nose: '#4a3326', paw: '#6f513e',
+    },
+    elephant: {
+      archetype: 'proboscidean', gait: 'waddle',
+      coat: dark ? '#6f8091' : '#8799aa',
+      mask: dark ? '#aebcc8' : '#c2abb0',
+      belly: dark ? '#c4d0d4' : '#d2dee1',
+      accent: '#6f8091', innerEar: dark ? '#93a4b2' : '#aab9c4',
+      nose: '#5c6b78', paw: '#7b8b99',
+    },
+    hedgehog: {
+      archetype: 'spiny', gait: 'trot',
+      coat: dark ? '#7a5f4b' : '#94765f',
+      mask: dark ? '#cdb69e' : '#ebd7c0',
+      belly: dark ? '#d8c4ae' : '#f5e9d9',
+      accent: '#6e5847', innerEar: '#d8b99c',
+      nose: '#2f241d', paw: '#6e5847',
+    },
+    frog: {
+      archetype: 'amphibian', gait: 'hop',
+      coat: dark ? '#6a8a6c' : '#7e9e80',
+      mask: dark ? '#cbd3a5' : '#eae0b6',
+      belly: dark ? '#cbd3a5' : '#eae0b6',
+      accent: '#87a87e', innerEar: '#9dbf94',
+      nose: '#4b614d', paw: '#87a87e',
     },
   };
 
