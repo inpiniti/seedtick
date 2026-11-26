@@ -12,6 +12,8 @@ export interface Rect {
   bottom: number;
 }
 
+import type { AnimalSpecies } from './species.ts';
+
 /** 눈 위에 남는 발자국 스탬프. bornAt은 performance.now() 기준 ms. */
 export interface Footprint {
   x: number;
@@ -19,6 +21,8 @@ export interface Footprint {
   angle: number;
   sign: 1 | -1;
   bornAt: number;
+  /** 선택 개체 1.0, NPC 0.5 */
+  alphaScale: number;
 }
 
 /** 설원 위를 아주 느리게 흩날리는 초미세 눈송이. */
@@ -71,6 +75,16 @@ export interface PenguinState {
   nextWanderAt: number;
   /** 배회 중에는 보행 속도를 낮춘다. */
   isWandering: boolean;
+}
+
+/** 스테이지에 동시에 존재하는 개체 하나. */
+export interface StageAgent {
+  id: number;
+  species: AnimalSpecies;
+  physics: PenguinState;
+  isWandering: boolean;
+  nextWanderAt: number;
+  wanderGoal: Vec2 | null;
 }
 
 /** 설계 목업의 resolveCutePalette('pastel', dark)와 1:1 대응하는 팔레트. */

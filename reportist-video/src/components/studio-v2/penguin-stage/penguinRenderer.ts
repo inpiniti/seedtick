@@ -1,11 +1,17 @@
 import { FOOTPRINT_LIFETIME } from './penguinPhysics.ts';
-import { getSpeciesTheme, type AnimalSpecies, type SpeciesTheme } from './species.ts';
+import {
+  getAgentTheme,
+  getSpeciesTheme,
+  type AnimalSpecies,
+  type SpeciesTheme,
+} from './species.ts';
 import type {
   Footprint,
   Palette,
   PenguinState,
   Ping,
   SnowParticle,
+  StageAgent,
 } from './types.ts';
 
 const TAU = Math.PI * 2;
@@ -93,16 +99,16 @@ export interface RenderOptions {
   width: number;
   height: number;
   now: number;
-  state: PenguinState;
+  agents: StageAgent[];
   footprints: Footprint[];
   particles: SnowParticle[];
   ping: Ping | null;
   palette: Palette;
   reducedMotion: boolean;
-  species: AnimalSpecies;
+  selectedSpecies: AnimalSpecies;
 }
 
-/** 레이어 순서: 눈송이 → 발자국 → 목표 파동 → 동물. */
+/** 레이어 순서: 눈송이 → 발자국 → 목표 파동 → NPC → 선택 개체(링 포함). */
 export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): void {
   ctx.clearRect(0, 0, o.width, o.height);
   ctx.lineCap = 'round';
@@ -111,23 +117,113 @@ export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): vo
   drawParticles(ctx, o.particles, o.palette);
   drawFootprints(ctx, o.footprints, o.palette, o.now);
   if (o.ping) drawPing(ctx, o.ping, o.palette, o.now);
-  if (o.state.target) {
+
+  const dark = o.palette.snowBg === '#0e1116';
+  const selected = o.agents.find((agent) => agent.species === o.selectedSpecies);
+  if (selected?.physics.target) {
     ctx.fillStyle = rgba(o.palette.inkRgb, 0.35);
     ctx.beginPath();
-    ctx.ellipse(o.state.target.x, o.state.target.y, 1.8, 1.8 * PERSPECTIVE_Y, 0, 0, TAU);
+    ctx.ellipse(
+      selected.physics.target.x,
+      selected.physics.target.y,
+      1.8,
+      1.8 * PERSPECTIVE_Y,
+      0,
+      0,
+      TAU
+    );
     ctx.fill();
   }
-  const dark = o.palette.snowBg === '#0e1116';
-  if (o.species === 'penguin') {
-    drawPenguin(ctx, o.state, o.palette, o.now, o.reducedMotion);
-  } else {
-    const theme = getSpeciesTheme(o.species, dark);
-    if (o.species === 'owl') {
-      drawOwlChibi(ctx, o.state, theme, o.now, o.reducedMotion);
-    } else {
-      drawChibiMammal(ctx, o.state, theme, o.now, o.reducedMotion);
-    }
+
+  for (const agent of o.agents) {
+    if (agent === selected) continue;
+    drawAgent(
+      ctx,
+      agent.physics,
+      getAgentTheme(agent.species, dark, false),
+      agent.species,
+      o.now,
+      o.reducedMotion
+    );
   }
+  if (selected) {
+    drawSelectionRing(ctx, selected.physics.x, selected.physics.y, o.now, o.palette, o.reducedMotion);
+    drawAgent(
+      ctx,
+      selected.physics,
+      getSpeciesTheme(selected.species, dark),
+      selected.species,
+      o.now,
+      o.reducedMotion
+    );
+  }
+}
+
+function paletteFromTheme(t: SpeciesTheme, dark: boolean): Palette {
+  return {
+    snowBg: dark ? '#0e1116' : '#f8f9fa',
+    inkRgb: dark ? '242, 244, 246' : '15, 23, 42',
+    outline: t.outline,
+    outerRim: t.outerRim,
+    coat: t.coat,
+    coatHighlight: t.hi,
+    faceMask: t.mask,
+    belly: t.belly,
+    eye: '#141922',
+    beakFill: t.nose,
+    footFill: t.paw,
+    cheek: t.blush,
+    shadow: t.shadow,
+  };
+}
+
+function drawAgent(
+  ctx: CanvasRenderingContext2D,
+  state: PenguinState,
+  theme: SpeciesTheme,
+  species: AnimalSpecies,
+  now: number,
+  reducedMotion: boolean
+): void {
+  const dark = theme.dark;
+  if (species === 'penguin') {
+    drawPenguin(ctx, state, paletteFromTheme(theme, dark), now, reducedMotion);
+  } else if (species === 'owl') {
+    drawOwlChibi(ctx, state, theme, now, reducedMotion);
+  } else {
+    drawChibiMammal(ctx, state, theme, now, reducedMotion);
+  }
+}
+
+/** 선택 개체 발밑에 깔리는 2.5D 이중 타원 링. */
+function drawSelectionRing(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  now: number,
+  palette: Palette,
+  reducedMotion: boolean
+): void {
+  const pulse = reducedMotion ? 0 : Math.sin(now * 0.003) * 1.1;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = rgba(palette.inkRgb, 0.55);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.ellipse(x, y + 2, 12.5, 12.5 * PERSPECTIVE_Y, 0, 0, TAU);
+  ctx.stroke();
+  ctx.strokeStyle = rgba(palette.inkRgb, 0.22);
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3.2, 3.6]);
+  ctx.beginPath();
+  ctx.ellipse(x, y + 2, 16 + pulse, (16 + pulse) * PERSPECTIVE_Y, 0, 0, TAU);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = rgba(palette.inkRgb, 0.45);
+  ctx.beginPath();
+  ctx.ellipse(x, y + 2, 1.6, 1.6 * PERSPECTIVE_Y, 0, 0, TAU);
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawParticles(
@@ -156,8 +252,9 @@ function drawFootprints(
     if (p >= 1) continue;
 
     const scale = 1 - 0.42 * p * p;
-    const fillAlpha = 0.16 * Math.pow(1 - p, 1.8);
-    const rimAlpha = 0.3 * Math.pow(1 - p, 2.2);
+    const alphaScale = fp.alphaScale ?? 1;
+    const fillAlpha = 0.16 * Math.pow(1 - p, 1.8) * alphaScale;
+    const rimAlpha = 0.3 * Math.pow(1 - p, 2.2) * alphaScale;
 
     ctx.save();
     ctx.translate(fp.x, fp.y);

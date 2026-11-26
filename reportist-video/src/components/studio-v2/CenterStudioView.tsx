@@ -1456,6 +1456,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
             isExporting={isReStitching}
             isVideoPlaying={isPlaying}
             species={stageAnimal}
+            onSelectSpecies={(next) => {
+              setStoredAnimal(next);
+              setStageAnimal(next);
+            }}
           />
           <div className="sv2-stage-wrap">
             {isProcessing && (

@@ -118,7 +118,9 @@ export function stepPenguin(
   dt: number,
   now: number,
   grid: NavGrid,
-  gait: AnimalGait = 'waddle'
+  gait: AnimalGait = 'waddle',
+  extraVelocity: Vec2 = { x: 0, y: 0 },
+  speedScale = 1
 ): Footprint[] {
   const maxSpeed = gait === 'hop' ? 55 : gait === 'trot' ? 52 : MAX_SPEED;
   const walkStride = gait === 'hop' ? 8.4 : WALK_STRIDE;
@@ -197,10 +199,11 @@ export function stepPenguin(
     const dist = Math.max(1, Math.hypot(dx, dy));
     const speed =
       maxSpeed *
+      speedScale *
       (state.isWandering ? WANDER_SPEED_SCALE : 1) *
       Math.min(1, dist / SLOW_RADIUS);
-    const desiredVx = (dx / dist) * speed;
-    const desiredVy = (dy / dist) * speed;
+    const desiredVx = (dx / dist) * speed + extraVelocity.x;
+    const desiredVy = (dy / dist) * speed + extraVelocity.y;
 
     let steerX = desiredVx - state.vx;
     let steerY = desiredVy - state.vy;
@@ -253,6 +256,7 @@ export function stepPenguin(
           angle: state.heading + sign * 0.22,
           sign,
           bornAt: now,
+          alphaScale: 1,
         });
       }
       state.squash = Math.min(1, state.squash + (gait === 'hop' ? 0.85 : 0.7));

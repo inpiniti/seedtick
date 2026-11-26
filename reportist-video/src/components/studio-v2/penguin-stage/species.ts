@@ -179,3 +179,36 @@ export function setStoredAnimal(species: AnimalSpecies): void {
     // 저장 실패는 동물 표시에 영향을 주지 않는다.
   }
 }
+
+const clamp255 = (v: number): number => Math.max(0, Math.min(250, Math.round(v)));
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.replace(/./g, (c) => c + c) : h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** 채도를 제거하되 명도 서열을 보존한다. 외곽선·눈·코는 변환하지 않는다. */
+function toMonochrome(hex: string, dark: boolean): string {
+  const [r, g, b] = hexToRgb(hex);
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const v = dark ? clamp255(34 + luminance * 0.82) : clamp255(26 + luminance * 0.9);
+  const cool = dark ? 4 : 2;
+  return `rgb(${v}, ${clamp255(v + cool)}, ${clamp255(v + cool * 2)})`;
+}
+
+/** NPC용 모노크롬 테마. 선택 개체는 기존 getSpeciesTheme 컬러를 그대로 쓴다. */
+export function getAgentTheme(id: AnimalSpecies, dark: boolean, colored: boolean): SpeciesTheme {
+  const base = getSpeciesTheme(id, dark);
+  if (colored) return base;
+  return {
+    ...base,
+    coat: toMonochrome(base.coat, dark),
+    mask: toMonochrome(base.mask, dark),
+    belly: toMonochrome(base.belly, dark),
+    accent: toMonochrome(base.accent, dark),
+    innerEar: toMonochrome(base.innerEar, dark),
+    paw: toMonochrome(base.paw, dark),
+    nose: toMonochrome(base.nose, dark),
+  };
+}
