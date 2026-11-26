@@ -22,6 +22,13 @@ const clamp = (v: number, min: number, max: number): number =>
   v < min ? min : v > max ? max : v;
 const rgba = (rgb: string, alpha: number): string => `rgba(${rgb}, ${alpha})`;
 
+/** 말풍선 글자·행간·최대 너비. 미리보기에서도 잘 읽히도록 함께 키운다. */
+const BUBBLE_BODY_FONT = 13;
+const BUBBLE_HEADER_FONT = 11;
+const BUBBLE_LINE_HEIGHT = 16;
+const BUBBLE_TEXT_MAX_WIDTH = 188;
+const BUBBLE_MAX_WIDTH = 235;
+
 /** 설계 목업의 resolveCutePalette('pastel', dark) 값을 그대로 이식했다. */
 export function resolvePalette(dark: boolean): Palette {
   if (dark) {
@@ -286,7 +293,7 @@ function drawBubbles(
   const placed: BubbleBox[] = [];
 
   ctx.save();
-  ctx.font = '600 10.5px system-ui, sans-serif';
+  ctx.font = `600 ${BUBBLE_BODY_FONT}px system-ui, sans-serif`;
   ctx.textBaseline = 'top';
 
   // 최신 발언부터 배치해야 좋은 자리를 차지하고, 오래된 풍선은 그 뒤를 피해 놓인다.
@@ -308,17 +315,18 @@ function drawBubbles(
 
     const image = bubble.imageUrl ? getBubbleImage(bubble.imageUrl) : null;
     const header = bubble.header ?? '';
-    const lines = wrapBubbleText(ctx, bubble.text, 152);
+    const lines = wrapBubbleText(ctx, bubble.text, BUBBLE_TEXT_MAX_WIDTH);
     const imageHeight = image ? 34 : 0;
-    ctx.font = '700 9px system-ui, sans-serif';
+    ctx.font = `700 ${BUBBLE_HEADER_FONT}px system-ui, sans-serif`;
     const headerWidth = header ? ctx.measureText(header).width + 16 : 0;
-    ctx.font = '600 10.5px system-ui, sans-serif';
+    ctx.font = `600 ${BUBBLE_BODY_FONT}px system-ui, sans-serif`;
     const bubbleWidth = clamp(
-      Math.max(44, headerWidth, ...lines.map((line) => ctx.measureText(line).width + 16)),
-      44,
-      190
+      Math.max(52, headerWidth, ...lines.map((line) => ctx.measureText(line).width + 16)),
+      52,
+      BUBBLE_MAX_WIDTH
     );
-    const bubbleHeight = (header ? 13 : 0) + lines.length * 13 + 10 + imageHeight;
+    const bubbleHeight =
+      (header ? BUBBLE_LINE_HEIGHT : 0) + lines.length * BUBBLE_LINE_HEIGHT + 12 + imageHeight;
 
     const anchorX = agent.physics.x;
     const anchorY = agent.physics.y;
@@ -373,12 +381,12 @@ function drawBubbles(
     ctx.fill();
     ctx.stroke();
 
-    let textY = y + 6;
+    let textY = y + 7;
     if (header) {
-      ctx.font = '700 9px system-ui, sans-serif';
+      ctx.font = `700 ${BUBBLE_HEADER_FONT}px system-ui, sans-serif`;
       ctx.fillStyle = rgba(palette.inkRgb, 0.62);
       ctx.fillText(header, x + 8, textY);
-      textY += 13;
+      textY += BUBBLE_LINE_HEIGHT;
     }
     if (image) {
       ctx.save();
@@ -389,11 +397,11 @@ function drawBubbles(
       ctx.restore();
       textY += 34;
     }
-    ctx.font = '600 10.5px system-ui, sans-serif';
+    ctx.font = `600 ${BUBBLE_BODY_FONT}px system-ui, sans-serif`;
     ctx.fillStyle = foreground;
     for (const line of lines) {
       ctx.fillText(line, x + 8, textY);
-      textY += 13;
+      textY += BUBBLE_LINE_HEIGHT;
     }
   }
   ctx.restore();
