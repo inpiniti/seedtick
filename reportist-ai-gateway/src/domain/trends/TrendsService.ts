@@ -53,6 +53,23 @@ export function isSafeTopicText(text: string): boolean {
   return !BLOCKED_PATTERN.test(text);
 }
 
+/** 이미 토론한 주제와 새 주제가 겹치는지 비교할 때 쓰는 정규화 키. */
+export function normalizeTopicKey(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[\s,.!?…·'"“”‘’()[\]]/g, '');
+}
+
+function matchesExcluded(text: string, excludes: Set<string>): boolean {
+  const key = normalizeTopicKey(text);
+  if (!key) return false;
+  for (const excluded of excludes) {
+    if (excluded.length >= 2 && key.includes(excluded)) return true;
+  }
+  return false;
+}
+
 export const FALLBACK_TREND_ITEMS: TrendTopicItem[] = [
   {
     keyword: '오픈런 맛집',
@@ -243,6 +260,42 @@ export class TrendsService {
     return this.inFlight;
   }
 
+  /**
+   * 이미 토론한 주제를 제외한 새 트렌드 배치를 만든다.
+   * 기본 30분 캐시와 분리되어 매번 RSS를 다시 수집하므로 같은 주제가 반복되지 않는다.
+   */
+  async getTrendsExcluding(excluded: string[]): Promise<TrendsPayload> {
+    const excludes = new Set(
+      excluded.map((value) => normalizeTopicKey(value)).filter((value) => value.length >= 2)
+    );
+    if (excludes.size === 0) return this.getTrends();
+
+    const lists = await Promise.all(RSS_FEEDS.map((feed) => this.fetchFeed(feed)));
+    const merged: RawCandidate[] = [];
+    const maxLen = Math.max(0, ...lists.map((list) => list.length));
+    for (let i = 0; i < maxLen; i += 1) {
+      for (const list of lists) {
+        const candidate = list[i];
+        if (candidate) merged.push(candidate);
+      }
+    }
+
+    const safe = filterSafeCandidates(merged).filter(
+      (candidate) => !matchesExcluded(`${candidate.keyword} ${candidate.headline}`, excludes)
+    );
+    const updatedAt = new Date().toISOString();
+    const curated = safe.length > 0 ? await this.curateWithLLM(safe, excludes) : null;
+    const items = (curated ?? (safe.length > 0 ? buildDeterministicTopics(safe) : [])).filter(
+      (item) => !matchesExcluded(`${item.keyword} ${item.topic}`, excludes)
+    );
+
+    return {
+      items,
+      updatedAt,
+      source: curated ? 'rss+llm' : safe.length > 0 ? 'rss' : 'fallback',
+    };
+  }
+
   private async fetchFeed(feed: (typeof RSS_FEEDS)[number]): Promise<RawCandidate[]> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
@@ -261,11 +314,18 @@ export class TrendsService {
     }
   }
 
-  private async curateWithLLM(candidates: RawCandidate[]): Promise<TrendTopicItem[] | null> {
+  private async curateWithLLM(
+    candidates: RawCandidate[],
+    excludes: Set<string> = new Set()
+  ): Promise<TrendTopicItem[] | null> {
     const numbered = candidates
       .slice(0, 14)
       .map((c, i) => `${i + 1}. [${c.keyword}] ${c.headline}`)
       .join('\n');
+    const avoidLine =
+      excludes.size > 0
+        ? `\n이미 토론한 주제 ${[...excludes].slice(0, 20).join(', ')}와 같은 화제는 절대 다시 고르지 마라.`
+        : '';
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_CURATE_TIMEOUT_MS);
@@ -276,7 +336,7 @@ export class TrendsService {
             {
               role: 'system',
               content:
-                '너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.',
+                `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.${avoidLine}`,
             },
             {
               role: 'user',
@@ -314,7 +374,8 @@ export class TrendsService {
         if (
           !keyword ||
           topic.length < 4 ||
-          BLOCKED_PATTERN.test(`${keyword} ${topic} ${context}`)
+          BLOCKED_PATTERN.test(`${keyword} ${topic} ${context}`) ||
+          matchesExcluded(`${keyword} ${topic}`, excludes)
         ) {
           continue;
         }

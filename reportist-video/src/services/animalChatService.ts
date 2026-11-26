@@ -20,6 +20,7 @@ export interface DiscussionEntry {
 /** 게이트웨이 /v1/trends가 내려주는 토론 주제 정보. */
 export interface DiscussionTopicInfo {
   topic: string;
+  keyword?: string;
   context?: string;
 }
 
@@ -157,30 +158,58 @@ let trendFetchPromise: Promise<DiscussionTopicInfo[]> | null = null;
 
 /** 이미 토론에 내보낸 주제. 같은 trends 주제가 다시 나오지 않도록 건너뛴다. */
 const discussedTopicKeys = new Set<string>();
+/** 게이트웨이 exclude 파라미터로 보낼 원문 키워드(최근 순). */
+const discussedLabels: string[] = [];
 
-function topicKey(topic: string): string {
-  return topic.trim().toLowerCase().replace(/\s+/g, '');
+function topicKey(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[\s,.!?…·'"“”‘’()[\]]/g, '');
+}
+
+function isDiscussed(item: DiscussionTopicInfo): boolean {
+  return (
+    discussedTopicKeys.has(topicKey(item.topic)) ||
+    Boolean(item.keyword && discussedTopicKeys.has(topicKey(item.keyword)))
+  );
 }
 
 /** 주제를 토론 완료로 표시한다. 다음 요청부터는 이 주제를 건너뛴다. */
-export function markTopicDiscussed(topic: string): void {
-  const key = topicKey(topic);
-  if (key) discussedTopicKeys.add(key);
+export function markTopicDiscussed(topic: string, keyword?: string): void {
+  for (const value of [topic, keyword]) {
+    const key = value ? topicKey(value) : '';
+    if (key) discussedTopicKeys.add(key);
+  }
+  const label = (keyword ?? topic).replace(/,/g, ' ').trim();
+  if (label && !discussedLabels.includes(label)) {
+    discussedLabels.push(label);
+    if (discussedLabels.length > 40) discussedLabels.shift();
+  }
 }
 
-/** 커서부터 시작해 아직 토론하지 않은 주제를 고른다. 전부 사용했다면 기록을 비운다. */
-function pickUnusedTopic(items: DiscussionTopicInfo[]): DiscussionTopicInfo | null {
+function resetDiscussedTopics(): void {
+  discussedTopicKeys.clear();
+  discussedLabels.length = 0;
+}
+
+/** 커서부터 시작해 아직 토론하지 않은 주제를 고른다. */
+function pickUnusedTopic(
+  items: DiscussionTopicInfo[],
+  resetWhenExhausted = false
+): DiscussionTopicInfo | null {
   if (items.length === 0) return null;
   const start = ((trendCursor % items.length) + items.length) % items.length;
   for (let offset = 0; offset < items.length; offset += 1) {
     const item = items[(start + offset) % items.length];
-    if (item && !discussedTopicKeys.has(topicKey(item.topic))) {
+    if (item && !isDiscussed(item)) {
       trendCursor = start + offset + 1;
       return item;
     }
   }
-  // 풀을 전부 토론했다면 새 순환을 시작한다.
-  discussedTopicKeys.clear();
+  if (!resetWhenExhausted) return null;
+  // 로컬 폴백 주제도 전부 사용했다면 새 순환을 시작한다.
+  resetDiscussedTopics();
   const item = items[start];
   trendCursor = start + 1;
   return item ?? null;
@@ -206,27 +235,37 @@ function cleanupFetchSignal(signal: AbortSignal): void {
   clear?.();
 }
 
-async function loadTrendPool(signal?: AbortSignal): Promise<DiscussionTopicInfo[]> {
-  if (trendFetchPromise) return trendFetchPromise;
+/** exclude가 있으면 캐시를 우회해 겹치지 않는 새 배치를 받는다. */
+async function loadTrendPool(
+  signal?: AbortSignal,
+  exclude: string[] = []
+): Promise<DiscussionTopicInfo[]> {
+  const isRefresh = exclude.length > 0;
+  if (!isRefresh && trendFetchPromise) return trendFetchPromise;
   const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
+  const url = isRefresh
+    ? `${base}/v1/trends?exclude=${encodeURIComponent(exclude.join(','))}`
+    : `${base}/v1/trends`;
   const controller = fetchWithTimeout(TREND_FETCH_TIMEOUT_MS, signal);
-  trendFetchPromise = (async (): Promise<DiscussionTopicInfo[]> => {
+  const task = (async (): Promise<DiscussionTopicInfo[]> => {
     try {
-      const response = await fetch(`${base}/v1/trends`, {
+      const response = await fetch(url, {
         headers: { Accept: 'application/json' },
         signal: controller,
       });
       if (!response.ok) return [];
       const payload = (await response.json()) as {
-        items?: Array<{ topic?: string; context?: string }>;
+        items?: Array<{ topic?: string; keyword?: string; context?: string }>;
       };
       const items = (payload.items ?? [])
         .map((item) => ({
           topic: typeof item?.topic === 'string' ? item.topic.trim().slice(0, 42) : '',
+          keyword:
+            typeof item?.keyword === 'string' ? item.keyword.trim().slice(0, 16) : undefined,
           context:
             typeof item?.context === 'string' ? item.context.trim().slice(0, 80) : undefined,
         }))
-        .filter((item) => item.topic.length >= 4);
+        .filter((item) => item.topic.length >= 4 && !isDiscussed(item));
       if (items.length === 0) return [];
 
       cachedTopics = items;
@@ -237,13 +276,14 @@ async function loadTrendPool(signal?: AbortSignal): Promise<DiscussionTopicInfo[
       return [];
     } finally {
       cleanupFetchSignal(controller);
-      trendFetchPromise = null;
+      if (!isRefresh) trendFetchPromise = null;
     }
   })();
-  return trendFetchPromise;
+  if (!isRefresh) trendFetchPromise = task;
+  return task;
 }
 
-/** 게이트웨이 /v1/trends 캐시 풀에서 아직 토론하지 않은 주제를 반환. 실패 시 로컬 주제. */
+/** 게이트웨이 /v1/trends에서 안 토론한 주제를 반환한다. 한 배치를 다 쓰면 겹치지 않는 새 배치를 받는다. */
 export async function requestDiscussionTopic(signal?: AbortSignal): Promise<DiscussionTopicInfo> {
   if (
     cachedTopics.length > 0 &&
@@ -251,21 +291,31 @@ export async function requestDiscussionTopic(signal?: AbortSignal): Promise<Disc
   ) {
     const item = pickUnusedTopic(cachedTopics);
     if (item) {
-      markTopicDiscussed(item.topic);
+      markTopicDiscussed(item.topic, item.keyword);
       return item;
     }
   }
+
+  // 현재 배치를 전부 토론했다면 이미 다룬 주제를 제외한 새 배치를 요청한다.
+  const refreshed = await loadTrendPool(signal, discussedLabels.slice(-20));
+  const refreshedItem = refreshed.length > 0 ? pickUnusedTopic(refreshed) : null;
+  if (refreshedItem) {
+    markTopicDiscussed(refreshedItem.topic, refreshedItem.keyword);
+    return refreshedItem;
+  }
+
+  // 갱신 실패 시 게이트웨이 기본 풀을 한 번 더 확인한다.
   const pool = await loadTrendPool(signal);
-  if (pool.length > 0) {
-    const item = pickUnusedTopic(pool) ?? pool[0];
-    if (item) {
-      markTopicDiscussed(item.topic);
-      return item;
-    }
+  const poolItem = pool.length > 0 ? pickUnusedTopic(pool) : null;
+  if (poolItem) {
+    markTopicDiscussed(poolItem.topic, poolItem.keyword);
+    return poolItem;
   }
-  const fallback = {
-    topic: FALLBACK_TOPICS[Math.floor(performance.now() / 22000) % FALLBACK_TOPICS.length] ?? '',
-  };
+
+  // 게이트웨이가 새 주제를 주지 못하면 로컬 주제로 대화를 이어간다.
+  const fallbackPool: DiscussionTopicInfo[] = FALLBACK_TOPICS.map((topic) => ({ topic }));
+  const fallback =
+    pickUnusedTopic(fallbackPool, true) ?? { topic: FALLBACK_TOPICS[0] ?? '다음 이야기 뭐 할까?' };
   markTopicDiscussed(fallback.topic);
   return fallback;
 }

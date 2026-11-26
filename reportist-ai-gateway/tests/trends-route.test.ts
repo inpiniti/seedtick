@@ -141,6 +141,54 @@ describe('GET /v1/trends', () => {
     }
   });
 
+  it('refreshes a non-overlapping batch when exclude is provided', async () => {
+    let fetchCalls = 0;
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation((async () => {
+      fetchCalls += 1;
+      return new Response(RSS_XML, { status: 200 });
+    }) as unknown as typeof fetch);
+    let chatCalls = 0;
+    let secondSystemPrompt = '';
+    const chatSpy = spyOn(proxyService, 'chat').mockImplementation((async (request) => {
+      chatCalls += 1;
+      if (chatCalls === 2) secondSystemPrompt = String(request.messages[0]?.content ?? '');
+      const items =
+        chatCalls === 1
+          ? [
+              { keyword: '맥도날드', topic: '새벽 오픈런 갈래?', context: '한정 메뉴 줄이 길대' },
+              { keyword: '붕어빵', topic: '붕어빵 팥이 최고야?', context: '겨울 간식 인기' },
+              { keyword: '산책', topic: '같이 설원 산책 할래?', context: '날씨가 좋아졌대' },
+            ]
+          : [
+              { keyword: '맥도날드', topic: '새벽 오픈런 갈래?', context: '한정 메뉴 줄이 길대' },
+              { keyword: '영화', topic: '주말 영화 볼래?', context: '새 영화 개봉' },
+              { keyword: '산책', topic: '같이 설원 산책 할래?', context: '날씨가 좋아졌대' },
+              { keyword: '게임', topic: '새 게임 해볼래?', context: '신작이 나왔대' },
+            ];
+      return makeChatResponse(JSON.stringify(items));
+    }) as typeof proxyService.chat);
+
+    try {
+      const first = await app.handle(new Request('http://localhost/v1/trends'));
+      expect((await first.json() as TrendsPayload).items).toHaveLength(3);
+      expect(fetchCalls).toBe(3);
+
+      const second = await app.handle(
+        new Request(`http://localhost/v1/trends?exclude=${encodeURIComponent('맥도날드,붕어빵')}`)
+      );
+      expect(second.status).toBe(200);
+      expect(second.headers.get('cache-control')).toContain('no-store');
+      expect(fetchCalls).toBe(6); // 캐시를 우회해 RSS를 다시 수집
+      expect(secondSystemPrompt).toContain('이미 토론한 주제');
+      const keywords = ((await second.json()) as TrendsPayload).items.map((item) => item.keyword);
+      expect(keywords).not.toContain('맥도날드');
+      expect(keywords).toEqual(['영화', '산책', '게임']);
+    } finally {
+      fetchSpy.mockRestore();
+      chatSpy.mockRestore();
+    }
+  });
+
   it('falls back to deterministic RSS topics when the LLM fails', async () => {
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       (async () => new Response(RSS_XML, { status: 200 })) as unknown as typeof fetch
