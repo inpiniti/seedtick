@@ -1993,21 +1993,25 @@ function drawElephantChibi(
       ctx.fill();
     }
 
-    // 코는 얼굴 중앙에서 아래로 굽는다.
-    if (t.dark) {
+    // 코는 얼굴 앞에서 진행 방향 쪽으로 굽는다. 옆으로 걸을 때도 몸 중앙에
+    // 남지 않도록 fx만큼 옮기고 side 방향으로 기울인다.
+    const traceTrunk = (close: boolean): void => {
       ctx.beginPath();
-      ctx.moveTo(-2.6, -23);
-      ctx.bezierCurveTo(-3.4, -17, -2.6, -11, 0.6, -9.5);
-      ctx.bezierCurveTo(3.4, -10.5, 3.2, -15.5, 2.4, -22.8);
+      ctx.moveTo(-2.6, 0);
+      ctx.bezierCurveTo(-3.4, 6, -2.6, 12, 0.6, 13.5);
+      ctx.bezierCurveTo(3.4, 12.5, 3.2, 7.5, 2.4, 0.2);
+      if (close) ctx.closePath();
+    };
+    ctx.save();
+    ctx.translate(fx, -23);
+    ctx.rotate(-side * 0.55);
+    if (t.dark) {
+      traceTrunk(false);
       ctx.strokeStyle = t.outerRim;
       ctx.lineWidth = 2.8;
       ctx.stroke();
     }
-    ctx.beginPath();
-    ctx.moveTo(-2.6, -23);
-    ctx.bezierCurveTo(-3.4, -17, -2.6, -11, 0.6, -9.5);
-    ctx.bezierCurveTo(3.4, -10.5, 3.2, -15.5, 2.4, -22.8);
-    ctx.closePath();
+    traceTrunk(true);
     ctx.fillStyle = t.coat;
     ctx.fill();
     ctx.strokeStyle = t.outline;
@@ -2015,22 +2019,23 @@ function drawElephantChibi(
     ctx.stroke();
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.16)';
     ctx.lineWidth = 0.9;
-    for (const y of [-18, -15, -12]) {
+    for (const y of [5, 8, 11]) {
       ctx.beginPath();
       ctx.moveTo(-1.8, y);
       ctx.lineTo(2, y);
       ctx.stroke();
     }
+    ctx.restore();
 
-    // 작은 크림색 상아.
+    // 작은 크림색 상아도 얼굴 방향을 함께 따른다.
     ctx.fillStyle = t.belly;
     ctx.strokeStyle = t.outline;
     ctx.lineWidth = 1.1;
     for (const s of [-1, 1]) {
       ctx.beginPath();
-      ctx.moveTo(s * 3, -21);
-      ctx.quadraticCurveTo(s * 4.2, -18, s * 2.8, -16.5);
-      ctx.quadraticCurveTo(s * 2, -18.5, s * 3, -21);
+      ctx.moveTo(fx + s * 3, -21);
+      ctx.quadraticCurveTo(fx + s * 4.2, -18, fx + s * 2.8, -16.5);
+      ctx.quadraticCurveTo(fx + s * 2, -18.5, fx + s * 3, -21);
       ctx.fill();
       ctx.stroke();
     }
