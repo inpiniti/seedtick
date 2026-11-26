@@ -157,6 +157,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): vo
       o.reducedMotion
     );
   }
+  drawBubbles(ctx, o.agents, o.now, o.width, o.height, o.palette);
 }
 
 function paletteFromTheme(t: SpeciesTheme, dark: boolean): Palette {
@@ -223,6 +224,145 @@ function drawSelectionRing(
   ctx.beginPath();
   ctx.ellipse(x, y + 2, 1.6, 1.6 * PERSPECTIVE_Y, 0, 0, TAU);
   ctx.fill();
+  ctx.restore();
+}
+
+const bubbleImages = new Map<string, HTMLImageElement>();
+
+function getBubbleImage(url: string): HTMLImageElement | null {
+  let image = bubbleImages.get(url);
+  if (!image) {
+    image = new Image();
+    image.src = url;
+    bubbleImages.set(url, image);
+  }
+  return image.complete && image.naturalWidth > 0 ? image : null;
+}
+
+function wrapBubbleText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  const lines: string[] = [];
+  let current = '';
+  for (const char of text) {
+    const candidate = current + char;
+    const keepTogether = /[?!.,~…!?]/.test(char);
+    if (current && !keepTogether && ctx.measureText(candidate).width > maxWidth) {
+      lines.push(current);
+      current = char;
+      if (lines.length === 2) break;
+    } else {
+      current = candidate;
+    }
+  }
+  if (lines.length === 2 && current) {
+    lines[1] = `${lines[1].slice(0, -1)}…`;
+  } else if (current) {
+    lines.push(current);
+  }
+  return lines;
+}
+
+/** 개체 위치에 따라 위/아래로 열리는 말풍선. 다른 풍선과 겹치지 않게 밀어낸다. */
+function drawBubbles(
+  ctx: CanvasRenderingContext2D,
+  agents: StageAgent[],
+  now: number,
+  width: number,
+  height: number,
+  palette: Palette
+): void {
+  const dark = palette.snowBg === '#0e1116';
+  const background = dark ? 'rgba(22, 27, 34, 0.94)' : 'rgba(255, 255, 255, 0.95)';
+  const foreground = dark ? '#f2f4f6' : '#1b2029';
+  const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+
+  ctx.save();
+  ctx.font = '600 10.5px system-ui, sans-serif';
+  ctx.textBaseline = 'top';
+
+  for (const agent of agents) {
+    const bubble = agent.bubble;
+    if (!bubble) continue;
+    const age = now - bubble.bornAt;
+    if (age < 0 || age > bubble.durationMs) continue;
+    const progress = age / bubble.durationMs;
+    const alpha = progress < 0.08 ? progress / 0.08 : progress > 0.88 ? (1 - progress) / 0.12 : 1;
+    if (alpha <= 0) continue;
+
+    const image = bubble.imageUrl ? getBubbleImage(bubble.imageUrl) : null;
+    const lines = wrapBubbleText(ctx, bubble.text, 88);
+    const imageHeight = image ? 34 : 0;
+    const bubbleWidth = clamp(
+      Math.max(44, ...lines.map((line) => ctx.measureText(line).width + 16)),
+      44,
+      104
+    );
+    const bubbleHeight = lines.length * 13 + 10 + imageHeight;
+
+    const anchorX = agent.physics.x;
+    const anchorY = agent.physics.y;
+    const above = anchorY > height * 0.5;
+    let x = clamp(anchorX - bubbleWidth / 2, 6, width - bubbleWidth - 6);
+    let y = above ? anchorY - 36 - bubbleHeight : anchorY + 12;
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const collision = placed.find(
+        (p) =>
+          x < p.x + p.w + 5 &&
+          x + bubbleWidth + 5 > p.x &&
+          y < p.y + p.h + 5 &&
+          y + bubbleHeight + 5 > p.y
+      );
+      if (!collision) break;
+      y = above ? collision.y - bubbleHeight - 8 : collision.y + collision.h + 8;
+    }
+    y = clamp(y, 6, height - bubbleHeight - 6);
+    placed.push({ x, y, w: bubbleWidth, h: bubbleHeight });
+
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = background;
+    ctx.strokeStyle = rgba(palette.inkRgb, 0.55);
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.roundRect(x, y, bubbleWidth, bubbleHeight, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    // 말하는 개체 쪽을 가리키는 꼬리
+    const tailX = clamp(anchorX, x + 8, x + bubbleWidth - 8);
+    ctx.beginPath();
+    if (above) {
+      ctx.moveTo(tailX - 4, y + bubbleHeight - 1);
+      ctx.lineTo(tailX, y + bubbleHeight + 6);
+      ctx.lineTo(tailX + 4, y + bubbleHeight - 1);
+    } else {
+      ctx.moveTo(tailX - 4, y + 1);
+      ctx.lineTo(tailX, y - 6);
+      ctx.lineTo(tailX + 4, y + 1);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    let textY = y + 6;
+    if (image) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x + 7, textY, bubbleWidth - 14, 30, 5);
+      ctx.clip();
+      ctx.drawImage(image, x + 7, textY, bubbleWidth - 14, 30);
+      ctx.restore();
+      textY += 34;
+    }
+    ctx.fillStyle = foreground;
+    for (const line of lines) {
+      ctx.fillText(line, x + 8, textY);
+      textY += 13;
+    }
+  }
   ctx.restore();
 }
 

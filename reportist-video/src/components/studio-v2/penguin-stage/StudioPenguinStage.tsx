@@ -19,6 +19,7 @@ import {
   stepParticles,
 } from './penguinRenderer.ts';
 import { ANIMAL_SPECIES, getSpeciesGait, type AnimalSpecies } from './species.ts';
+import { requestAnimalLine } from '../../../services/animalChatService.ts';
 import type {
   Footprint,
   Palette,
@@ -93,6 +94,8 @@ export const StudioPenguinStage = forwardRef<
   const reducedMotionRef = useRef(false);
   const loopControlRef = useRef<LoopControl | null>(null);
   const remeasureRef = useRef<() => void>(() => undefined);
+  const chatInFlightRef = useRef(false);
+  const chatAbortRef = useRef<AbortController | null>(null);
 
   const exportingRef = useRef(isExporting);
   exportingRef.current = isExporting;
@@ -247,6 +250,55 @@ export const StudioPenguinStage = forwardRef<
     };
     host.addEventListener('click', onClick);
 
+    let chatElapsed = 0;
+    let nextChatDelay = 3000 + Math.random() * 2000;
+
+    const startConversationTurn = (): void => {
+      const agents = agentsRef.current;
+      if (agents.length < 2 || chatInFlightRef.current) return;
+      const speaker = agents[Math.floor(Math.random() * agents.length)];
+      let listener: (typeof agents)[number] | null = null;
+      let nearest = 160;
+      for (const candidate of agents) {
+        if (candidate === speaker) continue;
+        const distance = Math.hypot(
+          candidate.physics.x - speaker.physics.x,
+          candidate.physics.y - speaker.physics.y
+        );
+        if (distance < nearest) {
+          nearest = distance;
+          listener = candidate;
+        }
+      }
+      if (!listener) listener = agents[(agents.indexOf(speaker) + 1) % agents.length];
+
+      chatInFlightRef.current = true;
+      const controller = new AbortController();
+      chatAbortRef.current = controller;
+      const listenerSpecies = listener.species;
+
+      void requestAnimalLine({
+        speaker: speaker.species,
+        listener: listenerSpecies,
+        wantImage: Math.random() < 0.12,
+        signal: controller.signal,
+      })
+        .then((speech) => {
+          if (controller.signal.aborted || exportingRef.current) return;
+          speaker.bubble = {
+            text: speech.text,
+            imageUrl: speech.imageUrl,
+            bornAt: performance.now(),
+            durationMs: 4200,
+          };
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          if (chatAbortRef.current === controller) chatAbortRef.current = null;
+          chatInFlightRef.current = false;
+        });
+    };
+
     let raf = 0;
     let running = false;
     let last = 0;
@@ -316,6 +368,13 @@ export const StudioPenguinStage = forwardRef<
         }
       }
 
+      chatElapsed += dt * 1000;
+      if (chatElapsed >= nextChatDelay) {
+        chatElapsed = 0;
+        nextChatDelay = 3000 + Math.random() * 2000;
+        startConversationTurn();
+      }
+
       stepParticles(particlesRef.current, dt, grid.width, grid.height, reducedMotionRef.current);
       if (pingRef.current && now - pingRef.current.bornAt > 450) pingRef.current = null;
 
@@ -338,6 +397,8 @@ export const StudioPenguinStage = forwardRef<
       running = true;
       last = 0;
       accumulator = 0;
+      chatElapsed = 0;
+      nextChatDelay = 3000 + Math.random() * 2000;
       raf = requestAnimationFrame(frame);
     };
 
@@ -345,6 +406,9 @@ export const StudioPenguinStage = forwardRef<
       running = false;
       if (raf !== 0) cancelAnimationFrame(raf);
       raf = 0;
+      chatAbortRef.current?.abort();
+      chatAbortRef.current = null;
+      chatInFlightRef.current = false;
     }
 
     loopControlRef.current = { schedule, stop };

@@ -77,6 +77,14 @@ export interface PenguinState {
   isWandering: boolean;
 }
 
+/** 개체 머리 위·아래에 뜨는 말풍선. */
+export interface SpeechBubbleData {
+  text: string;
+  imageUrl?: string;
+  bornAt: number;
+  durationMs: number;
+}
+
 /** 스테이지에 동시에 존재하는 개체 하나. */
 export interface StageAgent {
   id: number;
@@ -85,6 +93,7 @@ export interface StageAgent {
   isWandering: boolean;
   nextWanderAt: number;
   wanderGoal: Vec2 | null;
+  bubble?: SpeechBubbleData;
 }
 
 /** 설계 목업의 resolveCutePalette('pastel', dark)와 1:1 대응하는 팔레트. */
