@@ -13,7 +13,7 @@ const clamp = (v: number, min: number, max: number): number =>
   v < min ? min : v > max ? max : v;
 const rgba = (rgb: string, alpha: number): string => `rgba(${rgb}, ${alpha})`;
 
-/** html.dark 토글에 맞춘 두 팔레트만 사용한다. 채도 있는 색은 일절 없다. */
+/** 다크 토글 + 아기 펭귄 원포인트(노란 부리·발, 볼터치) 팔레트. */
 export function resolvePalette(dark: boolean): Palette {
   if (dark) {
     return {
@@ -22,8 +22,14 @@ export function resolvePalette(dark: boolean): Palette {
       inkPrimary: '#f2f4f6',
       inkTrack: 'rgba(242, 244, 246, 0.25)',
       snowFlake: 'rgba(242, 244, 246, 0.18)',
-      coatFill: '#222831',
+      coatFill: '#3a414d',
       bellyFill: '#f2f4f6',
+      chestFill: '#c9d1da',
+      accentFill: '#f6b545',
+      accentShade: '#e59a34',
+      blushFill: 'rgba(240, 138, 125, 0.42)',
+      eyeFill: '#1b2029',
+      outlineFill: '#e6ebf1',
       contactShadow: 'rgba(0, 0, 0, 0.38)',
       inkRgb: '242, 244, 246',
     };
@@ -34,8 +40,14 @@ export function resolvePalette(dark: boolean): Palette {
     inkPrimary: '#0f172a',
     inkTrack: 'rgba(15, 23, 42, 0.28)',
     snowFlake: 'rgba(15, 23, 42, 0.18)',
-    coatFill: '#0f172a',
+    coatFill: '#3d4451',
     bellyFill: '#ffffff',
+    chestFill: '#dfe5ec',
+    accentFill: '#f6b545',
+    accentShade: '#e59a34',
+    blushFill: 'rgba(240, 138, 125, 0.5)',
+    eyeFill: '#1b2029',
+    outlineFill: '#2b313b',
     contactShadow: 'rgba(15, 23, 42, 0.12)',
     inkRgb: '15, 23, 42',
   };
@@ -187,6 +199,10 @@ function drawPing(
   }
 }
 
+/**
+ * 아기 펭귄 프로시저럴 드로잉.
+ * 볼 pivot(0,0) 기준, 뒤→앞 순서(Painter's Algorithm)로 그려 은선이 겹치지 않는다.
+ */
 function drawPenguin(
   ctx: CanvasRenderingContext2D,
   s: PenguinState,
@@ -205,9 +221,11 @@ function drawPenguin(
   const squash = reducedMotion ? 0 : s.squash;
   const scaleX = 1 + 0.05 * bounce + 0.04 * squash;
   const scaleY = 1 - 0.06 * bounce - 0.05 * squash;
+  const faceOffset = side * 3.8 * (1 - Math.max(0, -front));
+  const avgScale = (scaleX + scaleY) / 2;
 
   // 1. 접지 그림자
-  const shadowRadius = 8.2 * (1 - bounce * 0.03);
+  const shadowRadius = 9.2 * (1 - bounce * 0.03);
   ctx.fillStyle = palette.contactShadow;
   ctx.beginPath();
   ctx.ellipse(
@@ -226,65 +244,76 @@ function drawPenguin(
   ctx.rotate(roll + lean);
   ctx.scale(scaleX, scaleY);
 
-  // 2. 왼발·오른발 교차 스윙
+  // 2. 노란 물갈퀴 발 (세 발가락, 정면에서도 세로 막대가 되지 않게 각도를 제한)
   drawFeet(ctx, theta, phi, move, palette);
 
-  // 3. 뒤쪽 날개 (몸통에 반쯤 가려진 채로 먼저 그린다)
-  if (Math.abs(side) > 0.25) {
-    ctx.save();
-    ctx.translate(-side * 7.2, -11);
-    ctx.rotate(-side * 0.45);
-    ctx.fillStyle = palette.coatFill;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.quadraticCurveTo(side * 3.2, -4.6, side * 5.4, -1.2);
-    ctx.quadraticCurveTo(side * 3.0, 2.2, 0, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
+  // 3. 뒤쪽 날개
+  if (Math.abs(side) > 0.25) drawBackFlipper(ctx, side, palette);
 
-  // 4. 일체형 달걀 실루엣 + clip() 턱시도 면 분할 + 은선 제거
+  // 4. 큰 머리 + 살짝 잘록한 목 + 통통한 배의 일체형 실루엣
   bodyPath(ctx);
   ctx.fillStyle = palette.coatFill;
   ctx.fill();
   if (front > -0.35) {
     ctx.save();
     ctx.clip();
-    const offsetX = side * 4.2 * (1 - Math.max(0, -front));
+
+    // 연회색 가슴 + 순백색 둥근 배 (투톤)
+    ctx.fillStyle = palette.chestFill;
+    ctx.beginPath();
+    ctx.ellipse(faceOffset, -9.2, 7.8, 8.0, 0, 0, TAU);
+    ctx.fill();
     ctx.fillStyle = palette.bellyFill;
     ctx.beginPath();
-    ctx.ellipse(offsetX, -11.5, 6.6, 11.2, 0, 0, TAU);
+    ctx.ellipse(faceOffset, -6.0, 6.8, 4.6, 0, 0, TAU);
     ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(offsetX * 0.65, -21.2, 4.5, 4.1, 0, 0, TAU);
+
+    // M자(하트) 이마 마스크 — 두 혹 사이의 중앙이 살짝 파인다
+    faceMaskPath(ctx, faceOffset);
+    ctx.fillStyle = palette.bellyFill;
     ctx.fill();
+
+    drawBlush(ctx, side, palette, faceOffset);
+    if (front > -0.25) drawEyes(ctx, s, side, palette, now, faceOffset);
     ctx.restore();
+
     bodyPath(ctx);
   }
-  ctx.strokeStyle = palette.inkPrimary;
-  ctx.lineWidth = 1.8 / ((scaleX + scaleY) / 2);
+  ctx.strokeStyle = palette.outlineFill;
+  ctx.lineWidth = 1.3 / avgScale;
   ctx.stroke();
 
-  // 5. 부리·눈 (뒷모습에서는 노출하지 않는다)
-  if (front > -0.25) {
-    drawBeak(ctx, side, palette);
-    drawEyes(ctx, s, side, palette, now);
-  }
+  // 5. 둥글납작한 만두 부리 (실루엣 밖으로 살짝 튀어나온다)
+  if (front > -0.25) drawBeak(ctx, side, palette, faceOffset);
 
-  // 6. 앞쪽 날개
+  // 6. 몸옆을 감싸는 도톰한 물방울 날개
   drawFrontFlipper(ctx, side, phi, move, palette);
 
   ctx.restore();
 }
 
+/** 정수리 → 볼 → 살짝 잘록한 목 → 통통한 아랫배 → 접지점. */
 function bodyPath(ctx: CanvasRenderingContext2D): void {
   ctx.beginPath();
-  ctx.moveTo(0, -27);
-  ctx.bezierCurveTo(6.4, -27, 8.7, -19, 8.7, -12);
-  ctx.bezierCurveTo(8.7, -5, 5.6, -2, 0, -2);
-  ctx.bezierCurveTo(-5.6, -2, -8.7, -5, -8.7, -12);
-  ctx.bezierCurveTo(-8.7, -19, -6.4, -27, 0, -27);
+  ctx.moveTo(0, -28);
+  ctx.bezierCurveTo(5.4, -28, 8.5, -25, 8.5, -20.5);
+  ctx.bezierCurveTo(8.5, -17.8, 8.0, -15.4, 7.6, -13.6);
+  ctx.bezierCurveTo(8.8, -12.2, 10, -10, 10, -7.2);
+  ctx.bezierCurveTo(10, -3.6, 7.4, -1.2, 0, -1.2);
+  ctx.bezierCurveTo(-7.4, -1.2, -10, -3.6, -10, -7.2);
+  ctx.bezierCurveTo(-10, -10, -8.8, -12.2, -7.6, -13.6);
+  ctx.bezierCurveTo(-8.0, -15.4, -8.5, -17.8, -8.5, -20.5);
+  ctx.bezierCurveTo(-8.5, -25, -5.4, -28, 0, -28);
+  ctx.closePath();
+}
+
+function faceMaskPath(ctx: CanvasRenderingContext2D, offsetX: number): void {
+  ctx.beginPath();
+  ctx.moveTo(offsetX - 5.6, -20.8);
+  ctx.bezierCurveTo(offsetX - 6.0, -24.0, offsetX - 3.4, -25.2, offsetX, -22.4);
+  ctx.bezierCurveTo(offsetX + 3.4, -25.2, offsetX + 6.0, -24.0, offsetX + 5.6, -20.8);
+  ctx.bezierCurveTo(offsetX + 5.4, -17.0, offsetX + 4.0, -15.2, offsetX, -15.2);
+  ctx.bezierCurveTo(offsetX - 4.0, -15.2, offsetX - 5.4, -17.0, offsetX - 5.6, -20.8);
   ctx.closePath();
 }
 
@@ -295,6 +324,7 @@ function drawFeet(
   move: number,
   palette: Palette
 ): void {
+  const side = Math.cos(theta);
   const forwardX = Math.cos(theta);
   const forwardY = Math.sin(theta) * PERSPECTIVE_Y;
   const normalX = -Math.sin(theta);
@@ -302,72 +332,134 @@ function drawFeet(
 
   for (const sign of [1, -1] as const) {
     const arg = sign === 1 ? phi : phi + Math.PI;
-    const stride = Math.sin(arg) * 3.8 * move;
+    const stride = Math.sin(arg) * 3.6 * move;
     const lift = Math.max(0, -Math.cos(arg)) * 2.2 * move;
-    const x = normalX * sign * 3.6 + forwardX * stride;
-    const y = normalY * sign * 3.6 + forwardY * stride - lift;
+    const x = normalX * sign * 4.2 + forwardX * stride;
+    const y = normalY * sign * 4.2 + forwardY * stride - lift;
+
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(theta + sign * 0.22);
-    ctx.fillStyle = palette.inkPrimary;
+    // heading 그대로 회전시키면 정면에서 세로 막대가 되므로 ±0.4rad로 제한한다.
+    ctx.rotate(side * 0.2 + sign * 0.16);
+    ctx.scale(1, 0.78);
+    ctx.fillStyle = palette.accentFill;
     ctx.beginPath();
-    ctx.ellipse(0, 0, 3.4, 1.9, 0, 0, TAU);
+    ctx.ellipse(0, 0.55, 2.6, 1.4, 0, 0, TAU);
     ctx.fill();
+    for (const toe of [-1.7, 0, 1.7]) {
+      ctx.beginPath();
+      ctx.ellipse(toe, -0.7, 0.95, 1.15, 0, 0, TAU);
+      ctx.fill();
+    }
     ctx.restore();
   }
 }
 
-function drawBeak(ctx: CanvasRenderingContext2D, side: number, palette: Palette): void {
-  const y = -18.5;
-  ctx.fillStyle = palette.inkPrimary;
+function drawBackFlipper(
+  ctx: CanvasRenderingContext2D,
+  side: number,
+  palette: Palette
+): void {
+  ctx.save();
+  ctx.translate(-side * 7.0, -10.5);
+  ctx.rotate(-side * 0.32);
+  ctx.fillStyle = palette.coatFill;
   ctx.beginPath();
-  if (Math.abs(side) < 0.25) {
-    ctx.moveTo(-1.8, y - 0.6);
-    ctx.lineTo(1.8, y - 0.6);
-    ctx.lineTo(0, y + 2.4);
-  } else {
-    const x = side * 6;
-    ctx.moveTo(x, y - 1.5);
-    ctx.lineTo(x + side * 3.6, y + 0.1);
-    ctx.lineTo(x, y + 1.7);
-  }
+  ctx.moveTo(0, -2.5);
+  ctx.quadraticCurveTo(-side * 3.2, -2.0, -side * 4.2, 3.2);
+  ctx.quadraticCurveTo(-side * 1.4, 2.6, 0, 0.8);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
 }
 
+function drawBlush(
+  ctx: CanvasRenderingContext2D,
+  side: number,
+  palette: Palette,
+  offsetX: number
+): void {
+  ctx.fillStyle = palette.blushFill;
+  const directions = Math.abs(side) < 0.55 ? [-1, 1] : [side];
+  for (const dir of directions) {
+    ctx.beginPath();
+    ctx.ellipse(offsetX + dir * 4.7, -17.4, 1.8, 1.0, 0, 0, TAU);
+    ctx.fill();
+  }
+}
+
+/** 넓고 낮게 배치한 세로 타원 콩알 눈 + 짧은 가로선 깜빡임. */
 function drawEyes(
   ctx: CanvasRenderingContext2D,
   s: PenguinState,
   side: number,
   palette: Palette,
-  now: number
+  now: number,
+  offsetX: number
 ): void {
-  const eyeY = -20.5;
+  const eyeY = -19.8;
   const blink = now < s.blinkUntil;
   const positions =
-    Math.abs(side) < 0.55 ? [-2.3 + side, 2.3 + side] : [side * 3.4];
+    Math.abs(side) < 0.55
+      ? [offsetX - 3.0, offsetX + 3.0]
+      : [offsetX + side * 3.4];
 
   for (const ex of positions) {
     if (blink) {
-      ctx.strokeStyle = palette.inkPrimary;
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = palette.eyeFill;
+      ctx.lineWidth = 1.3;
       ctx.beginPath();
-      ctx.moveTo(ex - 1.3, eyeY);
-      ctx.lineTo(ex + 1.3, eyeY);
+      ctx.moveTo(ex - 1.5, eyeY + 0.3);
+      ctx.quadraticCurveTo(ex, eyeY + 1.1, ex + 1.5, eyeY + 0.3);
       ctx.stroke();
     } else {
-      ctx.fillStyle = palette.inkPrimary;
+      ctx.fillStyle = palette.eyeFill;
       ctx.beginPath();
-      ctx.arc(ex, eyeY, 1.35, 0, TAU);
+      ctx.ellipse(ex, eyeY, 1.5, 2.0, 0, 0, TAU);
       ctx.fill();
       ctx.fillStyle = palette.bellyFill;
       ctx.beginPath();
-      ctx.arc(ex - 0.35, eyeY - 0.4, 0.38, 0, TAU);
+      ctx.arc(ex - 0.45, eyeY - 0.8, 0.6, 0, TAU);
       ctx.fill();
     }
   }
 }
 
+function drawBeak(
+  ctx: CanvasRenderingContext2D,
+  side: number,
+  palette: Palette,
+  offsetX: number
+): void {
+  const y = -16.6;
+  const frontView = Math.abs(side) < 0.3;
+  ctx.fillStyle = palette.accentFill;
+  ctx.beginPath();
+  if (frontView) {
+    ctx.moveTo(offsetX - 2.4, y - 0.9);
+    ctx.quadraticCurveTo(offsetX, y - 2.1, offsetX + 2.4, y - 0.9);
+    ctx.quadraticCurveTo(offsetX + 2.1, y + 1.5, offsetX, y + 1.8);
+    ctx.quadraticCurveTo(offsetX - 2.1, y + 1.5, offsetX - 2.4, y - 0.9);
+  } else {
+    const x = offsetX + side * 4.4;
+    ctx.moveTo(x - side * 1.2, y - 1.3);
+    ctx.quadraticCurveTo(x + side * 2.4, y - 1.0, x + side * 2.2, y + 0.4);
+    ctx.quadraticCurveTo(x + side * 0.8, y + 1.7, x - side * 1.2, y + 0.8);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = palette.accentShade;
+  ctx.beginPath();
+  if (frontView) {
+    ctx.ellipse(offsetX, y + 1.0, 1.7, 0.5, 0, 0, TAU);
+  } else {
+    ctx.ellipse(offsetX + side * 4.8, y + 0.9, 1.3, 0.45, 0, 0, TAU);
+  }
+  ctx.fill();
+}
+
+/** 선이 아니라 면으로 채운 물방울 날개. */
 function drawFrontFlipper(
   ctx: CanvasRenderingContext2D,
   side: number,
@@ -379,15 +471,15 @@ function drawFrontFlipper(
   const directions = frontView ? [-1, 1] : [side];
   for (const dir of directions) {
     ctx.save();
-    if (frontView) ctx.translate(dir * 7.6, -12);
-    else ctx.translate(-side * 1.5, -12);
-    ctx.rotate(dir * (0.3 + Math.sin(phi + (dir < 0 ? Math.PI : 0)) * 0.28 * move));
-    ctx.strokeStyle = palette.inkPrimary;
-    ctx.lineWidth = 1.6;
+    ctx.translate(dir * 7.0, -10.0);
+    ctx.rotate(dir * (-0.08 + Math.sin(phi + (dir < 0 ? Math.PI : 0)) * 0.2 * move));
+    ctx.fillStyle = palette.coatFill;
     ctx.beginPath();
-    ctx.moveTo(0, -2.2);
-    ctx.quadraticCurveTo(dir * 4.4, -1.4, dir * 6.6, 3.2);
-    ctx.stroke();
+    ctx.moveTo(0, -2.6);
+    ctx.quadraticCurveTo(dir * 3.2, -2.0, dir * 3.6, 2.4);
+    ctx.quadraticCurveTo(dir * 1.3, 2.0, 0, 0.6);
+    ctx.closePath();
+    ctx.fill();
     ctx.restore();
   }
 }

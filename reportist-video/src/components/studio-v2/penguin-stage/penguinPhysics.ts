@@ -35,7 +35,7 @@ export function createPenguin(x: number, y: number, now: number): PenguinState {
     y,
     vx: 0,
     vy: 0,
-    heading: 0.65,
+    heading: Math.PI / 2,
     walkCycle: 0,
     prevWalkSin: 0,
     moveBlend: 0,
@@ -109,6 +109,8 @@ export function stepPenguin(
     state.vy = approach(state.vy, 0, MAX_ACCEL * dt);
     state.x += state.vx * dt;
     state.y += state.vy * dt;
+    // 멈추면 천천히 정면을 돌아보며 서 있다 (급하게 확 돌지 않게 보간).
+    state.heading = shortestAngleLerp(state.heading, Math.PI / 2, dt * 1.6);
 
     if (now >= state.nextIdleAt) {
       state.nextIdleAt = now + 3000 + Math.random() * 3000;
