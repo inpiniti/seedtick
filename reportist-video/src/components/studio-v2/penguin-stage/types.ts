@@ -71,6 +71,10 @@ export interface PenguinState {
   squash: number;
   /** 마지막 이동 명령 이후 자동 배회를 시작할 시각(performance.now()). */
   nextWanderAt: number;
+  /** 배회 목표에 도착하지 못했을 때 강제로 포기하는 시각. 0이면 감시 비활성. */
+  wanderDeadlineAt: number;
+  /** 마지막으로 확인한 웨이포인트 거리. 전진이 멈췄는지 판단하는 기준. */
+  wanderLastDist: number;
   /** 배회 중에는 보행 속도를 낮춘다. */
   isWandering: boolean;
 }

@@ -25,6 +25,8 @@ const WANDER_IDLE_MS = 5200;
 const WANDER_SPEED_SCALE = 0.58;
 const WANDER_MIN_DISTANCE = 70;
 const WANDER_MAX_DISTANCE = 280;
+/** 웨이포인트에 대한 접근이 이 시간 동안 없으면 막힌 배회로 보고 경로를 폐기한다. */
+const WANDER_STALL_MS = 3000;
 
 export const FOOTPRINT_LIFETIME = 7200;
 export const MAX_FOOTPRINTS = 160;
@@ -65,6 +67,8 @@ export function createPenguin(x: number, y: number, now: number): PenguinState {
     blinkUntil: 0,
     squash: 0,
     nextWanderAt: now + WANDER_IDLE_MS + Math.random() * 1600,
+    wanderDeadlineAt: 0,
+    wanderLastDist: 0,
     isWandering: false,
   };
 }
@@ -72,6 +76,8 @@ export function createPenguin(x: number, y: number, now: number): PenguinState {
 /** 명령 후 다시 배회할 때까지의 유휴 시간을 초기화한다. */
 export function resetWanderTimer(state: PenguinState, now: number): void {
   state.isWandering = false;
+  state.wanderDeadlineAt = 0;
+  state.wanderLastDist = 0;
   state.nextWanderAt = now + WANDER_IDLE_MS + Math.random() * 1600;
 }
 
@@ -170,13 +176,33 @@ export function stepPenguin(
     const dist = Math.hypot(dx, dy);
     if (state.waypoints.length > 1 && dist < CORNER_LOOKAHEAD) {
       state.waypoints.shift();
+      state.wanderLastDist = Infinity; // 새 웨이포인트부터 정체 시간을 다시 센다.
       continue;
     }
     if (dist < ARRIVE_RADIUS) {
       state.waypoints.shift();
+      state.wanderLastDist = Infinity;
       continue;
     }
     break;
+  }
+
+  // [교착 방지] 겹친 개체의 밀어냄이나 장애물 때문에 웨이포인트에 닿지 못하면
+  // nextWanderAt이 Infinity로 남아 영구 정지한다. 기한이 지나면 경로를 폐기하고
+  // 짧은 뒤 다시 배회하도록 되돌린다.
+  if (state.isWandering) {
+    // 이전 세션/수동 설정으로 기한이 비어 있어도 반드시 감시를 시작한다.
+    if (state.wanderDeadlineAt <= 0) {
+      state.wanderDeadlineAt = now + WANDER_STALL_MS;
+      state.wanderLastDist = Infinity;
+    } else if (now >= state.wanderDeadlineAt) {
+      state.waypoints.length = 0;
+      state.target = null;
+      state.isWandering = false;
+      state.wanderDeadlineAt = 0;
+      state.wanderLastDist = 0;
+      state.nextWanderAt = now + 500 + Math.random() * 800;
+    }
   }
 
   if (state.waypoints.length === 0) {
@@ -184,6 +210,8 @@ export function stepPenguin(
     if (state.isWandering) {
       // 산책 도착 — 잠시 쉬었다가 다시 배회한다.
       state.isWandering = false;
+      state.wanderDeadlineAt = 0;
+      state.wanderLastDist = 0;
       state.nextWanderAt = now + 2200 + Math.random() * 3200;
     }
     if (now >= state.nextWanderAt) {
@@ -194,7 +222,10 @@ export function stepPenguin(
         state.waypoints = path;
         state.target = goal;
         state.isWandering = true;
+        // 도착할 때까지 다음 배회를 미루되, 정체되면 반드시 되돌아올 수 있게 감시한다.
         state.nextWanderAt = Number.POSITIVE_INFINITY;
+        state.wanderDeadlineAt = now + WANDER_STALL_MS;
+        state.wanderLastDist = Infinity;
         state.lookTarget = 0;
         state.lookOffset *= 0.5;
         state.nextIdleAt = now + 4000;
@@ -207,6 +238,19 @@ export function stepPenguin(
     state.vy = approach(state.vy, 0, MAX_ACCEL * dt);
     state.x += state.vx * dt;
     state.y += state.vy * dt;
+    // 가만히 서 있어도 겹친 개체와 서서히 떨어진다 (완전히 포개진 채 굳는 것 방지).
+    if (extraVelocity.x !== 0 || extraVelocity.y !== 0) {
+      state.x += extraVelocity.x * dt * 0.35;
+      state.y += extraVelocity.y * dt * 0.35;
+      const settled = ejectFromObstacles(
+        { x: state.x, y: state.y },
+        grid.obstacles,
+        grid.width,
+        grid.height
+      );
+      state.x = settled.x;
+      state.y = settled.y;
+    }
     // 멈추면 천천히 정면을 돌아보며 서 있다 (급하게 확 돌지 않게 보간).
     state.heading = shortestAngleLerp(state.heading, Math.PI / 2, dt * 1.6);
 
@@ -226,13 +270,23 @@ export function stepPenguin(
     const dx = wp.x - state.x;
     const dy = wp.y - state.y;
     const dist = Math.max(1, Math.hypot(dx, dy));
+    // 목표에 실제로 가까워지고 있으면 정체 시계를 되돌린다.
+    // 먼 거리를 천천히 걷는 정상 산책은 끊지 않고, 제자리에서 막힌 경우만 복구한다.
+    if (dist < state.wanderLastDist - 1.5) {
+      state.wanderLastDist = dist;
+      state.wanderDeadlineAt = now + WANDER_STALL_MS;
+    }
     const speed =
       maxSpeed *
       speedScale *
       (state.isWandering ? WANDER_SPEED_SCALE : 1) *
       Math.min(1, dist / SLOW_RADIUS);
-    const desiredVx = (dx / dist) * speed + extraVelocity.x;
-    const desiredVy = (dy / dist) * speed + extraVelocity.y;
+    // 밀어냄이 목표 반대 방향이어도 최소한 전진은 하도록 강도를 목표 속도에 묶는다.
+    // (그렇지 않으면 서로 밀어내느라 웨이포인트에 영구히 닿지 못한다)
+    const sepMag = Math.hypot(extraVelocity.x, extraVelocity.y);
+    const sepScale = sepMag > speed * 0.6 ? (speed * 0.6) / sepMag : 1;
+    const desiredVx = (dx / dist) * speed + extraVelocity.x * sepScale;
+    const desiredVy = (dy / dist) * speed + extraVelocity.y * sepScale;
 
     let steerX = desiredVx - state.vx;
     let steerY = desiredVy - state.vy;

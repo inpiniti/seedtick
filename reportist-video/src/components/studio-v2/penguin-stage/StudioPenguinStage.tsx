@@ -156,10 +156,19 @@ function chooseNextSpeaker(
 const TAU = Math.PI * 2;
 const SPAWN_RING_RADIUS = 0.34;
 const MIN_SEPARATION = 26;
+const MAX_SEPARATION = 70;
 const NPC_SPEED_SCALE = 0.72;
 const MAX_FOOTPRINTS_PER_AGENT = 18;
 const clamp = (v: number, min: number, max: number): number =>
   v < min ? min : v > max ? max : v;
+
+/** 장애물 좌표가 실제로 바뀐 경우에만 경로를 다시 계산하기 위한 지문. */
+const obstacleKey = (obstacles: ReturnType<typeof collectObstacles>): string =>
+  obstacles
+    .map((o) =>
+      `${Math.round(o.left)}:${Math.round(o.top)}:${Math.round(o.right)}:${Math.round(o.bottom)}`
+    )
+    .join('|');
 
 export const StudioPenguinStage = forwardRef<
   StudioPenguinStageHandle,
@@ -241,6 +250,7 @@ export const StudioPenguinStage = forwardRef<
 
     let dark = document.documentElement.classList.contains('dark');
     paletteRef.current = resolvePalette(dark);
+    let lastObstacleKey = '';
 
     const spawnAgents = (grid: NavGrid): void => {
       const now = performance.now();
@@ -299,7 +309,9 @@ export const StudioPenguinStage = forwardRef<
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const grid = buildGrid(width, height, collectObstacles(obstacleRoot, rect));
+      const obstacles = collectObstacles(obstacleRoot, rect);
+      const grid = buildGrid(width, height, obstacles);
+      lastObstacleKey = obstacleKey(obstacles);
       gridRef.current = grid;
 
       if (!initializedRef.current) {
@@ -343,11 +355,13 @@ export const StudioPenguinStage = forwardRef<
     const refreshObstacles = (): void => {
       const { width, height } = sizeRef.current;
       if (width < 1 || height < 1) return;
-      const grid = buildGrid(
-        width,
-        height,
-        collectObstacles(obstacleRoot, host.getBoundingClientRect())
-      );
+      const obstacles = collectObstacles(obstacleRoot, host.getBoundingClientRect());
+      const key = obstacleKey(obstacles);
+      // 말풍선·주제 등 레이아웃과 무관한 리렌더에 반응해 이동 중 경로를
+      // 반복해서 되그리는 것을 막는다.
+      if (key === lastObstacleKey) return;
+      lastObstacleKey = key;
+      const grid = buildGrid(width, height, obstacles);
       gridRef.current = grid;
       reconcileAgents(grid);
     };
@@ -571,14 +585,28 @@ export const StudioPenguinStage = forwardRef<
         const separation: Vec2 = { x: 0, y: 0 };
         for (const other of agents) {
           if (other === agent) continue;
-          const dx = st.x - other.physics.x;
-          const dy = st.y - other.physics.y;
-          const distance = Math.hypot(dx, dy);
-          if (distance > 0 && distance < MIN_SEPARATION) {
+          let dx = st.x - other.physics.x;
+          let dy = st.y - other.physics.y;
+          let distance = Math.hypot(dx, dy);
+          if (distance < MIN_SEPARATION) {
+            // 정확히 포개지면 방향이 0이 되어 서로 밀어내지 못하고 굳는다.
+            // 개체 id로 결정적인 방향을 정해 항상 풀릴 수 있게 한다.
+            if (distance < 0.001) {
+              const angle = ((agent.id - other.id + ANIMAL_SPECIES.length) % ANIMAL_SPECIES.length) *
+                (TAU / ANIMAL_SPECIES.length);
+              dx = Math.cos(angle);
+              dy = Math.sin(angle);
+              distance = 1;
+            }
             const push = (1 - distance / MIN_SEPARATION) * 90;
             separation.x += (dx / distance) * push;
             separation.y += (dy / distance) * push;
           }
+        }
+        const separationMag = Math.hypot(separation.x, separation.y);
+        if (separationMag > MAX_SEPARATION) {
+          separation.x = (separation.x / separationMag) * MAX_SEPARATION;
+          separation.y = (separation.y / separationMag) * MAX_SEPARATION;
         }
 
         const isSelected = agent.species === speciesRef.current;
