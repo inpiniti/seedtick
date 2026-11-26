@@ -19,7 +19,12 @@ import {
   stepParticles,
 } from './penguinRenderer.ts';
 import { ANIMAL_SPECIES, getSpeciesGait, type AnimalSpecies } from './species.ts';
-import { requestAnimalLine } from '../../../services/animalChatService.ts';
+import {
+  requestAnimalLine,
+  requestDiscussionTopic,
+  getFallbackTopic,
+  type DiscussionEntry,
+} from '../../../services/animalChatService.ts';
 import type {
   Footprint,
   Palette,
@@ -251,64 +256,60 @@ export const StudioPenguinStage = forwardRef<
     host.addEventListener('click', onClick);
 
     const BUBBLE_DURATION_MS = 3000;
-    const PREFETCH_MS = 1200;
-    const MAX_TURNS_PER_PAIR = 6;
+    const MAX_TURNS_PER_TOPIC = 12;
+    const DISCUSSION_GROUP_SIZE = 4;
 
-    interface ChatTurn {
-      aId: number;
-      bId: number;
+    interface Discussion {
+      topic: string;
+      memberIds: number[];
       turns: number;
-      lastSpeakerId: number;
-      lastText: string;
-      lastSpeakerSpecies: AnimalSpecies | null;
+      history: DiscussionEntry[];
     }
-    let conversation: ChatTurn | null = null;
+    let discussion: Discussion | null = null;
     let pendingSpeech: { agentId: number; text: string; imageUrl?: string } | null = null;
 
     const startConversationTurn = (): void => {
       const agents = agentsRef.current;
       if (agents.length < 2 || chatInFlightRef.current || pendingSpeech) return;
 
-      if (!conversation || conversation.turns >= MAX_TURNS_PER_PAIR) {
-        const first = agents[Math.floor(Math.random() * agents.length)];
-        let second: (typeof agents)[number] | null = null;
-        let nearest = 160;
-        for (const candidate of agents) {
-          if (candidate === first) continue;
-          const distance = Math.hypot(
-            candidate.physics.x - first.physics.x,
-            candidate.physics.y - first.physics.y
+      if (!discussion || discussion.turns >= MAX_TURNS_PER_TOPIC) {
+        const anchor = agents[Math.floor(Math.random() * agents.length)];
+        const nearest = agents
+          .filter((a) => a !== anchor)
+          .sort(
+            (a, b) =>
+              Math.hypot(a.physics.x - anchor.physics.x, a.physics.y - anchor.physics.y) -
+              Math.hypot(b.physics.x - anchor.physics.x, b.physics.y - anchor.physics.y)
           );
-          if (distance < nearest) {
-            nearest = distance;
-            second = candidate;
-          }
+        const members = [anchor];
+        for (const candidate of nearest) {
+          if (members.length >= DISCUSSION_GROUP_SIZE) break;
+          members.push(candidate);
         }
-        if (!second) second = agents[(agents.indexOf(first) + 1) % agents.length];
-        conversation = {
-          aId: first.id,
-          bId: second.id,
+        const started: Discussion = {
+          topic: getFallbackTopic(performance.now()),
+          memberIds: members.map((m) => m.id),
           turns: 0,
-          lastSpeakerId: -1,
-          lastText: '',
-          lastSpeakerSpecies: null,
+          history: [],
         };
+        discussion = started;
+        void requestDiscussionTopic()
+          .then((topic) => {
+            if (discussion === started) started.topic = topic;
+          })
+          .catch(() => undefined);
       }
 
-      const current = conversation;
-      const speakerAgent = agents.find((a) => a.id === current.aId);
-      const listenerAgent = agents.find((a) => a.id === current.bId);
-      if (!speakerAgent || !listenerAgent) {
-        conversation = null;
+      const current = discussion;
+      const members = current.memberIds
+        .map((id) => agents.find((a) => a.id === id))
+        .filter((a): a is (typeof agents)[number] => Boolean(a));
+      if (members.length < 2) {
+        discussion = null;
         return;
       }
-      const speaker =
-        current.turns === 0 || current.lastSpeakerId === current.bId
-          ? speakerAgent
-          : listenerAgent;
-      const listener = speaker === speakerAgent ? listenerAgent : speakerAgent;
-      const previousText = current.turns === 0 ? undefined : current.lastText;
-      const previousSpeaker = current.lastSpeakerSpecies ?? undefined;
+      const speaker = members[current.turns % members.length];
+      const listener = members[(current.turns + 1) % members.length];
 
       chatInFlightRef.current = true;
       const controller = new AbortController();
@@ -317,9 +318,9 @@ export const StudioPenguinStage = forwardRef<
       void requestAnimalLine({
         speaker: speaker.species,
         listener: listener.species,
-        previousText,
-        previousSpeaker,
-        wantImage: Math.random() < 0.1 && current.turns % 4 === 0,
+        topic: current.topic,
+        history: current.history,
+        wantImage: Math.random() < 0.08 && current.turns % 5 === 0,
         signal: controller.signal,
       })
         .then((speech) => {
@@ -330,9 +331,8 @@ export const StudioPenguinStage = forwardRef<
             imageUrl: speech.imageUrl,
           };
           current.turns += 1;
-          current.lastSpeakerId = speaker.id;
-          current.lastText = speech.text;
-          current.lastSpeakerSpecies = speaker.species;
+          current.history.push({ speaker: speaker.species, text: speech.text });
+          if (current.history.length > 5) current.history.shift();
         })
         .catch(() => undefined)
         .finally(() => {
@@ -427,20 +427,8 @@ export const StudioPenguinStage = forwardRef<
           pendingSpeech = null;
         }
       }
-      if (!chatInFlightRef.current && !pendingSpeech) {
-        const active = agents.filter(
-          (a) => a.bubble && now - a.bubble.bornAt < a.bubble.durationMs
-        );
-        const remaining =
-          active.length > 0
-            ? Math.min(
-                ...active.map(
-                  (a) => (a.bubble?.bornAt ?? 0) + (a.bubble?.durationMs ?? 0) - now
-                )
-              )
-            : 0;
-        if (active.length === 0 || remaining < PREFETCH_MS) startConversationTurn();
-      }
+      // 다음 대사를 미리 받아 대기시킨다. 풍선이 사라지는 프레임에 바로 교체되어 빈틈이 없다.
+      if (!chatInFlightRef.current && !pendingSpeech) startConversationTurn();
 
       stepParticles(particlesRef.current, dt, grid.width, grid.height, reducedMotionRef.current);
       if (pingRef.current && now - pingRef.current.bornAt > 450) pingRef.current = null;
