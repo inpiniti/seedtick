@@ -261,7 +261,7 @@ async function loadTrendPool(
       };
       const items = (payload.items ?? [])
         .map((item) => ({
-          topic: typeof item?.topic === 'string' ? item.topic.trim().slice(0, 42) : '',
+          topic: typeof item?.topic === 'string' ? item.topic.trim().slice(0, 80) : '',
           keyword:
             typeof item?.keyword === 'string' ? item.keyword.trim().slice(0, 16) : undefined,
           context:
