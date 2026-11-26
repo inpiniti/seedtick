@@ -13,43 +13,39 @@ const clamp = (v: number, min: number, max: number): number =>
   v < min ? min : v > max ? max : v;
 const rgba = (rgb: string, alpha: number): string => `rgba(${rgb}, ${alpha})`;
 
-/** 다크 토글 + 아기 펭귄 원포인트(노란 부리·발, 볼터치) 팔레트. */
+/** 설계 목업의 resolveCutePalette('pastel', dark) 값을 그대로 이식했다. */
 export function resolvePalette(dark: boolean): Palette {
   if (dark) {
     return {
       snowBg: '#0e1116',
-      bodyWhite: '#f2f4f6',
-      inkPrimary: '#f2f4f6',
-      inkTrack: 'rgba(242, 244, 246, 0.25)',
-      snowFlake: 'rgba(242, 244, 246, 0.18)',
-      coatFill: '#3a414d',
-      bellyFill: '#f2f4f6',
-      chestFill: '#c9d1da',
-      accentFill: '#f6b545',
-      accentShade: '#e59a34',
-      blushFill: 'rgba(240, 138, 125, 0.42)',
-      eyeFill: '#1b2029',
-      outlineFill: '#e6ebf1',
-      contactShadow: 'rgba(0, 0, 0, 0.38)',
       inkRgb: '242, 244, 246',
+      outline: '#11161d',
+      outerRim: 'rgba(242, 244, 246, 0.85)',
+      coat: '#384150',
+      coatHighlight: 'rgba(255, 255, 255, 0.28)',
+      faceMask: '#d9dfe7',
+      belly: '#f8fafc',
+      eye: '#11161d',
+      beakFill: '#f6c453',
+      footFill: '#f0b942',
+      cheek: 'rgba(244, 138, 158, 0.62)',
+      shadow: 'rgba(0, 0, 0, 0.45)',
     };
   }
   return {
     snowBg: '#f8f9fa',
-    bodyWhite: '#ffffff',
-    inkPrimary: '#0f172a',
-    inkTrack: 'rgba(15, 23, 42, 0.28)',
-    snowFlake: 'rgba(15, 23, 42, 0.18)',
-    coatFill: '#3d4451',
-    bellyFill: '#ffffff',
-    chestFill: '#dfe5ec',
-    accentFill: '#f6b545',
-    accentShade: '#e59a34',
-    blushFill: 'rgba(240, 138, 125, 0.5)',
-    eyeFill: '#1b2029',
-    outlineFill: '#2b313b',
-    contactShadow: 'rgba(15, 23, 42, 0.12)',
     inkRgb: '15, 23, 42',
+    outline: '#181e27',
+    outerRim: 'rgba(255, 255, 255, 0.85)',
+    coat: '#3d4451',
+    coatHighlight: 'rgba(255, 255, 255, 0.55)',
+    faceMask: '#e3e7ec',
+    belly: '#ffffff',
+    eye: '#141922',
+    beakFill: '#f7c552',
+    footFill: '#f5be45',
+    cheek: 'rgba(244, 138, 158, 0.60)',
+    shadow: 'rgba(15, 23, 42, 0.11)',
   };
 }
 
@@ -116,15 +112,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): vo
   if (o.state.target) {
     ctx.fillStyle = rgba(o.palette.inkRgb, 0.35);
     ctx.beginPath();
-    ctx.ellipse(
-      o.state.target.x,
-      o.state.target.y,
-      1.8,
-      1.8 * PERSPECTIVE_Y,
-      0,
-      0,
-      TAU
-    );
+    ctx.ellipse(o.state.target.x, o.state.target.y, 1.8, 1.8 * PERSPECTIVE_Y, 0, 0, TAU);
     ctx.fill();
   }
   drawPenguin(ctx, o.state, o.palette, o.now, o.reducedMotion);
@@ -163,17 +151,15 @@ function drawFootprints(
     ctx.translate(fp.x, fp.y);
     ctx.rotate(fp.angle);
     ctx.scale(scale, scale);
-
     ctx.fillStyle = rgba(palette.inkRgb, fillAlpha);
     ctx.beginPath();
-    ctx.ellipse(0, 0, 3.4, 1.9 * PERSPECTIVE_Y, 0, 0, TAU);
+    ctx.ellipse(0, 0, 3.6, 2.0 * PERSPECTIVE_Y, 0, 0, TAU);
     ctx.fill();
-
     ctx.strokeStyle = rgba(palette.inkRgb, rimAlpha);
     ctx.lineWidth = 1;
     if (p > 0.45) ctx.setLineDash([2.2 * (1 - p) + 0.6, 2.5 * p]);
     ctx.beginPath();
-    ctx.ellipse(0, 0, 3.6, 2.1 * PERSPECTIVE_Y, 0, Math.PI, TAU);
+    ctx.ellipse(0, 0, 3.8, 2.2 * PERSPECTIVE_Y, 0, Math.PI, TAU);
     ctx.stroke();
     ctx.restore();
   }
@@ -191,295 +177,307 @@ function drawPing(
     const local = clamp(t - i * 0.18, 0, 1);
     if (local <= 0) continue;
     const radius = 2 + local * 14;
-    ctx.strokeStyle = rgba(palette.inkRgb, 0.3 * (1 - local) * (i === 0 ? 1 : 0.6));
-    ctx.lineWidth = 1.1;
+    ctx.strokeStyle = rgba(palette.inkRgb, 0.32 * (1 - local) * (i === 0 ? 1 : 0.6));
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.ellipse(ping.x, ping.y, radius, radius * PERSPECTIVE_Y, 0, 0, TAU);
     ctx.stroke();
   }
 }
 
-/**
- * 아기 펭귄 프로시저럴 드로잉.
- * 볼 pivot(0,0) 기준, 뒤→앞 순서(Painter's Algorithm)로 그려 은선이 겹치지 않는다.
- */
+/** 설계 목업의 babyBodyPath — 정수리(-35)부터 접지점(-0.6)까지의 아기 펭귄 실루엣. */
+function babyBodyPath(ctx: CanvasRenderingContext2D, ws: number): void {
+  ctx.beginPath();
+  ctx.moveTo(0, -35.0);
+  ctx.bezierCurveTo(6.6 * ws, -35.0, 10.0 * ws, -30.2, 9.7 * ws, -24.0);
+  ctx.bezierCurveTo(9.5 * ws, -21.0, 8.1 * ws, -19.5, 8.2 * ws, -18.0);
+  ctx.bezierCurveTo(11.4 * ws, -14.2, 12.8 * ws, -9.2, 11.5 * ws, -4.8);
+  ctx.bezierCurveTo(10.0 * ws, -1.2, 5.2 * ws, -0.6, 0, -0.6);
+  ctx.bezierCurveTo(-5.2 * ws, -0.6, -10.0 * ws, -1.2, -11.5 * ws, -4.8);
+  ctx.bezierCurveTo(-12.8 * ws, -9.2, -11.4 * ws, -14.2, -8.2 * ws, -18.0);
+  ctx.bezierCurveTo(-8.1 * ws, -19.5, -9.5 * ws, -21.0, -9.7 * ws, -24.0);
+  ctx.bezierCurveTo(-10.0 * ws, -30.2, -6.6 * ws, -35.0, 0, -35.0);
+  ctx.closePath();
+}
+
+/** 세 발가락 물갈퀴 발. */
+function drawWebbedFoot(
+  ctx: CanvasRenderingContext2D,
+  sign: number,
+  offsetX: number,
+  offsetY: number,
+  lift: number,
+  stride: number,
+  palette: Palette
+): void {
+  ctx.save();
+  ctx.translate(offsetX, offsetY - lift + stride * 0.45);
+  ctx.scale(sign, 1);
+  ctx.rotate(-0.06 + stride * 0.04);
+  ctx.fillStyle = palette.footFill;
+  ctx.strokeStyle = palette.outline;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(2.2, -2.2);
+  ctx.quadraticCurveTo(6.8, -1.2, 9.4, 0.9);
+  ctx.quadraticCurveTo(9.8, 2.2, 7.6, 2.1);
+  ctx.quadraticCurveTo(6.8, 3.4, 5.0, 2.7);
+  ctx.quadraticCurveTo(3.6, 4.0, 2.2, 2.8);
+  ctx.quadraticCurveTo(1.2, 0.6, 2.2, -2.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 몸옆을 감싸는 도톰한 물방울 날개. */
+function drawCozyFlipper(
+  ctx: CanvasRenderingContext2D,
+  sign: number,
+  ws: number,
+  flapAngle: number,
+  palette: Palette
+): void {
+  ctx.save();
+  ctx.translate(sign * 8.2 * ws, -17.8);
+  ctx.scale(sign, 1);
+  ctx.rotate(flapAngle);
+  ctx.fillStyle = palette.coat;
+  ctx.strokeStyle = palette.outline;
+  ctx.lineWidth = 1.45;
+  ctx.beginPath();
+  ctx.moveTo(-0.4, -0.5);
+  ctx.bezierCurveTo(3.2, 2.2, 4.0, 7.2, 1.4, 10.2);
+  ctx.bezierCurveTo(-0.4, 11.4, -2.6, 9.6, -2.4, 6.4);
+  ctx.bezierCurveTo(-2.3, 3.8, -1.8, 1.6, -0.4, -0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0.5, 0.3);
+  ctx.bezierCurveTo(3.2, 2.6, 4.0, 7.2, 1.4, 10.2);
+  ctx.bezierCurveTo(-0.4, 11.4, -2.6, 9.6, -2.3, 6.2);
+  ctx.quadraticCurveTo(-2.1, 3.8, -1.4, 2.0);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 목업의 drawCuteBabyPenguin을 그대로 이식. */
 function drawPenguin(
   ctx: CanvasRenderingContext2D,
-  s: PenguinState,
-  palette: Palette,
+  p: PenguinState,
+  pal: Palette,
   now: number,
   reducedMotion: boolean
 ): void {
-  const theta = s.heading + s.lookOffset * (1 - s.moveBlend);
+  const theta = p.heading + p.lookOffset * (1 - p.moveBlend);
   const side = Math.cos(theta);
   const front = Math.sin(theta);
-  const phi = s.walkCycle;
-  const move = s.moveBlend;
+  const phi = p.walkCycle;
+  const move = p.moveBlend;
+
   const bounce = reducedMotion ? 0 : Math.abs(Math.sin(phi)) * move;
-  const roll = reducedMotion ? 0 : Math.sin(phi) * 0.13 * move;
-  const lean = side * 0.06 * move;
-  const squash = reducedMotion ? 0 : s.squash;
-  const scaleX = 1 + 0.05 * bounce + 0.04 * squash;
-  const scaleY = 1 - 0.06 * bounce - 0.05 * squash;
-  const faceOffset = side * 3.8 * (1 - Math.max(0, -front));
-  const avgScale = (scaleX + scaleY) / 2;
-
-  // 1. 접지 그림자
-  const shadowRadius = 9.2 * (1 - bounce * 0.03);
-  ctx.fillStyle = palette.contactShadow;
-  ctx.beginPath();
-  ctx.ellipse(
-    s.x,
-    s.y + 1,
-    shadowRadius * scaleX,
-    shadowRadius * PERSPECTIVE_Y * scaleY,
-    0,
-    0,
-    TAU
-  );
-  ctx.fill();
+  const roll = reducedMotion ? 0 : Math.sin(phi) * 0.11 * move;
+  const squash = reducedMotion ? 0 : p.squash;
+  const sx = 1 + 0.04 * bounce + 0.04 * squash;
+  const sy = 1 - 0.05 * bounce - 0.04 * squash;
+  const ws = 1 - 0.11 * side * side;
 
   ctx.save();
-  ctx.translate(s.x, s.y);
-  ctx.rotate(roll + lean);
-  ctx.scale(scaleX, scaleY);
+  ctx.translate(p.x, p.y);
 
-  // 2. 노란 물갈퀴 발 (세 발가락, 정면에서도 세로 막대가 되지 않게 각도를 제한)
-  drawFeet(ctx, theta, phi, move, palette);
-
-  // 3. 뒤쪽 날개
-  if (Math.abs(side) > 0.25) drawBackFlipper(ctx, side, palette);
-
-  // 4. 큰 머리 + 살짝 잘록한 목 + 통통한 배의 일체형 실루엣
-  bodyPath(ctx);
-  ctx.fillStyle = palette.coatFill;
+  ctx.fillStyle = pal.shadow;
+  ctx.beginPath();
+  ctx.ellipse(0, 1.8, 11.2 * sx, 11.2 * PERSPECTIVE_Y * sy, 0, 0, TAU);
   ctx.fill();
-  if (front > -0.35) {
-    ctx.save();
-    ctx.clip();
 
-    // 연회색 가슴 + 순백색 둥근 배 (투톤)
-    ctx.fillStyle = palette.chestFill;
-    ctx.beginPath();
-    ctx.ellipse(faceOffset, -9.2, 7.8, 8.0, 0, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = palette.bellyFill;
-    ctx.beginPath();
-    ctx.ellipse(faceOffset, -6.0, 6.8, 4.6, 0, 0, TAU);
-    ctx.fill();
+  const lStride = Math.sin(phi + Math.PI) * 2.6 * move;
+  const rStride = Math.sin(phi) * 2.6 * move;
+  const lLift = Math.max(0, -Math.cos(phi + Math.PI)) * 2.0 * move;
+  const rLift = Math.max(0, -Math.cos(phi)) * 2.0 * move;
+  drawWebbedFoot(ctx, -1, side * 0.8, 0.2, lLift, lStride, pal);
+  drawWebbedFoot(ctx, 1, side * 0.8, 0.2, rLift, rStride, pal);
 
-    // M자(하트) 이마 마스크 — 두 혹 사이의 중앙이 살짝 파인다
-    faceMaskPath(ctx, faceOffset);
-    ctx.fillStyle = palette.bellyFill;
-    ctx.fill();
-
-    drawBlush(ctx, side, palette, faceOffset);
-    if (front > -0.25) drawEyes(ctx, s, side, palette, now, faceOffset);
-    ctx.restore();
-
-    bodyPath(ctx);
-  }
-  ctx.strokeStyle = palette.outlineFill;
-  ctx.lineWidth = 1.3 / avgScale;
-  ctx.stroke();
-
-  // 5. 둥글납작한 만두 부리 (실루엣 밖으로 살짝 튀어나온다)
-  if (front > -0.25) drawBeak(ctx, side, palette, faceOffset);
-
-  // 6. 몸옆을 감싸는 도톰한 물방울 날개
-  drawFrontFlipper(ctx, side, phi, move, palette);
-
-  ctx.restore();
-}
-
-/** 정수리 → 볼 → 살짝 잘록한 목 → 통통한 아랫배 → 접지점. */
-function bodyPath(ctx: CanvasRenderingContext2D): void {
-  ctx.beginPath();
-  ctx.moveTo(0, -28);
-  ctx.bezierCurveTo(5.4, -28, 8.5, -25, 8.5, -20.5);
-  ctx.bezierCurveTo(8.5, -17.8, 8.0, -15.4, 7.6, -13.6);
-  ctx.bezierCurveTo(8.8, -12.2, 10, -10, 10, -7.2);
-  ctx.bezierCurveTo(10, -3.6, 7.4, -1.2, 0, -1.2);
-  ctx.bezierCurveTo(-7.4, -1.2, -10, -3.6, -10, -7.2);
-  ctx.bezierCurveTo(-10, -10, -8.8, -12.2, -7.6, -13.6);
-  ctx.bezierCurveTo(-8.0, -15.4, -8.5, -17.8, -8.5, -20.5);
-  ctx.bezierCurveTo(-8.5, -25, -5.4, -28, 0, -28);
-  ctx.closePath();
-}
-
-function faceMaskPath(ctx: CanvasRenderingContext2D, offsetX: number): void {
-  ctx.beginPath();
-  ctx.moveTo(offsetX - 5.6, -20.8);
-  ctx.bezierCurveTo(offsetX - 6.0, -24.0, offsetX - 3.4, -25.2, offsetX, -22.4);
-  ctx.bezierCurveTo(offsetX + 3.4, -25.2, offsetX + 6.0, -24.0, offsetX + 5.6, -20.8);
-  ctx.bezierCurveTo(offsetX + 5.4, -17.0, offsetX + 4.0, -15.2, offsetX, -15.2);
-  ctx.bezierCurveTo(offsetX - 4.0, -15.2, offsetX - 5.4, -17.0, offsetX - 5.6, -20.8);
-  ctx.closePath();
-}
-
-function drawFeet(
-  ctx: CanvasRenderingContext2D,
-  theta: number,
-  phi: number,
-  move: number,
-  palette: Palette
-): void {
-  const side = Math.cos(theta);
-  const forwardX = Math.cos(theta);
-  const forwardY = Math.sin(theta) * PERSPECTIVE_Y;
-  const normalX = -Math.sin(theta);
-  const normalY = Math.cos(theta) * PERSPECTIVE_Y;
-
-  for (const sign of [1, -1] as const) {
-    const arg = sign === 1 ? phi : phi + Math.PI;
-    const stride = Math.sin(arg) * 3.6 * move;
-    const lift = Math.max(0, -Math.cos(arg)) * 2.2 * move;
-    const x = normalX * sign * 4.2 + forwardX * stride;
-    const y = normalY * sign * 4.2 + forwardY * stride - lift;
-
-    ctx.save();
-    ctx.translate(x, y);
-    // heading 그대로 회전시키면 정면에서 세로 막대가 되므로 ±0.4rad로 제한한다.
-    ctx.rotate(side * 0.2 + sign * 0.16);
-    ctx.scale(1, 0.78);
-    ctx.fillStyle = palette.accentFill;
-    ctx.beginPath();
-    ctx.ellipse(0, 0.55, 2.6, 1.4, 0, 0, TAU);
-    ctx.fill();
-    for (const toe of [-1.7, 0, 1.7]) {
-      ctx.beginPath();
-      ctx.ellipse(toe, -0.7, 0.95, 1.15, 0, 0, TAU);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-}
-
-function drawBackFlipper(
-  ctx: CanvasRenderingContext2D,
-  side: number,
-  palette: Palette
-): void {
   ctx.save();
-  ctx.translate(-side * 7.0, -10.5);
-  ctx.rotate(-side * 0.32);
-  ctx.fillStyle = palette.coatFill;
-  ctx.beginPath();
-  ctx.moveTo(0, -2.5);
-  ctx.quadraticCurveTo(-side * 3.2, -2.0, -side * 4.2, 3.2);
-  ctx.quadraticCurveTo(-side * 1.4, 2.6, 0, 0.8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
+  ctx.translate(0, -bounce * 1.6);
+  ctx.rotate(roll + side * 0.04 * move);
+  ctx.scale(sx, sy);
 
-function drawBlush(
-  ctx: CanvasRenderingContext2D,
-  side: number,
-  palette: Palette,
-  offsetX: number
-): void {
-  ctx.fillStyle = palette.blushFill;
-  const directions = Math.abs(side) < 0.55 ? [-1, 1] : [side];
-  for (const dir of directions) {
-    ctx.beginPath();
-    ctx.ellipse(offsetX + dir * 4.7, -17.4, 1.8, 1.0, 0, 0, TAU);
-    ctx.fill();
-  }
-}
-
-/** 넓고 낮게 배치한 세로 타원 콩알 눈 + 짧은 가로선 깜빡임. */
-function drawEyes(
-  ctx: CanvasRenderingContext2D,
-  s: PenguinState,
-  side: number,
-  palette: Palette,
-  now: number,
-  offsetX: number
-): void {
-  const eyeY = -19.8;
-  const blink = now < s.blinkUntil;
-  const positions =
-    Math.abs(side) < 0.55
-      ? [offsetX - 3.0, offsetX + 3.0]
-      : [offsetX + side * 3.4];
-
-  for (const ex of positions) {
-    if (blink) {
-      ctx.strokeStyle = palette.eyeFill;
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.moveTo(ex - 1.5, eyeY + 0.3);
-      ctx.quadraticCurveTo(ex, eyeY + 1.1, ex + 1.5, eyeY + 0.3);
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = palette.eyeFill;
-      ctx.beginPath();
-      ctx.ellipse(ex, eyeY, 1.5, 2.0, 0, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = palette.bellyFill;
-      ctx.beginPath();
-      ctx.arc(ex - 0.45, eyeY - 0.8, 0.6, 0, TAU);
-      ctx.fill();
-    }
-  }
-}
-
-function drawBeak(
-  ctx: CanvasRenderingContext2D,
-  side: number,
-  palette: Palette,
-  offsetX: number
-): void {
-  const y = -16.6;
-  const frontView = Math.abs(side) < 0.3;
-  ctx.fillStyle = palette.accentFill;
-  ctx.beginPath();
-  if (frontView) {
-    ctx.moveTo(offsetX - 2.4, y - 0.9);
-    ctx.quadraticCurveTo(offsetX, y - 2.1, offsetX + 2.4, y - 0.9);
-    ctx.quadraticCurveTo(offsetX + 2.1, y + 1.5, offsetX, y + 1.8);
-    ctx.quadraticCurveTo(offsetX - 2.1, y + 1.5, offsetX - 2.4, y - 0.9);
-  } else {
-    const x = offsetX + side * 4.4;
-    ctx.moveTo(x - side * 1.2, y - 1.3);
-    ctx.quadraticCurveTo(x + side * 2.4, y - 1.0, x + side * 2.2, y + 0.4);
-    ctx.quadraticCurveTo(x + side * 0.8, y + 1.7, x - side * 1.2, y + 0.8);
-  }
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = palette.accentShade;
-  ctx.beginPath();
-  if (frontView) {
-    ctx.ellipse(offsetX, y + 1.0, 1.7, 0.5, 0, 0, TAU);
-  } else {
-    ctx.ellipse(offsetX + side * 4.8, y + 0.9, 1.3, 0.45, 0, 0, TAU);
-  }
-  ctx.fill();
-}
-
-/** 선이 아니라 면으로 채운 물방울 날개. */
-function drawFrontFlipper(
-  ctx: CanvasRenderingContext2D,
-  side: number,
-  phi: number,
-  move: number,
-  palette: Palette
-): void {
-  const frontView = Math.abs(side) < 0.25;
-  const directions = frontView ? [-1, 1] : [side];
-  for (const dir of directions) {
+  if (Math.abs(side) > 0.42) {
+    const farSign = side > 0 ? 1 : -1;
     ctx.save();
-    ctx.translate(dir * 7.0, -10.0);
-    ctx.rotate(dir * (-0.08 + Math.sin(phi + (dir < 0 ? Math.PI : 0)) * 0.2 * move));
-    ctx.fillStyle = palette.coatFill;
+    ctx.translate(farSign * 7.5 * ws, -17.2);
+    ctx.scale(farSign, 1);
+    ctx.rotate(-0.35 - Math.sin(phi) * 0.22 * move);
+    ctx.fillStyle = pal.coat;
+    ctx.strokeStyle = pal.outline;
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
-    ctx.moveTo(0, -2.6);
-    ctx.quadraticCurveTo(dir * 3.2, -2.0, dir * 3.6, 2.4);
-    ctx.quadraticCurveTo(dir * 1.3, 2.0, 0, 0.6);
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(3.8, 1.4, 4.8, 6.2, 2.2, 8.4);
+    ctx.bezierCurveTo(0.6, 9.2, -1.2, 7.2, 0, 0);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
     ctx.restore();
   }
+
+  if (pal.snowBg === '#0e1116') {
+    babyBodyPath(ctx, ws);
+    ctx.strokeStyle = pal.outerRim;
+    ctx.lineWidth = 2.8;
+    ctx.stroke();
+  }
+
+  babyBodyPath(ctx, ws);
+  ctx.fillStyle = pal.coat;
+  ctx.fill();
+
+  if (front > -0.35) {
+    const vis = Math.min(1, (front + 0.35) / 0.55);
+    const mx = side * 4.5;
+    ctx.save();
+    babyBodyPath(ctx, ws);
+    ctx.clip();
+    ctx.globalAlpha = vis;
+
+    ctx.fillStyle = pal.faceMask;
+    ctx.beginPath();
+    ctx.moveTo(mx, -21.8);
+    ctx.bezierCurveTo(mx + 1.6, -28.0, mx + 7.5, -27.8, mx + 7.7, -21.8);
+    ctx.bezierCurveTo(mx + 7.8, -19.2, mx + 6.3, -18.0, mx + 6.6, -16.4);
+    ctx.bezierCurveTo(mx + 9.8, -12.6, mx + 10.6, -6.4, mx + 8.4, -2.6);
+    ctx.bezierCurveTo(mx + 5.6, -0.4, mx - 5.6, -0.4, mx - 8.4, -2.6);
+    ctx.bezierCurveTo(mx - 10.6, -6.4, mx - 9.8, -12.6, mx - 6.6, -16.4);
+    ctx.bezierCurveTo(mx - 6.3, -18.0, mx - 7.8, -19.2, mx - 7.7, -21.8);
+    ctx.bezierCurveTo(mx - 7.5, -27.8, mx - 1.6, -28.0, mx, -21.8);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = pal.belly;
+    ctx.beginPath();
+    ctx.ellipse(mx * 1.04, -8.4, 7.8, 6.7, 0, 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = pal.coatHighlight;
+    ctx.lineWidth = 1.15;
+    ctx.beginPath();
+    ctx.arc(0, -24.5, 8.3 * ws, Math.PI * 1.08, Math.PI * 1.48);
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    ctx.fillStyle = pal.coat;
+    ctx.strokeStyle = pal.outline;
+    ctx.lineWidth = 1.45;
+    ctx.beginPath();
+    ctx.ellipse(-side * 1.2, -2.0, 2.8, 1.7, 0, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  babyBodyPath(ctx, ws);
+  ctx.strokeStyle = pal.outline;
+  ctx.lineWidth = 1.7;
+  ctx.stroke();
+
+  if (front > -0.25) {
+    const fx = side * 4.3;
+    const eyeY = -22.7;
+    const beakY = -21.2;
+    const blink = now < p.blinkUntil;
+
+    ctx.fillStyle = pal.cheek;
+    if (side > -0.74) {
+      const rx = fx + 3.8 * (1 - Math.max(0, side) * 0.35);
+      ctx.beginPath();
+      ctx.ellipse(rx, -18.6, 1.75, 0.95, 0, 0, TAU);
+      ctx.fill();
+    }
+    if (side < 0.74) {
+      const lx = fx - 3.8 * (1 - Math.max(0, -side) * 0.35);
+      ctx.beginPath();
+      ctx.ellipse(lx, -18.6, 1.75, 0.95, 0, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = pal.eye;
+    ctx.strokeStyle = pal.eye;
+    ctx.lineWidth = 1.35;
+    const eyeSpread = 3.75;
+    if (side < 0.78) {
+      const lx = fx - eyeSpread * (1 - Math.max(0, side) * 0.45);
+      if (blink) {
+        ctx.beginPath();
+        ctx.moveTo(lx - 1.2, eyeY);
+        ctx.lineTo(lx + 1.2, eyeY);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.ellipse(lx, eyeY, 1.15, 1.85, 0, 0, TAU);
+        ctx.fill();
+      }
+    }
+    if (side > -0.78) {
+      const rx = fx + eyeSpread * (1 - Math.max(0, -side) * 0.45);
+      if (blink) {
+        ctx.beginPath();
+        ctx.moveTo(rx - 1.2, eyeY);
+        ctx.lineTo(rx + 1.2, eyeY);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.ellipse(rx, eyeY, 1.15, 1.85, 0, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    const bx = fx + side * 1.4;
+    const bw = 2.75 * (1 - 0.16 * Math.abs(side));
+    ctx.fillStyle = pal.beakFill;
+    ctx.strokeStyle = pal.outline;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(bx - bw, beakY - 0.3);
+    ctx.quadraticCurveTo(bx, beakY - 1.1, bx + bw + side * 0.9, beakY - 0.25);
+    ctx.bezierCurveTo(
+      bx + bw + side * 1.1,
+      beakY + 2.5,
+      bx - bw,
+      beakY + 2.5,
+      bx - bw,
+      beakY - 0.3
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  const flap = Math.sin(phi) * 0.20 * move;
+  if (Math.abs(side) <= 0.42) {
+    drawCozyFlipper(ctx, -1, ws, flap, pal);
+    drawCozyFlipper(ctx, 1, ws, -flap, pal);
+  } else {
+    const nearSign = side > 0 ? -1 : 1;
+    ctx.save();
+    ctx.translate(nearSign * 1.6 * ws, -17.2);
+    ctx.scale(-nearSign, 1);
+    ctx.rotate(0.12 + flap);
+    ctx.fillStyle = pal.coat;
+    ctx.strokeStyle = pal.outline;
+    ctx.lineWidth = 1.45;
+    ctx.beginPath();
+    ctx.moveTo(-1.2, -0.5);
+    ctx.bezierCurveTo(2.8, 1.8, 3.4, 7.2, 0.8, 9.8);
+    ctx.bezierCurveTo(-1.2, 10.6, -3.0, 8.2, -2.2, 3.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0.2, 0.4);
+    ctx.bezierCurveTo(2.8, 2.2, 3.4, 7.2, 0.8, 9.8);
+    ctx.bezierCurveTo(-1.2, 10.6, -3.0, 8.2, -2.1, 3.4);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+  ctx.restore();
 }

@@ -73,29 +73,19 @@ export interface PenguinState {
   isWandering: boolean;
 }
 
-/** 테마 토큰 + 아기 펭귄 포인트 컬러. RGB 삼원조는 rgba() 합성에 재사용한다. */
+/** 설계 목업의 resolveCutePalette('pastel', dark)와 1:1 대응하는 팔레트. */
 export interface Palette {
   snowBg: string;
-  bodyWhite: string;
-  inkPrimary: string;
-  inkTrack: string;
-  snowFlake: string;
-  /** 부드러운 차콜 외투. */
-  coatFill: string;
-  /** 순백색 둥근 배·얼굴 마스크. */
-  bellyFill: string;
-  /** 연회색 가슴 (배와 투톤을 만든다). */
-  chestFill: string;
-  /** 노란 부리·물갈퀴 발 (원포인트 컬러). */
-  accentFill: string;
-  /** 부리 아래쪽 음영. */
-  accentShade: string;
-  /** 볼터치. */
-  blushFill: string;
-  /** 콩알 눈. */
-  eyeFill: string;
-  /** 외곽선 — 순수 검정보다 부드러운 차콜. */
-  outlineFill: string;
-  contactShadow: string;
   inkRgb: string;
+  outline: string;
+  outerRim: string;
+  coat: string;
+  coatHighlight: string;
+  faceMask: string;
+  belly: string;
+  eye: string;
+  beakFill: string;
+  footFill: string;
+  cheek: string;
+  shadow: string;
 }
