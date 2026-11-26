@@ -306,20 +306,22 @@ export const UploadQueueDock = ({
                           />
                         </div>
                       )}
-                      {/* 분석 중인 카드에만 React Bits Star Border를 얹어 어떤 영상이 진행 중인지 바로 알 수 있게 한다. */}
+                      {/* 분석 중인 카드에만 React Bits Star Border를 얹어 어떤 영상이 진행 중인지 바로 알 수 있게 한다.
+                          데모 기본값(Comet)과 같은 파라미터를 쓰고, 카드 라운드(9px)만 유지한다.
+                          다크 테마에서는 studioV2.css에서 별을 반전해 흰 빛으로 보이게 한다. */}
                       {isProcessing && badge.active && (
                         <StarBorder
                           as="div"
                           className="sv2-upload-star-border"
-                          theme="dark"
-                          color="#ffffff"
-                          trailColor="#ffffff"
-                          duration={4.5}
-                          thickness={1.2}
+                          theme="light"
+                          color="#18181b"
+                          trailColor="#18181b"
+                          duration={4}
+                          thickness={1}
                           radius={9}
-                          trailLength={0.16}
+                          trailLength={0.3}
                           stars={1}
-                          glow={0.45}
+                          glow={0.6}
                           sparkle={false}
                           hover="none"
                           clickPulse={false}
@@ -335,8 +337,6 @@ export const UploadQueueDock = ({
                             background: 'transparent',
                             borderRadius: 'inherit',
                             pointerEvents: 'none',
-                            // 라이트/다크 테마 모두에서 별이 보이도록 흰 빛을 배경색의 반전으로 그린다.
-                            mixBlendMode: 'difference',
                             zIndex: 4,
                           }}
                         />

@@ -489,6 +489,11 @@
   border-color: var(--sv2-accent);
   background: var(--sv2-accent-soft);
 }
+/* Star Border는 React Bits 데모 기본값(어두운 혜성)을 그대로 쓰므로,
+   다크 테마에서만 캔버스를 반전해 별이 흰 빛으로 보이게 한다. */
+.dark .sv2-upload-star-border {
+  filter: invert(1);
+}
 .sv2-upload-card[data-done='true']:not([data-landed='true']) {
   border-color: color-mix(in srgb, var(--sv2-success) 45%, var(--sv2-border));
 }
