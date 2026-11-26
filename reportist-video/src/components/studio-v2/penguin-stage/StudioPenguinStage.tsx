@@ -60,6 +60,10 @@ export const INTERACTIVE_OR_BLOCKED_SELECTOR = [
   '.sv2-preview-toggles',
   '.sv2-display-bar',
   '.sv2-status-pill',
+  '.sv2-topbar',
+  '.sv2-stage-meta',
+  '.sv2-discussion-controls',
+  '.sv2-transcript',
 ].join(', ');
 
 export interface StudioPenguinStageHandle {
@@ -203,6 +207,8 @@ export const StudioPenguinStage = forwardRef<
     if (!canvas) return;
     const host = canvas.parentElement;
     if (!host) return;
+    // 미리보기·상단바는 캔버스 부모의 형제/조상에 있으므로 앱 루트에서 장애물을 찾는다.
+    const obstacleRoot = host.closest<HTMLElement>('.sv2-root') ?? host.parentElement ?? host;
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
@@ -250,6 +256,20 @@ export const StudioPenguinStage = forwardRef<
       agentsRef.current = agents;
     };
 
+    const reconcileAgents = (grid: NavGrid): void => {
+      for (const agent of agentsRef.current) {
+        const st = agent.physics;
+        const walkable = findNearestWalkable(grid, { x: st.x, y: st.y });
+        st.x = walkable.x;
+        st.y = walkable.y;
+        if (st.target) {
+          const goal = findNearestWalkable(grid, st.target);
+          st.waypoints = findPath(grid, { x: st.x, y: st.y }, goal);
+          st.target = goal;
+        }
+      }
+    };
+
     const remeasure = (): void => {
       const rect = host.getBoundingClientRect();
       if (rect.width < 1 || rect.height < 1) return;
@@ -265,24 +285,14 @@ export const StudioPenguinStage = forwardRef<
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const grid = buildGrid(width, height, collectObstacles(host, rect));
+      const grid = buildGrid(width, height, collectObstacles(obstacleRoot, rect));
       gridRef.current = grid;
 
       if (!initializedRef.current) {
         spawnAgents(grid);
         initializedRef.current = true;
       } else {
-        for (const agent of agentsRef.current) {
-          const st = agent.physics;
-          const walkable = findNearestWalkable(grid, { x: st.x, y: st.y });
-          st.x = walkable.x;
-          st.y = walkable.y;
-          if (st.target) {
-            const goal = findNearestWalkable(grid, st.target);
-            st.waypoints = findPath(grid, { x: st.x, y: st.y }, goal);
-            st.target = goal;
-          }
-        }
+        reconcileAgents(grid);
       }
 
       const existing = particlesRef.current;
@@ -313,6 +323,19 @@ export const StudioPenguinStage = forwardRef<
         }
       }
       return best;
+    };
+
+    /** 캔버스 크기는 그대로인데 미리보기·상단바가 바뀌는 경우를 반영한다. */
+    const refreshObstacles = (): void => {
+      const { width, height } = sizeRef.current;
+      if (width < 1 || height < 1) return;
+      const grid = buildGrid(
+        width,
+        height,
+        collectObstacles(obstacleRoot, host.getBoundingClientRect())
+      );
+      gridRef.current = grid;
+      reconcileAgents(grid);
     };
 
     const onClick = (event: MouseEvent): void => {
@@ -626,6 +649,32 @@ export const StudioPenguinStage = forwardRef<
       attributes: true,
       attributeFilter: ['class'],
     });
+
+    // 빈 미리보기 → 영상 프레임 전환, 가로/세로 전환 등은 host 크기가 그대로이므로
+    // DOM 변경을 감지해 장애물 지도만 다시 계산한다.
+    let refreshQueued = false;
+    const layoutObserver = new MutationObserver((records) => {
+      // 대화 기록의 매 턴 추가는 장애물과 무관하므로 무시한다.
+      if (
+        records.every((record) =>
+          Boolean((record.target as HTMLElement | null)?.closest?.('.sv2-transcript'))
+        )
+      ) {
+        return;
+      }
+      if (refreshQueued) return;
+      refreshQueued = true;
+      requestAnimationFrame(() => {
+        refreshQueued = false;
+        if (loopControlRef.current) refreshObstacles();
+      });
+    });
+    layoutObserver.observe(obstacleRoot, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'data-orientation'],
+    });
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     remeasure();
@@ -638,6 +687,7 @@ export const StudioPenguinStage = forwardRef<
       clickSurface.style.cursor = '';
       resizeObserver.disconnect();
       themeObserver.disconnect();
+      layoutObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       loopControlRef.current = null;
       remeasureRef.current = () => undefined;

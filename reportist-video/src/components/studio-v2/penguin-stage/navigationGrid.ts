@@ -2,6 +2,8 @@ import type { Rect, Vec2 } from './types.ts';
 
 /** 장애물로 취급할 실제 DOM. 스테이지 여백만 펭귄이 걸어갈 수 있다. */
 export const OBSTACLE_SELECTORS = [
+  // 상단바·미리보기·재생바 위에는 동물이 올라가지 않는다.
+  '.sv2-topbar',
   '.sv2-preview-empty-tilt',
   '.sv2-preview-empty-copy',
   '.sv2-preview-frame',
@@ -12,6 +14,9 @@ export const OBSTACLE_SELECTORS = [
   '.sv2-shared-meta',
   '.sv2-shared-details',
   '.sv2-status-pill',
+  '.sv2-stage-meta',
+  '.sv2-discussion-controls',
+  '.sv2-transcript',
 ] as const;
 
 export const CELL = 12;
