@@ -284,7 +284,12 @@ function drawBubbles(
   ctx.font = '600 10.5px system-ui, sans-serif';
   ctx.textBaseline = 'top';
 
-  for (const agent of agents) {
+  // 최신 발언부터 배치해야 좋은 자리를 차지하고, 오래된 풍선은 그 뒤를 피해 놓인다.
+  const speaking = agents
+    .flatMap((agent) => (agent.bubble ? [{ agent, bornAt: agent.bubble.bornAt }] : []))
+    .sort((a, b) => b.bornAt - a.bornAt);
+
+  for (const { agent } of speaking) {
     const bubble = agent.bubble;
     if (!bubble) continue;
     const age = now - bubble.bornAt;
@@ -292,7 +297,8 @@ function drawBubbles(
     const progress = age / bubble.durationMs;
     const fadingIn = progress < 0.08;
     const fadingOut = !bubble.persistent && progress > 0.88;
-    const alpha = fadingIn ? progress / 0.08 : fadingOut ? (1 - progress) / 0.12 : 1;
+    const appear = fadingIn ? progress / 0.08 : fadingOut ? (1 - progress) / 0.12 : 1;
+    const alpha = appear * (bubble.opacity ?? 1);
     if (alpha <= 0) continue;
 
     const image = bubble.imageUrl ? getBubbleImage(bubble.imageUrl) : null;

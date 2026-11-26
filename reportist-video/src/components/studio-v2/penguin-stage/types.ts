@@ -83,8 +83,10 @@ export interface SpeechBubbleData {
   imageUrl?: string;
   bornAt: number;
   durationMs: number;
-  /** 다음 발언이 나올 때까지 사라지지 않고 화면에 남는다. */
+  /** 여러 발언 동안 화면에 남는다. */
   persistent?: boolean;
+  /** 최근 발언일수록 진하게(1), 오래된 발언일수록 연하게(0~1) 그린다. */
+  opacity?: number;
 }
 
 /** 스테이지에 동시에 존재하는 개체 하나. */

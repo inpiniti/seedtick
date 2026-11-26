@@ -103,6 +103,23 @@ let activeDiscussion: DiscussionState | null = null;
 const DISCUSSION_TURN_CAP = 24;
 const REPEAT_LIMIT = 2;
 
+/** 한 화면에 남길 최근 발언 수와 최근순 강조값. 오래된 말풍선일수록 연하게 그린다. */
+const MAX_VISIBLE_BUBBLES = 5;
+const BUBBLE_OPACITIES = [1, 0.82, 0.64, 0.46, 0.3];
+
+function refreshBubbleOpacities(agents: StageAgent[]): void {
+  const speaking = agents
+    .flatMap((agent) => (agent.bubble ? [{ agent, bubble: agent.bubble }] : []))
+    .sort((a, b) => b.bubble.bornAt - a.bubble.bornAt);
+  speaking.forEach(({ agent, bubble }, index) => {
+    if (index >= MAX_VISIBLE_BUBBLES) {
+      agent.bubble = undefined;
+      return;
+    }
+    agent.bubble = { ...bubble, opacity: BUBBLE_OPACITIES[index] ?? 0.3 };
+  });
+}
+
 function normalizeLine(text: string): string {
   return text.replace(/\s+/g, '').slice(0, 12);
 }
@@ -365,7 +382,7 @@ export const StudioPenguinStage = forwardRef<
     clickSurface.addEventListener('click', onClick);
     clickSurface.addEventListener('pointermove', onPointerMove);
 
-    /** 한 발언이 화면에 머무는 시간. 말풍선 자체는 다음 발언까지 유지된다. */
+    /** 한 발언이 화면에 머무는 시간. 말풍선은 최근 5개까지 누적해서 유지된다. */
     const TURN_DISPLAY_MS = 5600;
     const TURN_GAP_MS = 500;
 
@@ -576,10 +593,6 @@ export const StudioPenguinStage = forwardRef<
       if (speech) {
         const target = agents.find((a) => a.id === speech.agentId);
         if (target) {
-          // 최근 발언자의 말풍선만 남기고 이전 풍선은 지운다.
-          for (const agent of agents) {
-            if (agent.bubble && agent !== target) agent.bubble = undefined;
-          }
           target.bubble = {
             text: speech.text,
             header: `${ANIMAL_LABELS[target.species]} · ${speech.mbti}`,
@@ -587,6 +600,8 @@ export const StudioPenguinStage = forwardRef<
             durationMs: TURN_DISPLAY_MS,
             persistent: true,
           };
+          // 최근 5개 발언을 함께 보여주고, 오래된 것일수록 연하게 만든다.
+          refreshBubbleOpacities(agents);
           // 지금 말하는 개체를 선택 상태로 자동 전환한다.
           if (speciesRef.current !== target.species) {
             speciesRef.current = target.species;
