@@ -154,7 +154,10 @@ function chooseNextSpeaker(
 }
 
 const TAU = Math.PI * 2;
-const SPAWN_RING_RADIUS = 0.34;
+/** 초기 배치 타원이 스테이지에서 차지하는 가로·세로 범위와 세로 중심 위치. */
+const SPAWN_SPAN_X = 0.86;
+const SPAWN_SPAN_Y = 0.72;
+const SPAWN_CENTER_Y = 0.54;
 const MIN_SEPARATION = 26;
 const MAX_SEPARATION = 70;
 const NPC_SPEED_SCALE = 0.72;
@@ -258,25 +261,28 @@ export const StudioPenguinStage = forwardRef<
     const spawnAgents = (grid: NavGrid): void => {
       const now = performance.now();
       const centerX = grid.width / 2;
-      const centerY = grid.height / 2;
-      const baseRadius = Math.min(grid.width, grid.height) * SPAWN_RING_RADIUS;
+      // 상단바에 가려지지 않도록 타원의 중심을 살짝 아래로 둔다.
+      const centerY = grid.height * SPAWN_CENTER_Y;
+      const radiusX = (grid.width * SPAWN_SPAN_X) / 2;
+      const radiusY = (grid.height * SPAWN_SPAN_Y) / 2;
       const agents: StageAgent[] = [];
 
       for (let i = 0; i < ANIMAL_SPECIES.length; i++) {
-        const angle = (i * TAU) / ANIMAL_SPECIES.length;
-        let radius = baseRadius;
+        // 완전한 원형 배열처럼 보이지 않도록 각도에 작은 흔들림을 준다.
+        const angle = (i * TAU) / ANIMAL_SPECIES.length + (Math.random() - 0.5) * 0.12;
+        let scale = 1;
         let point: Vec2 = { x: centerX, y: centerY };
         for (let attempt = 0; attempt < 6; attempt++) {
           const raw = {
-            x: centerX + Math.cos(angle) * radius,
-            y: centerY + Math.sin(angle) * radius * 0.72,
+            x: centerX + Math.cos(angle) * radiusX * scale,
+            y: centerY + Math.sin(angle) * radiusY * scale,
           };
           point = findNearestWalkable(grid, raw);
           const overlaps = agents.some(
             (a) => Math.hypot(a.physics.x - point.x, a.physics.y - point.y) < MIN_SEPARATION
           );
           if (!overlaps) break;
-          radius += 8;
+          scale += 0.05;
         }
         const physics = createPenguin(point.x, point.y, now);
         physics.heading = Math.PI / 2;
