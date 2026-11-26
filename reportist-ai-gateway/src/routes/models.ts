@@ -40,6 +40,10 @@ function toProvider(raw: unknown): LLMProvider | 'all' {
     : 'all';
 }
 
+function includeAllOutputs(raw: unknown): boolean {
+  return typeof raw === 'string' && raw.toLowerCase() === 'all';
+}
+
 function isSupportedModel(provider: LLMProvider, modelId: string): boolean {
   if (provider === 'opencode') return modelId.startsWith('opencode/');
   if (provider === 'openrouter' || provider === 'cline' || provider === 'kilo') {
@@ -82,7 +86,7 @@ export const modelsRoute = new Elysia()
   )
   .get('/v1/models/status', async ({ query }) => {
     const forceRefresh = isTrue(query.refresh);
-    return modelService.getCatalogStatus(forceRefresh);
+    return modelService.getCatalogStatus(forceRefresh, includeAllOutputs(query.scope));
   })
   .get('/v1/models/key-matrix', async ({ query }) => {
     const forceRefresh = isTrue(query.refresh);
@@ -267,7 +271,7 @@ export const modelsRoute = new Elysia()
     async function load(refresh) {
       const qs = refresh ? '?refresh=1' : '';
       const [statusRes, matrixRes] = await Promise.all([
-        fetch('/v1/models/status' + qs),
+        fetch('/v1/models/status?scope=all' + (refresh ? '&refresh=1' : '')),
         fetch('/v1/models/key-matrix?provider=all&modelLimit=12' + (refresh ? '&refresh=1' : '')),
       ]);
       const json = await statusRes.json();

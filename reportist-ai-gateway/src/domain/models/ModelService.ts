@@ -1,4 +1,4 @@
-// ModelService.ts - OpenRouter 무료 텍스트 모델 목록 및 메타데이터 서비스
+// ModelService.ts - OpenRouter 무료 모델 목록 및 메타데이터 서비스
 
 import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 import { env } from '../../config/env.ts';
@@ -12,6 +12,7 @@ interface ModelPerfMetric {
 
 interface GetModelsOptions {
   forceRefresh?: boolean;
+  includeAllOutputs?: boolean;
 }
 
 interface SelectModelOptions {
@@ -570,7 +571,7 @@ export class ModelService {
   async getFreeModels(options?: GetModelsOptions): Promise<FreeModelMeta[]> {
     const now = Date.now();
     if (!options?.forceRefresh && this.cache && now - this.lastFetchTime < this.CACHE_TTL_MS) {
-      return this.withImageModels(this.cache);
+      return this.filterForConsumer(this.cache, options?.includeAllOutputs === true);
     }
 
     try {
@@ -588,14 +589,14 @@ export class ModelService {
         console.warn(`[ModelService] Failed to fetch OpenRouter models: HTTP ${response.status}`);
         const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
         this.syncCatalogInBackground(fallback);
-        return fallback;
+        return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
       }
 
       const json = (await response.json()) as { data?: unknown[] };
       if (!Array.isArray(json?.data)) {
         const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
         this.syncCatalogInBackground(fallback);
-        return fallback;
+        return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
       }
 
       const rawModels = json.data as Array<Record<string, unknown>>;
@@ -608,11 +609,8 @@ export class ModelService {
         const outputModalities = Array.isArray(arch.output_modalities)
           ? (arch.output_modalities as string[])
           : [];
-        const outputsText = outputModalities.includes('text');
 
-        // 텍스트 출력 모델만 기존 /v1/models 목록에 포함한다.
-        // 이미지 생성 모델은 아래 mergeImageModels()에서 별도로 추가한다.
-        if (!isFree || !outputsText) continue;
+        if (!isFree) continue;
 
         const createdSec = typeof m.created === 'number' ? m.created : Math.floor(now / 1000);
         const createdDateObj = new Date(createdSec * 1000);
@@ -712,21 +710,24 @@ export class ModelService {
         this.cache = this.withImageModels(freeModels);
         this.lastFetchTime = now;
         this.syncCatalogInBackground(this.cache);
-        return this.cache;
+        return this.filterForConsumer(this.cache, options?.includeAllOutputs === true);
       }
 
       const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
       this.syncCatalogInBackground(fallback);
-      return fallback;
+      return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
     } catch (err) {
       console.error('[ModelService] Error fetching openrouter models:', err);
       const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
       this.syncCatalogInBackground(fallback);
-      return fallback;
+      return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
     }
   }
 
-  async getCatalogStatus(forceRefresh = false): Promise<{
+  async getCatalogStatus(
+    forceRefresh = false,
+    includeAllOutputs = false
+  ): Promise<{
     lastCatalogSyncAt: string | null;
     total: number;
     providers: Record<string, number>;
@@ -734,7 +735,7 @@ export class ModelService {
     trainingPolicy: { nonTraining: number; unknown: number; training: number };
     data: FreeModelMeta[];
   }> {
-    const models = await this.getFreeModels({ forceRefresh });
+    const models = await this.getFreeModels({ forceRefresh, includeAllOutputs });
     const providers: Record<string, number> = {};
     const outputModalities: Record<string, number> = {};
     const trainingPolicy = { nonTraining: 0, unknown: 0, training: 0 };
@@ -762,6 +763,15 @@ export class ModelService {
       trainingPolicy,
       data: models,
     };
+  }
+
+  private filterForConsumer(models: FreeModelMeta[], includeAllOutputs: boolean): FreeModelMeta[] {
+    if (includeAllOutputs) return models;
+    return models.filter((model) => {
+      if (model.isImageGenerationModel) return true;
+      const outputs = model.outputModalities?.length ? model.outputModalities : ['text'];
+      return outputs.includes('text');
+    });
   }
 
   async selectBestModel(options: SelectModelOptions): Promise<FreeModelMeta | null> {

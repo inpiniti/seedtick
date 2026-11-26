@@ -24,6 +24,21 @@ const FIXTURE_MODELS = Array.from({ length: 16 }, (_, i) => ({
   benchmarks: {},
   reasoning: {},
 }));
+FIXTURE_MODELS.push({
+  id: 'test/fixture-speech-model:free',
+  name: 'Fixture Speech Model',
+  created: 1792627200,
+  context_length: 131072,
+  description: 'Fixture speech model',
+  architecture: {
+    modality: 'text->audio',
+    input_modalities: ['text'],
+    output_modalities: ['audio'],
+  },
+  supported_parameters: ['temperature'],
+  benchmarks: {},
+  reasoning: {},
+});
 
 let fetchSpy: ReturnType<typeof spyOn> | null = null;
 
@@ -129,6 +144,20 @@ describe('ModelService & Models Route', () => {
     };
     expect(json.total).toBeGreaterThan(0);
     expect(json.trainingPolicy.nonTraining).toBeGreaterThan(0);
+  });
+
+  it('GET /v1/models/status?scope=all should include non-text output modalities', async () => {
+    const response = await app.handle(
+      new Request('http://localhost/v1/models/status?scope=all&refresh=1', {
+        method: 'GET',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as {
+      outputModalities: Record<string, number>;
+    };
+    expect(json.outputModalities.audio).toBeGreaterThanOrEqual(1);
   });
 
   it('GET /v1/models/key-matrix should return provider matrix payload', async () => {
