@@ -40,6 +40,7 @@ import type {
   StageAgent,
   Vec2,
 } from './types.ts';
+import { useI18n } from '../../../i18n/index.tsx';
 
 /** 버튼·프리뷰·타임라인 위 클릭은 기존 UI 동작을 절대 방해하지 않는다. */
 export const INTERACTIVE_OR_BLOCKED_SELECTOR = [
@@ -62,6 +63,7 @@ export const INTERACTIVE_OR_BLOCKED_SELECTOR = [
   '.sv2-status-pill',
   '.sv2-topbar',
   '.sv2-stage-meta',
+  '.sv2-discussion-topic',
   '.sv2-discussion-controls',
   '.sv2-transcript',
 ].join(', ');
@@ -162,8 +164,11 @@ export const StudioPenguinStage = forwardRef<
   const remeasureRef = useRef<() => void>(() => undefined);
   const chatInFlightRef = useRef(false);
   const chatAbortRef = useRef<AbortController | null>(null);
+  const { ui } = useI18n();
   const [transcript, setTranscript] = useState<DiscussionEntry[]>([]);
   const [briefing, setBriefing] = useState<DiscussionBriefing | null>(null);
+  // 모듈에 남아 있는 토론을 리마운트 뒤에도 그대로 표시한다.
+  const [topic, setTopic] = useState(() => activeDiscussion?.topic ?? '');
   const [showTranscript, setShowTranscript] = useState(false);
   const advanceRef = useRef<() => void>(() => undefined);
 
@@ -388,6 +393,7 @@ export const StudioPenguinStage = forwardRef<
       for (const agent of agentsRef.current) agent.bubble = undefined;
       setTranscript([]);
       setBriefing(null);
+      setTopic('');
       nextTurnAt = 0;
     };
     advanceRef.current = advanceTopic;
@@ -434,6 +440,7 @@ export const StudioPenguinStage = forwardRef<
               ended: false,
             };
             setBriefing(prepared);
+            setTopic(topicInfo.topic);
             setTranscript([]);
           }
 
@@ -704,6 +711,11 @@ export const StudioPenguinStage = forwardRef<
   return (
     <div className="sv2-stage-shell">
       <canvas ref={canvasRef} className="sv2-penguin-stage" aria-hidden="true" />
+      {topic && (
+        <p className="sv2-discussion-topic" role="status" title={topic}>
+          {ui('주제: {topic}', { topic })}
+        </p>
+      )}
       <div className="sv2-discussion-controls">
         <button
           type="button"

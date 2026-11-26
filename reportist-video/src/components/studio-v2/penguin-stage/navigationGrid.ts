@@ -15,6 +15,7 @@ export const OBSTACLE_SELECTORS = [
   '.sv2-shared-details',
   '.sv2-status-pill',
   '.sv2-stage-meta',
+  '.sv2-discussion-topic',
   '.sv2-discussion-controls',
   '.sv2-transcript',
 ] as const;

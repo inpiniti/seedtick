@@ -1,6 +1,7 @@
 // src/i18n/ui/fr.ts
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 프랑스어 번역.
 export const uiFr: Record<string, string> = {
+  '주제: {topic}': 'Sujet : {topic}',
   '영상을 추가하면 미리보기가 나타나요': "Ajoutez une vidéo pour voir l'aperçu",
   '원본 영상을 올리면 컷과 자막을 여기서 확인할 수 있어요':
     'Importez vos vidéos pour voir les coupes et les sous-titres ici',
