@@ -2065,20 +2065,21 @@ function drawElephantChibi(
       ctx.lineTo(2, y);
       ctx.stroke();
     }
-    ctx.restore();
 
-    // 작은 크림색 상아도 얼굴 방향을 함께 따른다.
+    // 작은 크림색 상아도 코와 같은 회전 좌표계에서 그린다.
+    // 얼굴 좌표(fx)에 그대로 두면 기울인 코 위에 상아 윤곽이 겹쳐 선이 교차한다.
     ctx.fillStyle = t.belly;
     ctx.strokeStyle = t.outline;
     ctx.lineWidth = 1.1;
     for (const s of [-1, 1]) {
       ctx.beginPath();
-      ctx.moveTo(fx + s * 3, -21);
-      ctx.quadraticCurveTo(fx + s * 4.2, -18, fx + s * 2.8, -16.5);
-      ctx.quadraticCurveTo(fx + s * 2, -18.5, fx + s * 3, -21);
+      ctx.moveTo(s * 3, 2);
+      ctx.quadraticCurveTo(s * 4.2, 5, s * 2.8, 6.5);
+      ctx.quadraticCurveTo(s * 2, 4.5, s * 3, 2);
       ctx.fill();
       ctx.stroke();
     }
+    ctx.restore();
   }
 
   ctx.restore();
