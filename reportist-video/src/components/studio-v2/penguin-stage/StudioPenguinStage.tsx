@@ -18,11 +18,17 @@ import {
   resolvePalette,
   stepParticles,
 } from './penguinRenderer.ts';
-import { ANIMAL_SPECIES, getSpeciesGait, type AnimalSpecies } from './species.ts';
 import {
-  requestAnimalLine,
-  requestDiscussionTopic,
-  type DiscussionEntry,
+  ANIMAL_LABELS,
+  ANIMAL_MBTI,
+  ANIMAL_SPECIES,
+  getSpeciesGait,
+  type AnimalSpecies,
+} from './species.ts';
+import {
+  getLocalScript,
+  requestDiscussionScript,
+  type DiscussionScript,
 } from '../../../services/animalChatService.ts';
 import type {
   Footprint,
@@ -254,75 +260,72 @@ export const StudioPenguinStage = forwardRef<
     };
     host.addEventListener('click', onClick);
 
-    const BUBBLE_DURATION_MS = 3000;
-    const MAX_TURNS_PER_TOPIC = 12;
+    const BUBBLE_DURATION_MS = 3600;
+    const TURN_GAP_MS = 600;
 
-    interface Discussion {
-      topic: string;
-      context?: string;
-      memberIds: number[];
-      turns: number;
-      history: DiscussionEntry[];
-    }
-    let discussion: Discussion | null = null;
-    let pendingSpeech: { agentId: number; text: string; imageUrl?: string } | null = null;
+    // 모든 대사는 /v1/trends 단일 응답에서 미리 받아 재생한다. 턴마다 LLM을 호출하지 않는다.
+    let script: DiscussionScript = getLocalScript(performance.now());
+    let nextScript: DiscussionScript | null = null;
+    let scriptCursor = 0;
+    let nextTurnAt = 0;
+    let pendingSpeech: { agentId: number; text: string; mbti: string } | null = null;
+    let scriptFetchAbort: AbortController | null = null;
 
-    const startConversationTurn = (): void => {
+    const prefetchScript = (): void => {
+      scriptFetchAbort?.abort();
+      const controller = new AbortController();
+      scriptFetchAbort = controller;
+      void requestDiscussionScript(controller.signal)
+        .then((next) => {
+          if (controller.signal.aborted || exportingRef.current) return;
+          // 첫 한 마디 전이라면 바로 갈아끼우고, 이미 말이 시작됐으면 다음 순환에 쓴다.
+          if (scriptCursor <= 1) {
+            script = next;
+            scriptCursor = 0;
+          } else {
+            nextScript = next;
+          }
+        })
+        .catch(() => {
+          // 실패해도 로컬 MBTI 대본이 계속 재생된다.
+        });
+    };
+    prefetchScript();
+
+    const startConversationTurn = (now: number): void => {
       const agents = agentsRef.current;
-      if (agents.length < 2 || chatInFlightRef.current || pendingSpeech) return;
+      if (
+        agents.length < 2 ||
+        chatInFlightRef.current ||
+        pendingSpeech ||
+        now < nextTurnAt
+      ) {
+        return;
+      }
 
       void (async () => {
         chatInFlightRef.current = true;
         const controller = new AbortController();
         chatAbortRef.current = controller;
         try {
-          if (!discussion || discussion.turns >= MAX_TURNS_PER_TOPIC) {
-            const members = [...agents];
-            for (let i = members.length - 1; i > 0; i -= 1) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [members[i], members[j]] = [members[j], members[i]];
-            }
-            // 주제를 먼저 확정한 뒤 1번 발언을 요청해 첫 마디 엇박자를 제거한다.
-            const topicInfo = await requestDiscussionTopic(controller.signal);
-            if (controller.signal.aborted) return;
-            discussion = {
-              topic: topicInfo.topic,
-              context: topicInfo.context,
-              memberIds: members.map((m) => m.id),
-              turns: 0,
-              history: [],
-            };
+          if (scriptCursor >= script.lines.length) {
+            script = nextScript ?? getLocalScript(now);
+            nextScript = null;
+            scriptCursor = 0;
+            prefetchScript();
           }
+          const line = script.lines[scriptCursor];
+          if (!line) return;
+          scriptCursor += 1;
 
-          const current = discussion;
-          const members = current.memberIds
-            .map((id) => agents.find((a) => a.id === id))
-            .filter((a): a is (typeof agents)[number] => Boolean(a));
-          if (members.length < 2) {
-            discussion = null;
-            return;
-          }
-          const speaker = members[current.turns % members.length];
-          const listener = members[(current.turns + 1) % members.length];
-
-          const speech = await requestAnimalLine({
-            speaker: speaker.species,
-            listener: listener.species,
-            topic: current.topic,
-            topicContext: current.context,
-            history: current.history,
-            wantImage: Math.random() < 0.08 && current.turns % 5 === 0,
-            signal: controller.signal,
-          });
-          if (controller.signal.aborted || exportingRef.current) return;
+          const speaker =
+            agents.find((a) => a.species === line.speaker) ?? agents[scriptCursor % agents.length];
+          if (!speaker) return;
           pendingSpeech = {
             agentId: speaker.id,
-            text: speech.text,
-            imageUrl: speech.imageUrl,
+            text: line.text,
+            mbti: line.mbti || ANIMAL_MBTI[speaker.species],
           };
-          current.turns += 1;
-          current.history.push({ speaker: speaker.species, text: speech.text });
-          if (current.history.length > 5) current.history.shift();
         } catch {
           // 실패 시 다음 프레임에서 다시 시도한다.
         } finally {
@@ -410,16 +413,19 @@ export const StudioPenguinStage = forwardRef<
           if (target) {
             target.bubble = {
               text: pendingSpeech.text,
-              imageUrl: pendingSpeech.imageUrl,
+              header: `${ANIMAL_LABELS[target.species]} · ${pendingSpeech.mbti}`,
               bornAt: now,
               durationMs: BUBBLE_DURATION_MS,
             };
+            nextTurnAt = now + BUBBLE_DURATION_MS + TURN_GAP_MS;
           }
           pendingSpeech = null;
         }
       }
-      // 다음 대사를 미리 받아 대기시킨다. 풍선이 사라지는 프레임에 바로 교체되어 빈틈이 없다.
-      if (!chatInFlightRef.current && !pendingSpeech) startConversationTurn();
+      // 말풍선이 사라진 뒤 짧게 호흡을 두고 다음 대사를 띄운다.
+      if (!chatInFlightRef.current && !pendingSpeech && now >= nextTurnAt) {
+        startConversationTurn(now);
+      }
 
       stepParticles(particlesRef.current, dt, grid.width, grid.height, reducedMotionRef.current);
       if (pingRef.current && now - pingRef.current.bornAt > 450) pingRef.current = null;
@@ -452,6 +458,8 @@ export const StudioPenguinStage = forwardRef<
       raf = 0;
       chatAbortRef.current?.abort();
       chatAbortRef.current = null;
+      scriptFetchAbort?.abort();
+      scriptFetchAbort = null;
       chatInFlightRef.current = false;
       pendingSpeech = null;
     }

@@ -1,76 +1,22 @@
 import {
-  ANIMAL_LABELS,
+  ANIMAL_MBTI,
+  ANIMAL_SPECIES,
   type AnimalSpecies,
 } from '../components/studio-v2/penguin-stage/species.ts';
 import { DEFAULT_CONFIG } from './gatewayClient.ts';
 
-/** 말풍선에 들어갈 내용. 이미지는 선택적으로 함께 온다. */
-export interface AnimalSpeech {
-  text: string;
-  imageUrl?: string;
-}
-
-/** 토론에 참여한 한 마리의 발언. */
-export interface DiscussionEntry {
+/** /v1/trends가 내려주는 동물 대사 한 줄. */
+export interface TrendScriptLine {
   speaker: AnimalSpecies;
+  mbti: string;
   text: string;
 }
 
-/** 게이트웨이 /v1/trends가 내려주는 토론 주제 정보. */
-export interface DiscussionTopicInfo {
+/** 배경 스테이지가 재생할 토론 대본. */
+export interface DiscussionScript {
   topic: string;
   context?: string;
-}
-
-/** 게이트웨이 실패·쿼터 고갈 시 사용하는 종별 한국어 대사. */
-const FALLBACK_LINES: Record<AnimalSpecies, string[]> = {
-  penguin: ['오늘 설원 좀 춥네?', '같이 걸을래?', '발자국 남겼어!', '여기서 기다릴게.'],
-  cat: ['어디 가냥?', '나도 같이 갈래.', '발끝 살짝 흔들렸어.', '여기서 낮잠 자려고.'],
-  dog: ['안녕! 같이 뛰자!', '좋은 냄새 나는데?', '이리 와서 인사해!', '꼬리 흔드는 중이야.'],
-  rabbit: ['깡총! 잘 따라오냥?', '귀가 자꾸 움직여.', '당근은 없어?', '여기서 뛰어놀자!'],
-  bear: ['오늘도 포근하네.', '천천히 걸어도 돼.', '배 좀 채우고 갈래.', '여기 앉아 있을게.'],
-  fox: ['오늘 날씨 딱 좋다!', '나 꼬리 좀 멋있지?', '저기 뭐가 있어?', '살짝 구경하고 올게.'],
-  panda: ['음… 뭐 할까?', '눈이 좀 가려지네.', '천천히 오렴.', '여기가 편하당.'],
-  koala: ['나무는 어디 있어?', '좀 더 안아도 될까?', '천천히 움직일게.', '여기서 쉬자.'],
-  squirrel: ['도토리 어디 있냥?', '빨리빨리 가자!', '내 꼬리 좀 봐!', '위로 올라갈래?'],
-  raccoon: ['오늘도 깜쪽같네.', '눈가가 좀 어둡지?', '이리 와서 같이 보자.', '물 씻고 올게.'],
-  'polar-bear': ['목도리 따뜻해.', '설원이 집 같아.', '천천히 걸어도 돼.', '여기서 기다릴게.'],
-  owl: ['후~ 잘 보고 있어.', '가슴 깃이 간지러워.', '밤이 오면 신나.', '조용히 지켜볼게.'],
-};
-
-/** 답변 폴백 — 이전 말을 받아 친근하게 받아치는 짧은 한국어 대사. */
-const FALLBACK_REPLIES = [
-  '그래! 같이 가자.',
-  '오, 나도 그랬어!',
-  '좋아, 같이 해보자.',
-  '진짜? 나도 궁금했어.',
-  'ㅋㅋ 귀엽다!',
-  '응, 여기서 기다릴게.',
-  '나도 그 생각 했어.',
-  '그럼 같이 가보자!',
-];
-
-export function getFallbackLine(species: AnimalSpecies, now: number): string {
-  const lines = FALLBACK_LINES[species];
-  const index = Math.floor(now / 1700) % lines.length;
-  return lines[index];
-}
-
-export function getFallbackReply(now: number): string {
-  return FALLBACK_REPLIES[Math.floor(now / 1400) % FALLBACK_REPLIES.length];
-}
-
-const FALLBACK_OPINIONS = [
-  '나는 그게 제일 좋다고 생각해!',
-  '글쎄, 나는 좀 다르게 생각해.',
-  '오, 그거 진짜 재밌겠다!',
-  '나도 그 생각이었어!',
-  '음… 잘 모르겠어.',
-  '나는 저쪽이 더 마음에 들어.',
-];
-
-export function getFallbackOpinion(now: number): string {
-  return FALLBACK_OPINIONS[Math.floor(now / 1600) % FALLBACK_OPINIONS.length];
+  lines: TrendScriptLine[];
 }
 
 /** 게이트웨이가 dead 상태일 때 쓰는 설원 토론 주제. */
@@ -88,99 +34,21 @@ const FALLBACK_TOPICS = [
   '설원에서 가장 멀리 걷고 싶은 사람?',
 ];
 
-export function getFallbackTopic(now: number): string {
-  return FALLBACK_TOPICS[Math.floor(now / 22000) % FALLBACK_TOPICS.length];
-}
-
-const TREND_CLIENT_TTL_MS = 15 * 60 * 1000;
-const TREND_FETCH_TIMEOUT_MS = 3000;
-let cachedTrendPool: DiscussionTopicInfo[] = [];
-let trendPoolFetchedAt = 0;
-let trendCursor = 0;
-let trendFetchPromise: Promise<DiscussionTopicInfo[]> | null = null;
-
-function loadTrendPool(signal?: AbortSignal): Promise<DiscussionTopicInfo[]> {
-  if (trendFetchPromise) return trendFetchPromise;
-  const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
-  const controller = fetchWithTimeout(TREND_FETCH_TIMEOUT_MS, signal);
-  trendFetchPromise = (async (): Promise<DiscussionTopicInfo[]> => {
-    try {
-      const response = await fetch(`${base}/v1/trends`, {
-        headers: { Accept: 'application/json' },
-        signal: controller,
-      });
-      if (!response.ok) return [];
-      const payload = (await response.json()) as {
-        items?: Array<{ topic?: string; context?: string }>;
-      };
-      const items = (payload.items ?? [])
-        .map((item) => ({
-          topic: typeof item.topic === 'string' ? item.topic.trim().slice(0, 42) : '',
-          context: typeof item.context === 'string' ? item.context.trim().slice(0, 80) : undefined,
-        }))
-        .filter((item) => item.topic.length >= 4);
-      if (items.length === 0) return [];
-      cachedTrendPool = items;
-      trendPoolFetchedAt = performance.now();
-      trendCursor = 0;
-      return items;
-    } catch {
-      return [];
-    } finally {
-      cleanupFetchSignal(controller);
-      trendFetchPromise = null;
-    }
-  })();
-  return trendFetchPromise;
-}
-
-/** 게이트웨이 /v1/trends 캐시 풀에서 주제를 순환 반환. 실패 시 로컬 주제. */
-export async function requestDiscussionTopic(
-  signal?: AbortSignal
-): Promise<DiscussionTopicInfo> {
-  if (
-    cachedTrendPool.length > 0 &&
-    performance.now() - trendPoolFetchedAt < TREND_CLIENT_TTL_MS
-  ) {
-    const item = cachedTrendPool[trendCursor % cachedTrendPool.length];
-    trendCursor += 1;
-    if (item) return item;
-  }
-  const pool = await loadTrendPool(signal);
-  if (pool.length > 0) {
-    const item = pool[trendCursor % pool.length] ?? pool[0];
-    trendCursor += 1;
-    if (item) return item;
-  }
-  return { topic: getFallbackTopic(performance.now()) };
-}
-
-const CHAT_TIMEOUT_MS = 7000;
-const IMAGE_TIMEOUT_MS = 14000;
-
-function fetchWithTimeout(
-  timeoutMs: number,
-  signal?: AbortSignal
-): AbortSignal {
-  const controller = new AbortController();
-  const onAbort = (): void => controller.abort();
-  if (signal) {
-    if (signal.aborted) controller.abort();
-    else signal.addEventListener('abort', onAbort, { once: true });
-  }
-  const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
-  // fetch 완료 후 timer를 정리하기 위해 signal에 표시한다.
-  (controller as AbortController & { __clearTimer?: () => void }).__clearTimer = () => {
-    clearTimeout(timer);
-    if (signal) signal.removeEventListener('abort', onAbort);
-  };
-  return controller.signal;
-}
-
-function cleanupFetchSignal(signal: AbortSignal): void {
-  const clear = (signal as AbortSignal & { __clearTimer?: () => void }).__clearTimer;
-  clear?.();
-}
+/** 각 동물의 말투를 살린 로컬 대사 템플릿. {k}는 화제 핵심어로 치환한다. */
+const LOCAL_LINE_TEMPLATES: Record<AnimalSpecies, readonly string[]> = {
+  penguin: ['다들 {k} 어때? 내가 먼저 꺼낼게!', '너희 생각이 제일 궁금해, {k}?'],
+  cat: ['{k}? 음, 원리가 궁금하네.', '그 {k} 말인데, 근거가 뭐야?'],
+  dog: ['{k} 완전 신나! 같이 하자!', '와 {k} 재밌겠다 나도 할래!'],
+  rabbit: ['{k} 요즘 제일 핫하지!', '이번 {k}는 진짜 트렌드야~'],
+  bear: ['{k} 듣자니 편하네~', '천천히 {k} 같이 즐기자.'],
+  fox: ['{k}? 진짜? 나는 반대!', '그 {k}, 다른 얘기도 있지 않아?'],
+  panda: ['{k}… 느긋하게 생각 중~', '음 {k} 좋다, 누워서 할래.'],
+  koala: ['{k}? 나는 패스, 좀 귀찮아.', '그냥 {k} 넘기자, 에너지 아껴.'],
+  squirrel: ['{k} 준비물부터 챙기자!', '{k} 가성비 따져보고 갈래.'],
+  raccoon: ['{k} 일단 내가 해볼게!', '고민 말고 {k} 바로 해보자!'],
+  'polar-bear': ['{k} 속에 뭐가 있을까?', '{k}, 오래 두고 생각해볼게.'],
+  owl: ['{k} 결론은 이거야.', '{k} 흐름을 보면 다 보이네.'],
+};
 
 function cleanLine(raw: string): string {
   return raw
@@ -203,124 +71,125 @@ function isValidLine(text: string): boolean {
   return true;
 }
 
-/** 모델을 지정하지 않고 게이트웨이 자동 선택으로 한 마디를 받는다. */
-export async function requestAnimalLine(params: {
-  speaker: AnimalSpecies;
-  listener: AnimalSpecies;
-  /** 바로 전에 상대가 한 말. 있으면 답변으로 처리한다. */
-  previousText?: string;
-  previousSpeaker?: AnimalSpecies;
-  /** 토론 모드: 주제와 최근 발언 목록을 함께 넘긴다. */
-  topic?: string;
-  topicContext?: string;
-  history?: DiscussionEntry[];
-  wantImage?: boolean;
-  signal?: AbortSignal;
-}): Promise<AnimalSpeech> {
-  const {
-    speaker,
-    listener,
-    previousText,
-    previousSpeaker,
-    topic,
-    topicContext,
-    history,
-    wantImage,
-    signal,
-  } = params;
-  const speakerLabel = ANIMAL_LABELS[speaker];
-  const listenerLabel = ANIMAL_LABELS[listener];
-  const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
-  const isReply = Boolean(previousText);
-  const previousSpeakerLabel = previousSpeaker ? ANIMAL_LABELS[previousSpeaker] : listenerLabel;
-  const transcript = (history ?? [])
-    .slice(-3)
-    .map((entry) => `${ANIMAL_LABELS[entry.speaker]}: ${entry.text}`)
-    .join('\n');
-  const contextLine = topicContext ? `오늘의 화제 배경: ${topicContext}\n` : '';
-  const userPrompt = topic
-    ? `오늘 토론 주제: "${topic}"\n${contextLine}지금까지의 발언:\n${transcript || '(아직 없음)'}\n${speakerLabel}로서 이 주제에 대한 네 솔직한 취향이나 의견을 한국어 반말 한 줄로 말해줘. 앞선 친구 말에 맞장구치거나 반박해도 좋아.`
-    : isReply
-      ? `방금 ${previousSpeakerLabel}이 "${previousText}"라고 했어. ${speakerLabel}로서 자연스럽게 받아치는 한국어 대사 한 줄만 써.`
-      : `${listenerLabel}에게 다정하게 말 걸어줘. 예: "안녕! 같이 놀래?" 와 같은 대사만 써.`;
+/** 네트워크 없이도 즉시 재생할 수 있는 MBTI 대본. */
+export function getLocalScript(now: number): DiscussionScript {
+  const topic = FALLBACK_TOPICS[Math.floor(now / 22000) % FALLBACK_TOPICS.length] ?? '';
+  const keyword = topic.replace(/[?~…!]/g, '').slice(0, 8);
+  const start = Math.floor(now / 4200) % ANIMAL_SPECIES.length;
 
-  const chatSignal = fetchWithTimeout(CHAT_TIMEOUT_MS, signal);
-  let text: string | undefined;
-  try {
-    const response = await fetch(`${base}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${DEFAULT_CONFIG.gatewaySecret}`,
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content: `너는 PenguinCut 설원에 사는 아기 ${speakerLabel}이다. 오직 한국어 대사 한 줄만 출력한다. 설명·분석·영어·따옴표·이모지는 절대 쓰지 않는다. 20자 이내.`,
-          },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 1,
-        max_tokens: 64,
-        stream: false,
-      }),
-      signal: chatSignal,
+  const lines: TrendScriptLine[] = [];
+  for (let i = 0; i < 8; i++) {
+    const species = ANIMAL_SPECIES[(start + i) % ANIMAL_SPECIES.length];
+    if (!species) continue;
+    const templates = LOCAL_LINE_TEMPLATES[species];
+    const template = templates[(start + i) % templates.length] ?? templates[0];
+    const text = cleanLine((template ?? '').replace('{k}', keyword));
+    lines.push({
+      speaker: species,
+      mbti: ANIMAL_MBTI[species],
+      text: isValidLine(text) ? text : `${keyword} 어때?`,
     });
-    if (response.ok) {
-      const result = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      const content = result.choices?.[0]?.message?.content;
-      if (typeof content === 'string' && content.trim()) {
-        const cleaned = cleanLine(content);
-        if (isValidLine(cleaned)) text = cleaned;
-      }
-    }
-  } catch {
-    // 실패 시 로컬 대사로 폴백한다.
-  } finally {
-    cleanupFetchSignal(chatSignal);
   }
+  return { topic, lines };
+}
 
-  let imageUrl: string | undefined;
-  if (wantImage && !signal?.aborted) {
-    const imageSignal = fetchWithTimeout(IMAGE_TIMEOUT_MS, signal);
-    try {
-      const response = await fetch(`${base}/v1/images`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${DEFAULT_CONFIG.gatewaySecret}`,
-        },
-        body: JSON.stringify({
-          prompt: `cute chibi ${speakerLabel} character standing in a quiet minimalist snow field, soft monochrome sticker illustration, simple rounded shapes, warm light`,
-          n: 1,
-          aspect_ratio: '1:1',
-        }),
-        signal: imageSignal,
-      });
-      if (response.ok) {
-        const result = (await response.json()) as {
-          data?: Array<{ url?: string }>;
-        };
-        const url = result.data?.[0]?.url;
-        if (typeof url === 'string' && url.startsWith('data:image/')) imageUrl = url;
-      }
-    } catch {
-      // 이미지 실패는 텍스트 대사에 영향을 주지 않는다.
-    } finally {
-      cleanupFetchSignal(imageSignal);
-    }
+const TREND_CLIENT_TTL_MS = 15 * 60 * 1000;
+const TREND_FETCH_TIMEOUT_MS = 15_000;
+let cachedScripts: DiscussionScript[] = [];
+let trendPoolFetchedAt = 0;
+let trendCursor = 0;
+let trendFetchPromise: Promise<DiscussionScript[]> | null = null;
+
+function fetchWithTimeout(timeoutMs: number, signal?: AbortSignal): AbortSignal {
+  const controller = new AbortController();
+  const onAbort = (): void => controller.abort();
+  if (signal) {
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener('abort', onAbort, { once: true });
   }
-
-  const fallback = isReply
-    ? getFallbackReply(performance.now())
-    : topic
-      ? getFallbackOpinion(performance.now())
-      : getFallbackLine(speaker, performance.now());
-  return {
-    text: text ?? fallback,
-    imageUrl,
+  const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+  // fetch 완료 후 timer를 정리하기 위해 signal에 표시한다.
+  (controller as AbortController & { __clearTimer?: () => void }).__clearTimer = () => {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', onAbort);
   };
+  return controller.signal;
+}
+
+function cleanupFetchSignal(signal: AbortSignal): void {
+  const clear = (signal as AbortSignal & { __clearTimer?: () => void }).__clearTimer;
+  clear?.();
+}
+
+async function loadScriptPool(signal?: AbortSignal): Promise<DiscussionScript[]> {
+  if (trendFetchPromise) return trendFetchPromise;
+  const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
+  const controller = fetchWithTimeout(TREND_FETCH_TIMEOUT_MS, signal);
+  trendFetchPromise = (async (): Promise<DiscussionScript[]> => {
+    try {
+      const response = await fetch(`${base}/v1/trends`, {
+        headers: { Accept: 'application/json' },
+        signal: controller,
+      });
+      if (!response.ok) return [];
+
+      const payload = (await response.json()) as {
+        items?: Array<{
+          topic?: string;
+          context?: string;
+          lines?: Array<{ speaker?: string; mbti?: string; text?: string }>;
+        }>;
+      };
+      const scripts: DiscussionScript[] = [];
+      for (const item of payload.items ?? []) {
+        if (typeof item?.topic !== 'string' || item.topic.trim().length < 4) continue;
+        const lines: TrendScriptLine[] = [];
+        for (const raw of item.lines ?? []) {
+          const speaker = ANIMAL_SPECIES.find((s) => s === raw?.speaker);
+          const text = cleanLine(typeof raw?.text === 'string' ? raw.text : '');
+          if (!speaker || !isValidLine(text)) continue;
+          // MBTI는 로컬 배정표를 기준으로 덮어써서 모델 환각을 막는다.
+          lines.push({ speaker, mbti: ANIMAL_MBTI[speaker], text });
+        }
+        if (lines.length < 3) continue;
+        scripts.push({
+          topic: item.topic.trim().slice(0, 42),
+          context:
+            typeof item.context === 'string' ? item.context.trim().slice(0, 80) : undefined,
+          lines: lines.slice(0, 8),
+        });
+      }
+      if (scripts.length === 0) return [];
+
+      cachedScripts = scripts;
+      trendPoolFetchedAt = performance.now();
+      trendCursor = 0;
+      return scripts;
+    } catch {
+      return [];
+    } finally {
+      cleanupFetchSignal(controller);
+      trendFetchPromise = null;
+    }
+  })();
+  return trendFetchPromise;
+}
+
+/** /v1/trends 캐시 풀에서 다음 대본을 순환 반환. 실패·오프라인 시 로컬 MBTI 대본. */
+export async function requestDiscussionScript(signal?: AbortSignal): Promise<DiscussionScript> {
+  if (
+    cachedScripts.length > 0 &&
+    performance.now() - trendPoolFetchedAt < TREND_CLIENT_TTL_MS
+  ) {
+    const script = cachedScripts[trendCursor % cachedScripts.length];
+    trendCursor += 1;
+    if (script) return script;
+  }
+  const pool = await loadScriptPool(signal);
+  if (pool.length > 0) {
+    const script = pool[trendCursor % pool.length] ?? pool[0];
+    trendCursor += 1;
+    if (script) return script;
+  }
+  return getLocalScript(performance.now());
 }

@@ -80,6 +80,8 @@ export interface PenguinState {
 /** 개체 머리 위·아래에 뜨는 말풍선. */
 export interface SpeechBubbleData {
   text: string;
+  /** 상단 캡션. 예: "고양이 · INTP" */
+  header?: string;
   imageUrl?: string;
   bornAt: number;
   durationMs: number;

@@ -41,6 +41,8 @@ import type { HighlightMode, SubtitleTone, VideoOverlayOptions } from '../../typ
 import type { StudioModelDisplay } from './types.ts';
 import {
   ANIMAL_LABELS,
+  ANIMAL_MBTI,
+  ANIMAL_PERSONAS,
   ANIMAL_SPECIES,
   type AnimalSpecies,
 } from './penguin-stage/species.ts';
@@ -410,12 +412,13 @@ export const StudioV2SettingsModal = ({
                     className="sv2-settings-chip"
                     data-active={selectedAnimal === species}
                     aria-pressed={selectedAnimal === species}
+                    title={`${ANIMAL_PERSONAS[species].keyword} · ${ANIMAL_PERSONAS[species].style}`}
                     onClick={() => {
                       setSelectedAnimal(species);
                       onAnimalChange(species);
                     }}
                   >
-                    {ANIMAL_LABELS[species]}
+                    {ANIMAL_LABELS[species]} · {ANIMAL_MBTI[species]}
                   </button>
                 ))}
               </div>

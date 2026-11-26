@@ -293,14 +293,18 @@ function drawBubbles(
     if (alpha <= 0) continue;
 
     const image = bubble.imageUrl ? getBubbleImage(bubble.imageUrl) : null;
+    const header = bubble.header ?? '';
     const lines = wrapBubbleText(ctx, bubble.text, 88);
     const imageHeight = image ? 34 : 0;
+    ctx.font = '700 9px system-ui, sans-serif';
+    const headerWidth = header ? ctx.measureText(header).width + 16 : 0;
+    ctx.font = '600 10.5px system-ui, sans-serif';
     const bubbleWidth = clamp(
-      Math.max(44, ...lines.map((line) => ctx.measureText(line).width + 16)),
+      Math.max(44, headerWidth, ...lines.map((line) => ctx.measureText(line).width + 16)),
       44,
-      104
+      120
     );
-    const bubbleHeight = lines.length * 13 + 10 + imageHeight;
+    const bubbleHeight = (header ? 13 : 0) + lines.length * 13 + 10 + imageHeight;
 
     const anchorX = agent.physics.x;
     const anchorY = agent.physics.y;
@@ -348,6 +352,12 @@ function drawBubbles(
     ctx.stroke();
 
     let textY = y + 6;
+    if (header) {
+      ctx.font = '700 9px system-ui, sans-serif';
+      ctx.fillStyle = rgba(palette.inkRgb, 0.62);
+      ctx.fillText(header, x + 8, textY);
+      textY += 13;
+    }
     if (image) {
       ctx.save();
       ctx.beginPath();
@@ -357,6 +367,7 @@ function drawBubbles(
       ctx.restore();
       textY += 34;
     }
+    ctx.font = '600 10.5px system-ui, sans-serif';
     ctx.fillStyle = foreground;
     for (const line of lines) {
       ctx.fillText(line, x + 8, textY);

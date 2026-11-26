@@ -31,6 +31,91 @@ export const ANIMAL_LABELS: Record<AnimalSpecies, string> = {
   owl: '올빼미',
 };
 
+/** 동물별 MBTI 성향 — 게이트웨이 /v1/trends 배정표와 1:1 대응. */
+export const ANIMAL_MBTI: Record<AnimalSpecies, string> = {
+  penguin: 'ENFJ',
+  cat: 'INTP',
+  dog: 'ENFP',
+  rabbit: 'ESFP',
+  bear: 'ISFJ',
+  fox: 'ENTP',
+  panda: 'INFP',
+  koala: 'ISTP',
+  squirrel: 'ESTJ',
+  raccoon: 'ESTP',
+  'polar-bear': 'INFJ',
+  owl: 'INTJ',
+};
+
+export interface AnimalPersonaInfo {
+  mbti: string;
+  keyword: string;
+  style: string;
+}
+
+export const ANIMAL_PERSONAS: Record<AnimalSpecies, AnimalPersonaInfo> = {
+  penguin: {
+    mbti: ANIMAL_MBTI.penguin,
+    keyword: '다정한 진행러',
+    style: '화제를 따뜻하게 꺼내고 친구들 의견을 챙김',
+  },
+  cat: {
+    mbti: ANIMAL_MBTI.cat,
+    keyword: '시크한 분석가',
+    style: '쿨하게 원리나 팩트를 툭 던지는 호기심파',
+  },
+  dog: {
+    mbti: ANIMAL_MBTI.dog,
+    keyword: '해피 리액션러',
+    style: '뭐든 신나서 같이 해보자고 반기는 열정파',
+  },
+  rabbit: {
+    mbti: ANIMAL_MBTI.rabbit,
+    keyword: '트렌드 인싸',
+    style: '요즘 유행에 제일 민감하고 통통 튀는 현장파',
+  },
+  bear: {
+    mbti: ANIMAL_MBTI.bear,
+    keyword: '포근한 수호자',
+    style: '먹을 것·안정감·현실적인 편안함을 중시',
+  },
+  fox: {
+    mbti: ANIMAL_MBTI.fox,
+    keyword: '재치 반박러',
+    style: '익살스러운 반문과 색다른 관점으로 티키타카 유도',
+  },
+  panda: {
+    mbti: ANIMAL_MBTI.panda,
+    keyword: '느긋한 몽상가',
+    style: '누워서 감성적이고 평화로운 상상을 덧붙임',
+  },
+  koala: {
+    mbti: ANIMAL_MBTI.koala,
+    keyword: '마이웨이 효율러',
+    style: '에너지 절약주의, 짧고 담백한 현실 한마디',
+  },
+  squirrel: {
+    mbti: ANIMAL_MBTI.squirrel,
+    keyword: '꼼꼼한 계획러',
+    style: '가성비·실용성·준비물부터 따지는 실행파',
+  },
+  raccoon: {
+    mbti: ANIMAL_MBTI.raccoon,
+    keyword: '호기심 해결사',
+    style: '고민보다 일단 직접 해봐야 직성이 풀리는 행동파',
+  },
+  'polar-bear': {
+    mbti: ANIMAL_MBTI['polar-bear'],
+    keyword: '차분한 통찰가',
+    style: '설원의 큰형님처럼 깊고 다정한 통찰 한마디',
+  },
+  owl: {
+    mbti: ANIMAL_MBTI.owl,
+    keyword: '밤의 전략가',
+    style: '유행 이면의 흐름과 결론을 차분히 정리',
+  },
+};
+
 export type AnimalArchetype =
   | 'avian'
   | 'feline'
