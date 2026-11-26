@@ -5,6 +5,7 @@ import {
   findPath,
   type NavGrid,
 } from './navigationGrid.ts';
+import type { AnimalGait } from './species.ts';
 import type { Footprint, PenguinState, Vec2 } from './types.ts';
 
 /** 보행 속도·가속도. normalize된 dt 기반이라 60Hz/120Hz 모두 동일한 속도다. */
@@ -116,8 +117,11 @@ export function stepPenguin(
   state: PenguinState,
   dt: number,
   now: number,
-  grid: NavGrid
+  grid: NavGrid,
+  gait: AnimalGait = 'waddle'
 ): Footprint[] {
+  const maxSpeed = gait === 'hop' ? 55 : gait === 'trot' ? 52 : MAX_SPEED;
+  const walkStride = gait === 'hop' ? 8.4 : WALK_STRIDE;
   const ejected = ejectFromObstacles(
     { x: state.x, y: state.y },
     grid.obstacles,
@@ -192,7 +196,7 @@ export function stepPenguin(
     const dy = wp.y - state.y;
     const dist = Math.max(1, Math.hypot(dx, dy));
     const speed =
-      MAX_SPEED *
+      maxSpeed *
       (state.isWandering ? WANDER_SPEED_SCALE : 1) *
       Math.min(1, dist / SLOW_RADIUS);
     const desiredVx = (dx / dist) * speed;
@@ -227,27 +231,31 @@ export function stepPenguin(
   }
 
   const speedNow = Math.hypot(state.vx, state.vy);
-  state.walkCycle += (speedNow / WALK_STRIDE) * dt;
+  state.walkCycle += (speedNow / walkStride) * dt;
   const currentSin = Math.sin(state.walkCycle);
   const footprints: Footprint[] = [];
 
   if (speedNow > 6 && state.moveBlend > 0.2) {
     const previous = state.prevWalkSin;
-    let sign: 1 | -1 | null = null;
-    if (previous <= 0 && currentSin > 0) sign = 1;
-    else if (previous >= 0 && currentSin < 0) sign = -1;
+    let signs: Array<1 | -1> = [];
+    if (gait === 'hop') {
+      if (previous >= 0 && currentSin < 0) signs = [-1, 1];
+    } else if (previous <= 0 && currentSin > 0) signs = [1];
+    else if (previous >= 0 && currentSin < 0) signs = [-1];
 
-    if (sign !== null) {
+    if (signs.length > 0) {
       const nx = -Math.sin(state.heading);
       const ny = Math.cos(state.heading) * 0.58;
-      footprints.push({
-        x: state.x + sign * FOOT_OFFSET * nx,
-        y: state.y + sign * FOOT_OFFSET * ny,
-        angle: state.heading + sign * 0.22,
-        sign,
-        bornAt: now,
-      });
-      state.squash = Math.min(1, state.squash + 0.7);
+      for (const sign of signs) {
+        footprints.push({
+          x: state.x + sign * FOOT_OFFSET * nx,
+          y: state.y + sign * FOOT_OFFSET * ny,
+          angle: state.heading + sign * 0.22,
+          sign,
+          bornAt: now,
+        });
+      }
+      state.squash = Math.min(1, state.squash + (gait === 'hop' ? 0.85 : 0.7));
     }
   }
   state.prevWalkSin = currentSin;

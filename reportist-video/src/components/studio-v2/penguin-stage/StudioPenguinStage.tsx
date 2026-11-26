@@ -19,7 +19,7 @@ import {
   resolvePalette,
   stepParticles,
 } from './penguinRenderer.ts';
-import type { AnimalSpecies } from './species.ts';
+import { getSpeciesGait, type AnimalSpecies } from './species.ts';
 import type {
   Footprint,
   Palette,
@@ -202,7 +202,7 @@ export const StudioPenguinStage = forwardRef<
       accumulator = 0;
 
       const now = performance.now();
-      const fresh = stepPenguin(state, dt, now, grid);
+      const fresh = stepPenguin(state, dt, now, grid, getSpeciesGait(speciesRef.current));
       if (fresh.length > 0) footprintsRef.current.push(...fresh);
       pruneFootprints(footprintsRef.current, now);
       stepParticles(
