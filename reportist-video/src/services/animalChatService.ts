@@ -6,7 +6,7 @@ import {
 } from '../components/studio-v2/penguin-stage/species.ts';
 import { DEFAULT_CONFIG } from './gatewayClient.ts';
 
-/** 말풍선에 들어갈 내용. */
+/** 말풍선에 들어갈 내용. 전체 텍스트이며 화면에서는 잘려 보일 수 있다. */
 export interface AnimalSpeech {
   text: string;
 }
@@ -23,7 +23,20 @@ export interface DiscussionTopicInfo {
   context?: string;
 }
 
-/** 게이트웨이가 dead 상태일 때 쓰는 설원 토론 주제. */
+/** 게이트웨이 /v1/discussions/prepare가 내려주는 공통 조사 자료. */
+export interface DiscussionFact {
+  claim: string;
+  source: string;
+  url?: string;
+}
+
+export interface DiscussionBriefing {
+  background: string;
+  facts: DiscussionFact[];
+  questions: string[];
+  limitation?: string;
+}
+
 const FALLBACK_TOPICS = [
   '요즘 다들 뭐에 열광하는 거야?',
   '오늘 사람들이 제일 많이 한 말은 뭐야?',
@@ -38,91 +51,67 @@ const FALLBACK_TOPICS = [
   '설원에서 가장 멀리 걷고 싶은 사람?',
 ];
 
-/** LLM 실패 시 종별로 돌려쓰는 MBTI 말투 대사. 라운드마다 다른 문장이 나온다. */
+/** LLM 실패 시 종별로 돌려쓰는 MBTI 말투 대사. 한 줄이라도 생각이 담기게 썼다. */
 const FALLBACK_LINES: Record<AnimalSpecies, readonly string[]> = {
   penguin: [
-    '다들 얘기 좀 들어봐~',
-    '너희 의견이 제일 궁금해!',
-    '같이 이야기하니까 좋다.',
-    '그래서 어떻게 생각해?',
-    '내가 먼저 말해볼게!',
+    '일단 내가 궁금한 건 왜 이런 얘기가 나왔는지야. 같이 정리해보자.',
+    '그 말 재밌는데, 그럼 반대 의견은 뭐가 있을까?',
+    '다들 이야기해줘서 좋다. 조금 더 생각해보자.',
   ],
   cat: [
-    '음, 그건 좀 애매하네.',
-    '근거가 뭔데?',
-    '호기심이 생기긴 하다.',
-    '나는 좀 다르게 봐.',
-    '그건 좀 아니지 않나?',
+    '그건 근거가 뭔데? 나는 팩트부터 확인하고 싶다.',
+    '아까 말한 거랑 지금 말한 거 좀 다르지 않나?',
+    '호기심이 생겼어. 조금 더 파봐야겠다.',
   ],
   dog: [
-    '와, 완전 신나!',
-    '나도 같이 하자!',
-    '이거 재밌겠다!',
-    '좋아, 바로 해보자!',
-    '다들 최고야!',
+    '와 재밌겠다! 나도 같이 해보고 싶어!',
+    '좋아, 그럼 우리 직접 해보자! 뭐가 제일 신나?',
+    '다들 최고야! 근데 다음엔 뭐 해볼까?',
   ],
   rabbit: [
-    '이거 요즘 핫하지!',
-    '나 제일 먼저 알았어~',
-    '통통 튀는 얘기 좋다!',
-    '이번엔 내가 pick!',
-    '와, 완전 트렌드야!',
+    '이거 요즘 진짜 핫하지! 나 제일 먼저 알았어~',
+    '그럼 이건 어때? 나는 좀 다르게 보고 있어.',
+    '유행은 금방 바뀌는데 왜 이게 오래 남을까?',
   ],
   bear: [
-    '음~ 듣기 좋네.',
-    '천천히 하자, 급하지 않아.',
-    '배 채우고 이야기하자.',
-    '편한 게 제일이야.',
-    '따뜻해서 좋다.',
+    '음~ 천천히 생각해보자. 급하지 않아.',
+    '나는 편한 게 제일 좋아. 근데 그게 맞을까?',
+    '따뜻하게 이야기하니까 좋네. 더 들어볼게.',
   ],
   fox: [
-    '진짜? 나는 반대!',
-    '색다른 생각이 필요하지~',
-    '그건 좀 아니지 않아?',
-    '내가 한 수 가르쳐줄게.',
-    '오, 재밌는 얘기다!',
+    '진짜? 나는 반대! 그렇게 보지 않아.',
+    '색다른 생각이 필요하지~ 아까 얘긴 좀 약해.',
+    '내가 한 수 가르쳐줄게. 이렇게도 볼 수 있어.',
   ],
   panda: [
-    '음… 느긋하게 하자~',
-    '누워서 생각 중이야.',
-    '평화로워서 좋당.',
-    '천천히 오렴~',
-    '나는 그냥 좋다~',
+    '음… 누워서 생각 중이야. 평화로워서 좋다.',
+    '그 얘기 들으니까 나도 좀 해보고 싶어.',
+    '느긋하게 하자~ 근데 결론은 뭐가 좋을까?',
   ],
   koala: [
-    '나는 패스, 귀찮아.',
-    '에너지 아끼자.',
-    '짧게 말할게, 피곤해.',
-    '그냥 넘기자.',
-    '나무만 있으면 돼.',
+    '나는 패스, 귀찮아. 근데 한 가지는 말할게.',
+    '에너지 아끼자. 짧게 말하면 이거야.',
+    '그냥 넘기자. 근데 아까 말은 기억할게.',
   ],
   squirrel: [
-    '준비물부터 챙기자!',
-    '가성비 따져봐야지.',
-    '빨리빨리 하자!',
-    '계획 세웠어?',
-    '이거 저장해둘게!',
+    '준비물부터 챙기자! 가성비 따져봐야지.',
+    '계획 세웠어? 그럼 이건 어떻게 될까?',
+    '이거 저장해둘게. 나중에 다시 보자.',
   ],
   raccoon: [
-    '일단 내가 해볼게!',
-    '고민 말고 바로 해보자!',
-    '이거 내가 찾았어!',
-    '호기심이 못 참겠어.',
-    '직접 해보면 알지!',
+    '일단 내가 해볼게! 고민 말고 바로 해보자.',
+    '이거 내가 찾았어. 직접 해보면 알지!',
+    '호기심이 못 참겠어. 다음엔 뭐 해볼까?',
   ],
   'polar-bear': [
-    '오래 두고 생각해볼게.',
-    '속에 뭐가 있을까?',
-    '차분히 얘기하자.',
-    '설원이 조용해서 좋다.',
-    '깊이 있는 얘기네.',
+    '오래 두고 생각해볼게. 속에 뭐가 있을까?',
+    '차분히 얘기하자. 설원이 조용해서 좋다.',
+    '깊이 있는 얘기네. 나도 한 마디 보탤게.',
   ],
   owl: [
-    '결론은 이거야.',
-    '흐름을 보면 다 보여.',
-    '밤에 생각이 잘 나.',
-    '한 번 더 따져보자.',
-    '정리하면 됐어.',
+    '결론은 이거야. 흐름을 보면 다 보여.',
+    '한 번 더 따져보자. 아까 그 말엔 구멍이 있어.',
+    '정리하면 됐어. 쟁점은 세 가지야.',
   ],
   deer: [
     '음… 저기 뭐가 있네?',
@@ -244,7 +233,65 @@ export async function requestDiscussionTopic(signal?: AbortSignal): Promise<Disc
   };
 }
 
-const CHAT_TIMEOUT_MS = 7000;
+const BRIEFING_CLIENT_TTL_MS = 30 * 60 * 1000;
+const BRIEFING_TIMEOUT_MS = 32_000;
+const briefingCache = new Map<string, { briefing: DiscussionBriefing; fetchedAt: number }>();
+const briefingInFlight = new Map<string, Promise<DiscussionBriefing | null>>();
+
+/** 주제가 정해질 때 한 번만 조사 자료를 받아 모든 발언에 공유한다. */
+export async function requestDiscussionBriefing(
+  topic: string,
+  context: string | undefined,
+  signal?: AbortSignal
+): Promise<DiscussionBriefing | null> {
+  const key = topic.trim().toLowerCase().slice(0, 80);
+  const hit = briefingCache.get(key);
+  if (hit && performance.now() - hit.fetchedAt < BRIEFING_CLIENT_TTL_MS) return hit.briefing;
+
+  const pending = briefingInFlight.get(key);
+  if (pending) return pending;
+
+  const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
+  const controller = fetchWithTimeout(BRIEFING_TIMEOUT_MS, signal);
+  const task = (async (): Promise<DiscussionBriefing | null> => {
+    try {
+      const response = await fetch(`${base}/v1/discussions/prepare`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${DEFAULT_CONFIG.gatewaySecret}`,
+        },
+        body: JSON.stringify({ topic, context }),
+        signal: controller,
+      });
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { briefing?: DiscussionBriefing };
+      const briefing = payload.briefing;
+      if (!briefing || typeof briefing.background !== 'string') return null;
+      const normalized: DiscussionBriefing = {
+        background: briefing.background.slice(0, 320),
+        facts: Array.isArray(briefing.facts)
+          ? briefing.facts.slice(0, 4).filter((f) => typeof f?.claim === 'string')
+          : [],
+        questions: Array.isArray(briefing.questions)
+          ? briefing.questions.slice(0, 3).filter((q): q is string => typeof q === 'string')
+          : [],
+        limitation: typeof briefing.limitation === 'string' ? briefing.limitation.slice(0, 160) : undefined,
+      };
+      briefingCache.set(key, { briefing: normalized, fetchedAt: performance.now() });
+      return normalized;
+    } catch {
+      return null;
+    } finally {
+      cleanupFetchSignal(controller);
+      briefingInFlight.delete(key);
+    }
+  })();
+  briefingInFlight.set(key, task);
+  return task;
+}
+
+const CHAT_TIMEOUT_MS = 9000;
 /** 연속 실패 시 짧게 로컬 대사만 사용해 실패한 게이트웨이로 폭주하지 않는다. */
 const LOCAL_FALLBACK_COOLDOWN_MS = 30_000;
 let consecutiveFailures = 0;
@@ -256,22 +303,29 @@ function cleanLine(raw: string): string {
     .replace(/\s+/g, ' ')
     .replace(/([?!.,~])\1+/g, '$1')
     .trim()
-    .slice(0, 42);
+    .slice(0, 110);
 }
 
 /** 모델이 대사 대신 설명을 내놓을 때를 걸러낸다. */
 function isValidLine(text: string): boolean {
-  if (text.length < 2 || text.length > 42) return false;
-  // 순수 영어 응답은 차단하되 MBTI·OTT·ChatGPT 같은 짧은 약어는 허용한다.
-  if ((text.match(/[가-힣]/g)?.length ?? 0) < 2) return false;
-  if ((text.match(/[A-Za-z]/g)?.length ?? 0) > 10) return false;
-  if (/(user|assistant|system|thinking|sure,|here is|act as|prompt|프롬프트|대사만)/i.test(text)) {
+  if (text.length < 12 || text.length > 110) return false;
+  if ((text.match(/[가-힣]/g)?.length ?? 0) < 5) return false;
+  if ((text.match(/[A-Za-z]/g)?.length ?? 0) > 14) return false;
+  if (/(user|assistant|system|thinking|sure,|here is|act as|prompt|프롬프트|대사만|JSON)/i.test(text)) {
     return false;
   }
   return true;
 }
 
-/** 매 턴 /v1/chat/completions로 MBTI 성향이 담긴 한 마디를 받는다. */
+function turnHint(turnIndex: number): string {
+  if (turnIndex < 2) return '첫인상을 말하거나 아직 확인되지 않은 부분을 물어봐.';
+  if (turnIndex < 5) return '아까 나온 말을 근거로 삼거나, 배경·원인을 확인하는 질문을 해.';
+  if (turnIndex < 9) return '내 생각과 이유를 구체적으로 말하고, 다른 의견도 함께 언급해.';
+  if (turnIndex < 14) return '앞선 의견에 반박하거나 예외를 들어 더 깊이 파고들어.';
+  return '지금까지 나온 의견을 정리하고 남은 쟁점을 짚어줘.';
+}
+
+/** 매 턴 /v1/chat/completions로 조사 자료를 반영한 한 발언을 받는다. */
 export async function requestAnimalLine(params: {
   speaker: AnimalSpecies;
   listener: AnimalSpecies;
@@ -279,11 +333,23 @@ export async function requestAnimalLine(params: {
   previousSpeaker?: AnimalSpecies;
   topic?: string;
   topicContext?: string;
+  briefing?: DiscussionBriefing;
+  turnIndex?: number;
   history?: DiscussionEntry[];
   signal?: AbortSignal;
 }): Promise<AnimalSpeech> {
-  const { speaker, listener, previousText, previousSpeaker, topic, topicContext, history, signal } =
-    params;
+  const {
+    speaker,
+    listener,
+    previousText,
+    previousSpeaker,
+    topic,
+    topicContext,
+    briefing,
+    turnIndex = 0,
+    history,
+    signal,
+  } = params;
   const now = performance.now();
   const fallback = (): AnimalSpeech => ({
     text: getFallbackLine(speaker, Math.floor(now / 1500) + (history?.length ?? 0)),
@@ -294,18 +360,26 @@ export async function requestAnimalLine(params: {
   const speakerLabel = ANIMAL_LABELS[speaker];
   const listenerLabel = ANIMAL_LABELS[listener];
   const persona = ANIMAL_PERSONAS[speaker];
-  const isReply = Boolean(previousText);
-  const previousSpeakerLabel = previousSpeaker ? ANIMAL_LABELS[previousSpeaker] : listenerLabel;
   const transcript = (history ?? [])
-    .slice(-3)
+    .slice(-6)
     .map((entry) => `${ANIMAL_LABELS[entry.speaker]}: ${entry.text}`)
     .join('\n');
-  const contextLine = topicContext ? `오늘의 화제 배경: ${topicContext}\n` : '';
+
+  const briefingLines: string[] = [];
+  if (briefing) {
+    briefingLines.push(`배경: ${briefing.background}`);
+    for (const fact of briefing.facts.slice(0, 3)) {
+      briefingLines.push(`확인된 내용: ${fact.claim} (출처: ${fact.source})`);
+    }
+    for (const question of briefing.questions.slice(0, 2)) {
+      briefingLines.push(`쟁점 질문: ${question}`);
+    }
+    if (briefing.limitation) briefingLines.push(`주의: ${briefing.limitation}`);
+  }
+
   const userPrompt = topic
-    ? `오늘 토론 주제: "${topic}"\n${contextLine}지금까지의 발언:\n${transcript || '(아직 없음)'}\n${speakerLabel}로서 이 주제에 대한 네 솔직한 취향이나 의견을 한국어 반말 한 줄로 말해줘. 앞선 친구 말에 맞장구치거나 반박해도 좋아.`
-    : isReply
-      ? `방금 ${previousSpeakerLabel}이 "${previousText}"라고 했어. ${speakerLabel}로서 자연스럽게 받아치는 한국어 대사 한 줄만 써.`
-      : `${listenerLabel}에게 다정하게 말 걸어줘. 예: "안녕! 같이 놀래?" 와 같은 대사만 써.`;
+    ? `오늘 토론 주제: "${topic}"\n${topicContext ? `화제 배경: ${topicContext}\n` : ''}${briefingLines.length ? `${briefingLines.join('\n')}\n` : ''}지금까지의 발언:\n${transcript || '(아직 없음)'}\n\n${speakerLabel}로서 ${turnHint(turnIndex)} 반드시 새로운 내용(질문·이유·반박·예시)을 하나 더하고, 한국어 반말 40~90자(최대 100자)로 말해줘. ${previousText ? `바로 앞의 ${previousSpeaker ? ANIMAL_LABELS[previousSpeaker] : listenerLabel} 말을 구체적으로 받아줘.` : ''}`
+    : `지금까지의 발언:\n${transcript || '(아직 없음)'}\n${listenerLabel}에게 ${speakerLabel}답게 먼저 말을 걸어줘. 한국어 반말 40~90자(최대 100자).`;
 
   const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
   const chatSignal = fetchWithTimeout(CHAT_TIMEOUT_MS, signal);
@@ -321,12 +395,16 @@ export async function requestAnimalLine(params: {
         messages: [
           {
             role: 'system',
-            content: `너는 PenguinCut 설원에 사는 아기 ${speakerLabel}이다. MBTI는 ${ANIMAL_MBTI[speaker]}(${persona.keyword})이고 성향은 '${persona.style}'이다. 이 성향을 살려서 오직 한국어 반말 한 줄만 출력한다. 설명·분석·영어·따옴표·이모지는 절대 쓰지 않는다. 20자 이내.`,
+            content:
+              `너는 PenguinCut 설원에 사는 아기 ${speakerLabel}이다. MBTI는 ${ANIMAL_MBTI[speaker]}(${persona.keyword})이고 성향은 '${persona.style}'이다. ` +
+              '이 성향을 살려 오직 한국어 반말 한 문단만 출력한다. ' +
+              '같은 말을 반복하지 말고, 확인되지 않은 사실은 단정하지 말고, ' +
+              '설명·분석·영어·따옴표·이모지·JSON은 절대 쓰지 않는다. 40~90자, 100자 넘지 마.',
           },
           { role: 'user', content: userPrompt },
         ],
         temperature: 1,
-        max_tokens: 64,
+        max_tokens: 140,
         reasoning_effort: 'none',
         stream: false,
       }),
@@ -353,7 +431,6 @@ export async function requestAnimalLine(params: {
       }
     }
   } catch {
-    // 실패 시 로컬 대사로 폴백한다.
     consecutiveFailures += 1;
     if (consecutiveFailures >= 3) {
       localFallbackUntil = performance.now() + LOCAL_FALLBACK_COOLDOWN_MS;

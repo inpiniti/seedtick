@@ -250,7 +250,8 @@ function getBubbleImage(url: string): HTMLImageElement | null {
 function wrapBubbleText(
   ctx: CanvasRenderingContext2D,
   text: string,
-  maxWidth: number
+  maxWidth: number,
+  maxLines = 3
 ): string[] {
   const lines: string[] = [];
   let current = '';
@@ -260,13 +261,13 @@ function wrapBubbleText(
     if (current && !keepTogether && ctx.measureText(candidate).width > maxWidth) {
       lines.push(current);
       current = char;
-      if (lines.length === 2) break;
+      if (lines.length === maxLines) break;
     } else {
       current = candidate;
     }
   }
-  if (lines.length === 2 && current) {
-    lines[1] = `${lines[1].slice(0, -1)}…`;
+  if (lines.length === maxLines) {
+    if (current) lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, -1)}…`;
   } else if (current) {
     lines.push(current);
   }
@@ -302,7 +303,7 @@ function drawBubbles(
 
     const image = bubble.imageUrl ? getBubbleImage(bubble.imageUrl) : null;
     const header = bubble.header ?? '';
-    const lines = wrapBubbleText(ctx, bubble.text, 88);
+    const lines = wrapBubbleText(ctx, bubble.text, 152, 3);
     const imageHeight = image ? 34 : 0;
     ctx.font = '700 9px system-ui, sans-serif';
     const headerWidth = header ? ctx.measureText(header).width + 16 : 0;
@@ -310,7 +311,7 @@ function drawBubbles(
     const bubbleWidth = clamp(
       Math.max(44, headerWidth, ...lines.map((line) => ctx.measureText(line).width + 16)),
       44,
-      120
+      190
     );
     const bubbleHeight = (header ? 13 : 0) + lines.length * 13 + 10 + imageHeight;
 

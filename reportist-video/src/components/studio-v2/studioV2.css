@@ -943,11 +943,85 @@
 
 /* 인터랙티브 설원 & 모노크롬 펭귄 스테이지.
    포인터 이벤트는 부모 .sv2-center가 위임받으므로 프리뷰 클릭·호버를 방해하지 않는다. */
+.sv2-stage-shell {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
 .sv2-penguin-stage {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+}
+.sv2-discussion-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+.sv2-discussion-button {
+  appearance: none;
+  border: 1px solid var(--sv2-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sv2-surface) 92%, transparent);
+  color: var(--sv2-text-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 5px 11px;
+  cursor: pointer;
+  box-shadow: var(--sv2-shadow);
+}
+.sv2-discussion-button:hover {
+  background: var(--sv2-surface-2);
+  color: var(--sv2-text);
+}
+.sv2-discussion-button:focus-visible {
+  outline: none;
+  box-shadow: var(--sv2-focus-ring);
+}
+.sv2-transcript {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: min(320px, 42vw);
+  max-height: min(60%, 360px);
+  overflow-y: auto;
+  pointer-events: auto;
+  border: 1px solid var(--sv2-border);
+  border-radius: var(--sv2-radius);
+  background: color-mix(in srgb, var(--sv2-surface) 96%, transparent);
+  box-shadow: var(--sv2-shadow-lg);
+  padding: 12px 14px;
+  color: var(--sv2-text-2);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.sv2-transcript p {
+  margin: 3px 0;
+  word-break: keep-all;
+}
+.sv2-transcript strong {
+  color: var(--sv2-text);
+  font-weight: 700;
+}
+.sv2-transcript-briefing {
+  border-bottom: 1px solid var(--sv2-border);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+}
+.sv2-transcript-briefing > strong {
+  display: block;
+  margin-bottom: 3px;
+}
+.sv2-transcript-briefing span,
+.sv2-transcript-note,
+.sv2-transcript-empty {
+  color: var(--sv2-text-3);
 }
 .sv2-stage-wrap {
   position: relative;

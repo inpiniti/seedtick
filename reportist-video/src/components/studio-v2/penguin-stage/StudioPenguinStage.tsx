@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   buildGrid,
   collectObstacles,
@@ -27,7 +27,9 @@ import {
 } from './species.ts';
 import {
   requestAnimalLine,
+  requestDiscussionBriefing,
   requestDiscussionTopic,
+  type DiscussionBriefing,
   type DiscussionEntry,
 } from '../../../services/animalChatService.ts';
 import type {
@@ -77,6 +79,56 @@ interface LoopControl {
   stop(): void;
 }
 
+interface DiscussionState {
+  topic: string;
+  context?: string;
+  briefing: DiscussionBriefing | null;
+  memberIds: number[];
+  turns: number;
+  history: DiscussionEntry[];
+  repeatCount: number;
+  ended: boolean;
+}
+
+/** effect 재실행·리마운트에서도 진행 중인 토론이 사라지지 않도록 모듈에 보관한다. */
+let activeDiscussion: DiscussionState | null = null;
+
+/** 기술적 안전 상한. 이 값에 도달해도 주제를 바꾸지 않고 요약 후 멈춘다. */
+const DISCUSSION_TURN_CAP = 24;
+const REPEAT_LIMIT = 2;
+
+function normalizeLine(text: string): string {
+  return text.replace(/\s+/g, '').slice(0, 12);
+}
+
+function lastSpeakerIdOf(members: StageAgent[], entry: DiscussionEntry | undefined): number | null {
+  if (!entry) return null;
+  return members.find((member) => member.species === entry.speaker)?.id ?? null;
+}
+
+/** 앞선 발언에서 이름이 언급되면 그 동물이, 아니면 최근 덜 말한 동물이 이어받는다. */
+function chooseNextSpeaker(
+  members: StageAgent[],
+  history: DiscussionEntry[],
+  lastSpeakerId: number | null
+): StageAgent {
+  const last = history[history.length - 1];
+  if (last) {
+    const mentioned = members.find(
+      (member) =>
+        last.text.includes(ANIMAL_LABELS[member.species]) && member.id !== lastSpeakerId
+    );
+    if (mentioned) return mentioned;
+  }
+  const candidates = members.filter((member) => member.id !== lastSpeakerId);
+  const pool = candidates.length > 0 ? candidates : members;
+  const countFor = (member: StageAgent): number =>
+    history.filter((entry) => entry.speaker === member.species).length;
+  const min = Math.min(...pool.map(countFor));
+  const least = pool.filter((member) => countFor(member) === min);
+  return least[Math.floor(Math.random() * least.length)] ?? pool[0] ?? members[0]!;
+}
+
 const TAU = Math.PI * 2;
 const SPAWN_RING_RADIUS = 0.34;
 const MIN_SEPARATION = 26;
@@ -106,6 +158,10 @@ export const StudioPenguinStage = forwardRef<
   const remeasureRef = useRef<() => void>(() => undefined);
   const chatInFlightRef = useRef(false);
   const chatAbortRef = useRef<AbortController | null>(null);
+  const [transcript, setTranscript] = useState<DiscussionEntry[]>([]);
+  const [briefing, setBriefing] = useState<DiscussionBriefing | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
+  const advanceRef = useRef<() => void>(() => undefined);
 
   const exportingRef = useRef(isExporting);
   exportingRef.current = isExporting;
@@ -260,20 +316,35 @@ export const StudioPenguinStage = forwardRef<
     };
     host.addEventListener('click', onClick);
 
-    const BUBBLE_DURATION_MS = 3600;
-    const TURN_GAP_MS = 600;
-    const MAX_TURNS_PER_TOPIC = 8;
+    const BUBBLE_DURATION_MS = 5600;
+    const TURN_GAP_MS = 500;
 
-    interface Discussion {
-      topic: string;
-      context?: string;
-      memberIds: number[];
-      turns: number;
-      history: DiscussionEntry[];
-    }
-    let discussion: Discussion | null = null;
     let nextTurnAt = 0;
     let pendingSpeech: { agentId: number; text: string; mbti: string } | null = null;
+
+    const finishDiscussion = (reason: string): void => {
+      const current = activeDiscussion;
+      if (!current || current.ended) return;
+      current.ended = true;
+      const last = current.history[current.history.length - 1];
+      const summary = last
+        ? `${reason}. ${ANIMAL_LABELS[last.speaker]} 말처럼 ${last.text}`.slice(0, 130)
+        : `${reason}. 잠시 쉬어가자.`;
+      pendingSpeech = { agentId: current.memberIds[0] ?? 0, text: summary, mbti: '정리' };
+    };
+
+    /** 새 주제는 사용자가 직접 요청할 때만 시작한다. 자동으로 바뀌지 않는다. */
+    const advanceTopic = (): void => {
+      chatAbortRef.current?.abort();
+      chatAbortRef.current = null;
+      chatInFlightRef.current = false;
+      pendingSpeech = null;
+      activeDiscussion = null;
+      setTranscript([]);
+      setBriefing(null);
+      nextTurnAt = 0;
+    };
+    advanceRef.current = advanceTopic;
 
     const startConversationTurn = (now: number): void => {
       const agents = agentsRef.current;
@@ -281,7 +352,8 @@ export const StudioPenguinStage = forwardRef<
         agents.length < 2 ||
         chatInFlightRef.current ||
         pendingSpeech ||
-        now < nextTurnAt
+        now < nextTurnAt ||
+        activeDiscussion?.ended
       ) {
         return;
       }
@@ -291,45 +363,68 @@ export const StudioPenguinStage = forwardRef<
         const controller = new AbortController();
         chatAbortRef.current = controller;
         try {
-          if (!discussion || discussion.turns >= MAX_TURNS_PER_TOPIC) {
+          if (!activeDiscussion) {
             const members = [...agents];
             for (let i = members.length - 1; i > 0; i -= 1) {
               const j = Math.floor(Math.random() * (i + 1));
               [members[i], members[j]] = [members[j], members[i]];
             }
-            // 주제는 /v1/trends에서 한 번만 가져온다.
             const topicInfo = await requestDiscussionTopic(controller.signal);
             if (controller.signal.aborted) return;
-            discussion = {
+            const prepared = await requestDiscussionBriefing(
+              topicInfo.topic,
+              topicInfo.context,
+              controller.signal
+            );
+            if (controller.signal.aborted) return;
+            activeDiscussion = {
               topic: topicInfo.topic,
               context: topicInfo.context,
-              memberIds: members.map((m) => m.id),
+              briefing: prepared,
+              memberIds: members.map((member) => member.id),
               turns: 0,
               history: [],
+              repeatCount: 0,
+              ended: false,
             };
+            setBriefing(prepared);
+            setTranscript([]);
           }
 
-          const current = discussion;
-          const members = current.memberIds
-            .map((id) => agents.find((a) => a.id === id))
-            .filter((a): a is (typeof agents)[number] => Boolean(a));
-          if (members.length < 2) {
-            discussion = null;
+          const current = activeDiscussion;
+          if (!current || current.ended) return;
+          if (current.turns >= DISCUSSION_TURN_CAP) {
+            finishDiscussion('충분히 이야기했어');
             return;
           }
-          const speaker = members[current.turns % members.length];
-          const listener = members[(current.turns + 1) % members.length];
 
-          // 대사는 매 턴 /v1/chat/completions로 생성한다. MBTI 성향이 프롬프트에 반영된다.
+          const members = current.memberIds
+            .map((id) => agents.find((agent) => agent.id === id))
+            .filter((agent): agent is (typeof agents)[number] => Boolean(agent));
+          if (members.length < 2) {
+            activeDiscussion = null;
+            return;
+          }
+
+          const lastEntry = current.history[current.history.length - 1];
+          const lastSpeakerId = lastSpeakerIdOf(members, lastEntry);
+          const speaker = chooseNextSpeaker(members, current.history, lastSpeakerId);
+          const listener = members[(members.indexOf(speaker) + 1) % members.length] ?? speaker;
+
           const speech = await requestAnimalLine({
             speaker: speaker.species,
             listener: listener.species,
+            previousText: lastEntry?.text,
+            previousSpeaker: lastEntry?.speaker,
             topic: current.topic,
             topicContext: current.context,
+            briefing: current.briefing ?? undefined,
+            turnIndex: current.turns,
             history: current.history,
             signal: controller.signal,
           });
           if (controller.signal.aborted || exportingRef.current) return;
+
           pendingSpeech = {
             agentId: speaker.id,
             text: speech.text,
@@ -337,7 +432,16 @@ export const StudioPenguinStage = forwardRef<
           };
           current.turns += 1;
           current.history.push({ speaker: speaker.species, text: speech.text });
-          if (current.history.length > 5) current.history.shift();
+          if (current.history.length > 8) current.history.shift();
+          setTranscript([...current.history]);
+
+          const recent = current.history.slice(-3).map((entry) => normalizeLine(entry.text));
+          if (current.turns >= 4 && new Set(recent).size <= 1) {
+            current.repeatCount += 1;
+            if (current.repeatCount >= REPEAT_LIMIT) finishDiscussion('같은 이야기가 반복돼');
+          } else {
+            current.repeatCount = 0;
+          }
         } catch {
           // 실패 시 다음 프레임에서 다시 시도한다.
         } finally {
@@ -517,5 +621,50 @@ export const StudioPenguinStage = forwardRef<
     else if (!document.hidden) control.schedule();
   }, [isExporting]);
 
-  return <canvas ref={canvasRef} className="sv2-penguin-stage" aria-hidden="true" />;
+  return (
+    <div className="sv2-stage-shell">
+      <canvas ref={canvasRef} className="sv2-penguin-stage" aria-hidden="true" />
+      <div className="sv2-discussion-controls">
+        <button
+          type="button"
+          className="sv2-discussion-button"
+          onClick={() => advanceRef.current()}
+        >
+          다른 주제로
+        </button>
+        <button
+          type="button"
+          className="sv2-discussion-button"
+          onClick={() => setShowTranscript((value) => !value)}
+        >
+          {showTranscript ? '기록 닫기' : '대화 기록'}
+        </button>
+      </div>
+      {showTranscript && (
+        <div className="sv2-transcript" role="log" aria-live="polite">
+          {briefing && (
+            <div className="sv2-transcript-briefing">
+              <strong>조사 자료</strong>
+              <p>{briefing.background}</p>
+              {briefing.facts.map((fact, index) => (
+                <p key={`${fact.source}-${index}`}>
+                  · {fact.claim} <span>({fact.source})</span>
+                </p>
+              ))}
+              {briefing.limitation && <p className="sv2-transcript-note">{briefing.limitation}</p>}
+            </div>
+          )}
+          {transcript.length === 0 ? (
+            <p className="sv2-transcript-empty">동물들이 이야기를 시작하고 있어요.</p>
+          ) : (
+            transcript.map((entry, index) => (
+              <p key={`${index}-${entry.speaker}`}>
+                <strong>{ANIMAL_LABELS[entry.speaker]}</strong> {entry.text}
+              </p>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
 });
