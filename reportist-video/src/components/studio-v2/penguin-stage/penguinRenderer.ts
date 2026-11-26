@@ -108,7 +108,7 @@ export interface RenderOptions {
   selectedSpecies: AnimalSpecies;
 }
 
-/** 레이어 순서: 눈송이 → 발자국 → 목표 파동 → NPC → 선택 개체(링 포함). */
+/** 레이어 순서: 눈송이 → 발자국 → 목표 파동 → 개체(접지점 y 깊이순) → 말풍선. */
 export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): void {
   ctx.clearRect(0, 0, o.width, o.height);
   ctx.lineCap = 'round';
@@ -135,24 +135,21 @@ export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): vo
     ctx.fill();
   }
 
-  for (const agent of o.agents) {
-    if (agent === selected) continue;
+  // 선택 개체를 맨 마지막에 그리면 뒤에 있는 개체가 앞으로 튀어나온다.
+  // 접지점 y 오름차순(먼 개체부터)으로 모두 그려 2.5D 깊이를 유지한다.
+  const drawOrder = [...o.agents].sort((a, b) => a.physics.y - b.physics.y);
+  for (const agent of drawOrder) {
+    const isSelected = agent === selected;
+    if (isSelected) {
+      drawSelectionRing(ctx, agent.physics.x, agent.physics.y, o.now, o.palette, o.reducedMotion);
+    }
     drawAgent(
       ctx,
       agent.physics,
-      getAgentTheme(agent.species, dark, false),
+      isSelected
+        ? getSpeciesTheme(agent.species, dark)
+        : getAgentTheme(agent.species, dark, false),
       agent.species,
-      o.now,
-      o.reducedMotion
-    );
-  }
-  if (selected) {
-    drawSelectionRing(ctx, selected.physics.x, selected.physics.y, o.now, o.palette, o.reducedMotion);
-    drawAgent(
-      ctx,
-      selected.physics,
-      getSpeciesTheme(selected.species, dark),
-      selected.species,
       o.now,
       o.reducedMotion
     );
