@@ -5,6 +5,7 @@ import { app } from '../src/app.ts';
 import { proxyService } from '../src/domain/proxy/ProxyService.ts';
 import {
   type TrendsPayload,
+  buildDeterministicTopics,
   filterSafeCandidates,
   parseRssCandidates,
   trendsService,
@@ -83,7 +84,53 @@ describe('TrendsService filtering', () => {
   });
 });
 
+describe('buildDeterministicTopics', () => {
+  it('includes the concrete headline in the topic so the situation is clear', () => {
+    const [item] = buildDeterministicTopics([
+      {
+        keyword: '삼성 애플도',
+        headline: "'삼성 애플도 못 피한다'…20만원 들고 폰 사러 갔다가 날벼락",
+        url: '',
+      },
+    ]);
+
+    expect(item?.topic).toContain('20만원');
+    expect(item?.topic).toContain('날벼락');
+    expect(item?.topic?.length).toBeGreaterThan(24);
+    expect(item?.topic).toContain('?');
+  });
+});
+
 describe('GET /v1/trends', () => {
+  it('keeps a specific curated topic instead of cutting it to a short question', async () => {
+    const specificTopic =
+      '20만원 들고 폰 사러 갔다가 날벼락, 삼성 애플도 못 피한다는데 어떻게 생각해?';
+    let systemPrompt = '';
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
+      (async () => new Response(RSS_XML, { status: 200 })) as unknown as typeof fetch
+    );
+    const chatSpy = spyOn(proxyService, 'chat').mockImplementation((async (request) => {
+      systemPrompt = String(request.messages[0]?.content ?? '');
+      return makeChatResponse(
+        JSON.stringify([
+          { keyword: '삼성 애플도', topic: specificTopic, context: '한정 메뉴 줄이 길대' },
+          { keyword: '붕어빵', topic: '붕어빵 팥이 최고야?', context: '겨울 간식 인기' },
+          { keyword: '산책', topic: '같이 설원 산책 할래?', context: '날씨가 좋아졌대' },
+        ])
+      );
+    }) as typeof proxyService.chat);
+
+    try {
+      const response = await app.handle(new Request('http://localhost/v1/trends'));
+      const json = (await response.json()) as TrendsPayload;
+      expect(json.items[0]?.topic).toBe(specificTopic);
+      expect(systemPrompt).toContain('구체적인 상황');
+    } finally {
+      fetchSpy.mockRestore();
+      chatSpy.mockRestore();
+    }
+  });
+
   it('returns 200 without auth and sets cache-control', async () => {
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       (async () => new Response(RSS_XML, { status: 200 })) as unknown as typeof fetch
@@ -170,7 +217,7 @@ describe('GET /v1/trends', () => {
 
     try {
       const first = await app.handle(new Request('http://localhost/v1/trends'));
-      expect((await first.json() as TrendsPayload).items).toHaveLength(3);
+      expect(((await first.json()) as TrendsPayload).items).toHaveLength(3);
       expect(fetchCalls).toBe(3);
 
       const second = await app.handle(

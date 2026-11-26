@@ -213,17 +213,19 @@ export function filterSafeCandidates(candidates: RawCandidate[]): RawCandidate[]
 
 /** LLM 쿼터 소진 시에도 RSS만으로 자연스러운 토론 주제를 만드는 결정론적 변환기. */
 export function buildDeterministicTopics(candidates: RawCandidate[]): TrendTopicItem[] {
-  const templates = [
-    (k: string) => `요즘 ${k} 이야기 많던데 어떻게 생각해?`,
-    (k: string) => `${k}, 너희도 관심 있어?`,
-    (k: string) => `오늘 화제인 ${k} 들어봤어?`,
-    (k: string) => `${k} 유행이라던데 해보고 싶어?`,
+  const suffixes = [
+    '이거 어떻게 생각해?',
+    '너희도 관심 있어?',
+    '이거 좀 신기하지 않아?',
+    '해보고 싶지 않아?',
   ];
 
   return candidates.slice(0, 10).map((c, idx) => {
     const k = c.keyword.slice(0, 12);
-    const fn = templates[idx % templates.length];
-    const topic = (fn ? fn(k) : `${k} 어떻게 생각해?`).slice(0, 28);
+    // 주제만 읽어도 무슨 일이 있었는지 알 수 있게 헤드라인을 그대로 넣는다.
+    const headline = c.headline.replace(/\s+/g, ' ').trim().slice(0, 56);
+    const suffix = suffixes[idx % suffixes.length] ?? '이거 어떻게 생각해?';
+    const topic = `${headline} ${suffix}`.slice(0, 80);
     return {
       keyword: k,
       topic,
@@ -336,7 +338,7 @@ export class TrendsService {
             messages: [
               {
                 role: 'system',
-                content: `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.${avoidLine}`,
+                content: `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"뉴스에 나온 구체적인 상황(무엇이 왜 화제인지)을 반드시 넣고 그에 대해 찬반·취향을 묻는 반말 질문(35~70자)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. topic만 읽어도 무슨 이야기인지 알 수 있게 쓸 것. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.${avoidLine}`,
               },
               {
                 role: 'user',
@@ -344,7 +346,7 @@ export class TrendsService {
               },
             ],
             temperature: 0.5,
-            max_tokens: 900,
+            max_tokens: 1600,
             reasoning_effort: 'none',
             stream: false,
           },
@@ -372,7 +374,7 @@ export class TrendsService {
         if (!entry || typeof entry !== 'object') continue;
         const rec = entry as Record<string, unknown>;
         const keyword = typeof rec.keyword === 'string' ? rec.keyword.trim().slice(0, 16) : '';
-        const topic = typeof rec.topic === 'string' ? rec.topic.trim().slice(0, 32) : '';
+        const topic = typeof rec.topic === 'string' ? rec.topic.trim().slice(0, 80) : '';
         const context = typeof rec.context === 'string' ? rec.context.trim().slice(0, 56) : '';
         if (
           !keyword ||
