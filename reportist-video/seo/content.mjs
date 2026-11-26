@@ -9,7 +9,7 @@ export const SITE = {
   ogImage: "/og-penguincut.png",
   ogImageAlt:
     "PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.",
-  contentUpdated: "2026-11-23",
+  contentUpdated: "2026-11-26",
   // Search-engine verification tokens. Paste the exact values from Search Console
   // (Google) and Search Advisor (Naver), then run `npm run seo`. Empty values are
   // omitted so the generated pages never ship a stale or invalid meta tag.
@@ -67,9 +67,9 @@ export const LOCALES = [
     path: "/",
     label: "English",
     nativeLabel: "English",
-    title: "PenguinCut — AI Video Highlight Editor",
+    title: "PenguinCut — Free AI Auto-Cut Video Highlight Editor",
     description:
-      "PenguinCut is a free browser-based AI video highlight editor. Find the best moments, add captions and music, and export 16:9 & 9:16 highlights — no upload.",
+      "PenguinCut is a free AI video highlight editor that auto-cuts hours of footage for you. Add captions and music, export 16:9 & 9:16 — no upload, no editing skills.",
     ogImageAlt:
       "PenguinCut AI video highlight editor turning long footage into a cinematic 16:9 & 9:16 highlight",
     alts: {
@@ -79,7 +79,7 @@ export const LOCALES = [
       resultVertical: "Finished PenguinCut highlight in 9:16 for Shorts",
     },
     keywords:
-      "AI video highlight editor, AI highlight generator, video highlight maker, turn long videos into highlights, AI video editor, YouTube highlight, PenguinCut",
+      "AI video highlight editor, AI auto cut video, automatic video editor, free AI video editor, AI highlight generator, video highlight maker, turn long videos into highlights, YouTube highlight, PenguinCut",
     nav: {
       features: "Features",
       how: "How it works",
@@ -89,7 +89,7 @@ export const LOCALES = [
       open: "Open Studio",
     },
     hero: {
-      badge: "AI video highlight editor",
+      badge: "Free AI auto-cut video highlight editor",
       title: "Turn hours of footage into ",
       accent: "one cinematic highlight.",
       lead:
@@ -247,7 +247,12 @@ export const LOCALES = [
         {
           q: "What is PenguinCut?",
           a:
-            "PenguinCut is a browser-based AI video highlight editor. It finds the strongest moments in your footage and turns them into one cinematic 16:9 & 9:16 video.",
+            "PenguinCut is a free browser-based AI highlight editor. Its AI auto-cuts the strongest moments from hours of footage and stitches them into one cinematic 16:9 & 9:16 video — captions and music included.",
+        },
+        {
+          q: "Can AI edit my video automatically?",
+          a:
+            "Yes. Add your clips and the AI scans them, picks the strongest moments, and stitches the cuts into a finished highlight automatically. You only polish captions, music, and overlays before export.",
         },
         {
           q: "Do my videos get uploaded?",
@@ -257,7 +262,7 @@ export const LOCALES = [
         {
           q: "Is PenguinCut free?",
           a:
-            "PenguinCut includes free AI models you can use right away. You can also connect your own API key to use other models.",
+            "Yes. PenguinCut includes free AI models you can use right away — no install, and your original videos stay on your device. You can also connect your own API key to use other models.",
         },
         {
           q: "What video formats can I use?",
@@ -267,7 +272,7 @@ export const LOCALES = [
         {
           q: "How long does a highlight take?",
           a:
-            "A short highlight usually takes a few minutes. Processing time depends on the length of your footage, your device, and the AI model you choose.",
+            "Editing a highlight by hand takes hours. PenguinCut's AI finds and cuts the moments for you, so a short highlight is usually ready in a few minutes. Timing depends on footage length, your device, and the model you choose.",
         },
         {
           q: "Does it work on mobile?",
@@ -311,9 +316,9 @@ export const LOCALES = [
     path: "/ko/",
     label: "Korean",
     nativeLabel: "한국어",
-    title: "펭귄컷(PenguinCut) — AI 영상 하이라이트 에디터",
+    title: "펭귄컷(PenguinCut) — 무료 AI 자동 컷 하이라이트 에디터",
     description:
-      "펭귄컷(PenguinCut)은 무료 AI 영상 하이라이트 에디터입니다. 설치 없이 브라우저에서 영상 속 최고의 순간을 찾아 자막·음악을 더하고, 원본 업로드 없이 16:9 & 9:16 하이라이트로 완성합니다.",
+      "펭귄컷(PenguinCut)은 수시간의 영상에서 AI가 알아서 최고의 순간을 골라 컷을 이어 붙여 주는 무료 하이라이트 에디터입니다. 자막·음악을 더해 16:9 & 9:16로 완성하세요. 원본 업로드·설치 없이 편집 시간을 아낍니다.",
     ogImageAlt:
       "펭귄컷(PenguinCut) AI 영상 하이라이트 에디터 — 긴 영상을 16:9 & 9:16 시네마틱 하이라이트로",
     alts: {
@@ -323,7 +328,7 @@ export const LOCALES = [
       resultVertical: "쇼츠용 9:16으로 완성된 펭귄컷 하이라이트",
     },
     keywords:
-      "AI 영상 하이라이트, 하이라이트 편집, 영상 하이라이트 만들기, AI 영상 편집, 유튜브 하이라이트, 펭귄컷, 팽귄컷, PenguinCut",
+      "AI 영상 하이라이트, 자동 영상 편집, AI 자동 컷, 무료 AI 영상 편집, 영상 하이라이트 만들기, 하이라이트 편집, 유튜브 하이라이트, 펭귄컷, 팽귄컷, PenguinCut",
     nav: {
       features: "기능",
       how: "사용 방법",
@@ -333,7 +338,7 @@ export const LOCALES = [
       open: "스튜디오 열기",
     },
     hero: {
-      badge: "펭귄컷 · AI 영상 하이라이트 에디터",
+      badge: "펭귄컷 · 무료 AI 자동 컷 하이라이트 에디터",
       title: "수시간의 영상을 ",
       accent: "하나의 시네마틱 하이라이트로.",
       lead:
@@ -491,7 +496,12 @@ export const LOCALES = [
         {
           q: "펭귄컷(PenguinCut)은 무엇인가요?",
           a:
-            "펭귄컷(PenguinCut)은 브라우저에서 동작하는 AI 영상 하이라이트 에디터입니다. 영상 속 가장 강한 순간을 찾아 하나의 시네마틱 16:9 & 9:16 영상으로 만들어 줍니다.",
+            "펭귄컷(PenguinCut)은 수시간의 영상에서 AI가 알아서 최고의 순간을 골라 컷을 이어 붙여 주는 무료 하이라이트 에디터입니다. 자막·음악까지 더해 시네마틱 16:9 & 9:16 영상으로 완성합니다.",
+        },
+        {
+          q: "AI가 영상을 자동으로 편집해 주나요?",
+          a:
+            "네. 클립을 넣으면 AI가 영상을 훑어 가장 강한 순간을 골라 컷을 이어 붙이고 하이라이트를 완성합니다. 자막·음악·오버레이만 다듬고 내보내면 됩니다.",
         },
         {
           q: "영상이 업로드되나요?",
@@ -501,7 +511,7 @@ export const LOCALES = [
         {
           q: "무료인가요?",
           a:
-            "펭귄컷에는 바로 사용할 수 있는 무료 AI 모델이 포함되어 있습니다. 다른 모델을 쓰고 싶다면 자신의 API 키를 연결할 수도 있습니다.",
+            "네, 바로 쓸 수 있는 무료 AI 모델이 포함되어 있습니다. 설치도 필요 없고 원본 영상은 기기에 그대로 남습니다. 다른 모델을 쓰고 싶다면 자신의 API 키를 연결할 수도 있습니다.",
         },
         {
           q: "어떤 영상 형식을 지원하나요?",
@@ -511,7 +521,7 @@ export const LOCALES = [
         {
           q: "하이라이트 만드는 데 얼마나 걸리나요?",
           a:
-            "짧은 하이라이트는 보통 몇 분 안에 완성됩니다. 영상 길이, 기기 성능, 선택한 AI 모델에 따라 달라질 수 있습니다.",
+            "손으로 하이라이트를 편집하면 몇 시간이 걸립니다. 펭귄컷은 AI가 컷을 찾아 이어 붙여 주므로 짧은 하이라이트는 보통 몇 분 안에 완성됩니다. 영상 길이, 기기 성능, 모델에 따라 달라질 수 있습니다.",
         },
         {
           q: "모바일에서도 되나요?",
@@ -556,9 +566,9 @@ export const LOCALES = [
     path: "/ja/",
     label: "Japanese",
     nativeLabel: "日本語",
-    title: "PenguinCut — AI動画ハイライトエディター",
+    title: "PenguinCut — 無料AI自動カット動画ハイライトエディター",
     description:
-      "長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9 & 9:16動画に仕上げます。",
+      "PenguinCutはAIが自動でカットを選ぶ無料の動画ハイライトエディター。数時間の映像を数分で16:9 & 9:16ハイライトに仕上げます。字幕・音楽付き、元動画のアップロード不要。",
     ogImageAlt:
       "PenguinCut AI動画ハイライトエディター — 長い映像を16:9 & 9:16のシネマティックなハイライトに",
     alts: {
@@ -568,7 +578,7 @@ export const LOCALES = [
       resultVertical: "ショート向け9:16で完成したPenguinCutハイライト",
     },
     keywords:
-      "AI動画ハイライト, ハイライト編集, 動画ハイライト作成, AI動画編集, YouTube ハイライト, PenguinCut",
+      "AI動画ハイライト, 自動動画編集, AI自動カット, 無料AI動画編集, 動画ハイライト作成, YouTube ハイライト, PenguinCut",
     nav: {
       features: "機能",
       how: "使い方",
@@ -578,7 +588,7 @@ export const LOCALES = [
       open: "スタジオを開く",
     },
     hero: {
-      badge: "AI動画ハイライトエディター",
+      badge: "無料AI自動カット動画ハイライトエディター",
       title: "何時間もの映像を、",
       accent: "ひとつのシネマティックなハイライトへ。",
       lead:
@@ -735,7 +745,12 @@ export const LOCALES = [
         {
           q: "PenguinCutとは？",
           a:
-            "PenguinCutはブラウザで動くAI動画ハイライトエディターです。映像の中から最も強い瞬間を見つけ、ひとつのシネマティックな16:9 & 9:16動画に仕上げます。",
+            "PenguinCutはブラウザで動く無料のAIハイライトエディターです。AIが自動でカットを選び、数時間の映像から最も強い瞬間をひとつのシネマティックな16:9 & 9:16動画に仕上げます。",
+        },
+        {
+          q: "AIが自動で動画を編集してくれますか？",
+          a:
+            "はい。クリップを追加すると、AIが映像を解析して最も強い瞬間を選び、カットをつなげてハイライトを自動で仕上げます。字幕・音楽・オーバーレイを整えて書き出すだけです。",
         },
         {
           q: "動画はアップロードされますか？",
@@ -745,7 +760,7 @@ export const LOCALES = [
         {
           q: "無料ですか？",
           a:
-            "PenguinCutにはすぐに使える無料のAIモデルが含まれています。別のモデルを使いたい場合は、自分のAPIキーを接続できます。",
+            "はい。PenguinCutにはすぐに使える無料のAIモデルが含まれています。インストール不要で、元の動画はデバイスに残ります。別のモデルを使いたい場合は、自分のAPIキーを接続できます。",
         },
         {
           q: "対応している動画形式は？",
@@ -755,7 +770,7 @@ export const LOCALES = [
         {
           q: "ハイライト作成にはどのくらいかかりますか？",
           a:
-            "短いハイライトは通常数分で完成します。映像の長さ、デバイスの性能、選択したAIモデルによって変わります。",
+            "手作業なら数時間かかる編集も、AIがカットを選んでつなげるため短いハイライトは通常数分で完成します。映像の長さ、デバイスの性能、モデルによって変わります。",
         },
         {
           q: "モバイルでも使えますか？",
@@ -800,9 +815,9 @@ export const LOCALES = [
     path: "/zh/",
     label: "Chinese (Simplified)",
     nativeLabel: "简体中文",
-    title: "PenguinCut — AI 视频精彩片段编辑器",
+    title: "PenguinCut — 免费AI自动剪辑视频精彩片段编辑器",
     description:
-      "把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 & 9:16 视频。",
+      "PenguinCut 是免费 AI 视频精彩片段编辑器，自动剪辑数小时素材，几分钟生成 16:9 & 9:16 成片。自动字幕、配乐，原片不上传，省去手动剪辑时间。",
     ogImageAlt:
       "PenguinCut AI 视频精彩片段编辑器 — 把长视频变成 16:9 & 9:16 的电影感精彩片段",
     alts: {
@@ -812,7 +827,7 @@ export const LOCALES = [
       resultVertical: "为 Shorts 导出的 9:16 PenguinCut 精彩片段",
     },
     keywords:
-      "AI视频精彩片段, 视频高光剪辑, AI视频剪辑, 精彩片段生成器, YouTube 高光, PenguinCut",
+      "AI视频精彩片段, 自动视频剪辑, AI自动剪辑, 免费AI视频编辑, 视频高光剪辑, 精彩片段生成器, PenguinCut",
     nav: {
       features: "功能",
       how: "使用方法",
@@ -822,7 +837,7 @@ export const LOCALES = [
       open: "打开工作室",
     },
     hero: {
-      badge: "AI 视频精彩片段编辑器",
+      badge: "免费AI自动剪辑视频精彩片段编辑器",
       title: "把数小时的素材，",
       accent: "变成一支电影感精彩片段。",
       lead:
@@ -979,7 +994,12 @@ export const LOCALES = [
         {
           q: "PenguinCut 是什么？",
           a:
-            "PenguinCut 是一款在浏览器中运行的 AI 视频精彩片段编辑器。它会找到素材中最精彩的瞬间，并制作成一支电影感的 16:9 & 9:16 视频。",
+            "PenguinCut 是一款在浏览器中运行的免费 AI 精彩片段编辑器。AI 会自动剪辑数小时素材，挑出最精彩的瞬间并拼接成一支电影感的 16:9 & 9:16 视频。",
+        },
+        {
+          q: "AI 能自动剪辑视频吗？",
+          a:
+            "可以。添加素材后，AI 会自动分析画面、挑选最精彩的瞬间并拼接成片。你只需调整字幕、音乐和叠加文字，然后导出即可。",
         },
         {
           q: "视频会被上传吗？",
@@ -989,7 +1009,7 @@ export const LOCALES = [
         {
           q: "PenguinCut 免费吗？",
           a:
-            "PenguinCut 内置可直接使用的免费 AI 模型。你也可以连接自己的 API 密钥来使用其他模型。",
+            "是的。PenguinCut 内置可直接使用的免费 AI 模型，无需安装，原片也不会上传。你也可以连接自己的 API 密钥来使用其他模型。",
         },
         {
           q: "支持哪些视频格式？",
@@ -999,7 +1019,7 @@ export const LOCALES = [
         {
           q: "制作精彩片段需要多久？",
           a:
-            "较短的精彩片段通常几分钟即可完成。具体时间取决于素材长度、设备性能和所选 AI 模型。",
+            "手动剪辑通常要花上几个小时。PenguinCut 由 AI 自动找镜头、做剪辑，较短的精彩片段几分钟即可完成。具体时间取决于素材长度、设备性能和所选模型。",
         },
         {
           q: "手机上能用吗？",
@@ -1044,9 +1064,9 @@ export const LOCALES = [
     path: "/es/",
     label: "Spanish",
     nativeLabel: "Español",
-    title: "PenguinCut — Editor de highlights de vídeo con IA",
+    title: "PenguinCut — Editor de highlights gratis con corte automático por IA",
     description:
-      "Convierte horas de material en un solo highlight cinematográfico. PenguinCut usa IA para encontrar los mejores momentos, añadir subtítulos y música, y exportar un vídeo 16:9 & 9:16 en tu navegador.",
+      "PenguinCut es un editor de highlights gratis con IA que corta automáticamente horas de vídeo. Añade subtítulos y música, exporta en 16:9 y 9:16 sin subir el original.",
     ogImageAlt:
       "Editor de highlights de vídeo con IA PenguinCut — de horas de material a un highlight cinematográfico 16:9 & 9:16",
     alts: {
@@ -1056,7 +1076,7 @@ export const LOCALES = [
       resultVertical: "Highlight de PenguinCut terminado en 9:16 para Shorts",
     },
     keywords:
-      "editor de highlights con IA, generador de highlights, highlight de vídeo, editor de vídeo con IA, highlights para YouTube, PenguinCut",
+      "editor de highlights con IA, corte automático de vídeo, editor de vídeo automático gratis, generador de highlights, highlight de vídeo, PenguinCut",
     nav: {
       features: "Funciones",
       how: "Cómo funciona",
@@ -1066,7 +1086,7 @@ export const LOCALES = [
       open: "Abrir estudio",
     },
     hero: {
-      badge: "Editor de highlights de vídeo con IA",
+      badge: "Editor de highlights gratis con corte automático por IA",
       title: "Convierte horas de material en ",
       accent: "un solo highlight cinematográfico.",
       lead:
@@ -1225,7 +1245,12 @@ export const LOCALES = [
         {
           q: "¿Qué es PenguinCut?",
           a:
-            "PenguinCut es un editor de highlights de vídeo con IA que funciona en el navegador. Encuentra los momentos más fuertes de tu material y los convierte en un vídeo cinematográfico 16:9 & 9:16.",
+            "PenguinCut es un editor de highlights gratis que funciona en el navegador. Su IA corta automáticamente los momentos más fuertes de horas de vídeo y los une en un vídeo cinematográfico 16:9 & 9:16.",
+        },
+        {
+          q: "¿El IA edita mis vídeos automáticamente?",
+          a:
+            "Sí. Añade tus clips y la IA analiza el material, elige los momentos más fuertes y une los cortes en un highlight terminado. Solo ajustas subtítulos, música y textos antes de exportar.",
         },
         {
           q: "¿Se suben mis vídeos?",
@@ -1235,7 +1260,7 @@ export const LOCALES = [
         {
           q: "¿PenguinCut es gratis?",
           a:
-            "PenguinCut incluye modelos de IA gratuitos listos para usar. También puedes conectar tu propia clave de API para usar otros modelos.",
+            "Sí. PenguinCut incluye modelos de IA gratuitos listos para usar, sin instalación y sin subir tus vídeos originales. También puedes conectar tu propia clave de API para usar otros modelos.",
         },
         {
           q: "¿Qué formatos de vídeo puedo usar?",
@@ -1245,7 +1270,7 @@ export const LOCALES = [
         {
           q: "¿Cuánto tarda un highlight?",
           a:
-            "Un highlight corto suele tardar unos minutos. El tiempo depende de la duración del material, tu dispositivo y el modelo de IA elegido.",
+            "Editar un highlight a mano lleva horas. La IA de PenguinCut encuentra y corta los momentos por ti, así que un highlight corto suele estar listo en unos minutos. El tiempo depende del material, tu dispositivo y el modelo elegido.",
         },
         {
           q: "¿Funciona en móvil?",
@@ -1290,9 +1315,9 @@ export const LOCALES = [
     path: "/fr/",
     label: "French",
     nativeLabel: "Français",
-    title: "PenguinCut — Éditeur de highlights vidéo par IA",
+    title: "PenguinCut — Éditeur de highlights gratuit avec montage auto par IA",
     description:
-      "Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 & 9:16 dans votre navigateur.",
+      "PenguinCut est un éditeur de highlights gratuit dont l'IA coupe automatiquement vos rushes. Sous-titres, musique, export 16:9 & 9:16 sans upload ni montage manuel.",
     ogImageAlt:
       "Éditeur de highlights vidéo par IA PenguinCut — des heures de rushes à un highlight cinématographique 16:9 & 9:16",
     alts: {
@@ -1302,7 +1327,7 @@ export const LOCALES = [
       resultVertical: "Highlight PenguinCut terminé en 9:16 pour Shorts",
     },
     keywords:
-      "éditeur de highlights IA, générateur de highlights, highlight vidéo, montage vidéo IA, highlights YouTube, PenguinCut",
+      "éditeur de highlights IA, montage vidéo automatique, éditeur vidéo gratuit IA, générateur de highlights, highlight vidéo, PenguinCut",
     nav: {
       features: "Fonctionnalités",
       how: "Comment ça marche",
@@ -1312,7 +1337,7 @@ export const LOCALES = [
       open: "Ouvrir le studio",
     },
     hero: {
-      badge: "Éditeur de highlights vidéo par IA",
+      badge: "Éditeur de highlights gratuit avec montage auto par IA",
       title: "Transformez des heures de rushes en ",
       accent: "un seul highlight cinématographique.",
       lead:
@@ -1471,7 +1496,12 @@ export const LOCALES = [
         {
           q: "Qu'est-ce que PenguinCut ?",
           a:
-            "PenguinCut est un éditeur de highlights vidéo par IA qui fonctionne dans le navigateur. Il trouve les moments les plus forts de vos rushes et les transforme en une vidéo cinématographique 16:9 & 9:16.",
+            "PenguinCut est un éditeur de highlights gratuit qui fonctionne dans le navigateur. Son IA coupe automatiquement les moments les plus forts de vos rushes et les assemble en une vidéo cinématographique 16:9 & 9:16.",
+        },
+        {
+          q: "L'IA monte-t-elle mes vidéos automatiquement ?",
+          a:
+            "Oui. Ajoutez vos clips : l'IA analyse les rushes, choisit les moments les plus forts et assemble les coupes en un highlight terminé. Il ne reste qu'à régler sous-titres, musique et textes avant l'export.",
         },
         {
           q: "Mes vidéos sont-elles envoyées ?",
@@ -1481,7 +1511,7 @@ export const LOCALES = [
         {
           q: "PenguinCut est-il gratuit ?",
           a:
-            "PenguinCut inclut des modèles d'IA gratuits utilisables immédiatement. Vous pouvez aussi connecter votre propre clé API pour utiliser d'autres modèles.",
+            "Oui. PenguinCut inclut des modèles d'IA gratuits utilisables immédiatement, sans installation et sans envoyer vos vidéos originales. Vous pouvez aussi connecter votre propre clé API pour utiliser d'autres modèles.",
         },
         {
           q: "Quels formats vidéo sont pris en charge ?",
@@ -1491,7 +1521,7 @@ export const LOCALES = [
         {
           q: "Combien de temps faut-il pour un highlight ?",
           a:
-            "Un highlight court prend généralement quelques minutes. Le temps dépend de la durée des rushes, de votre appareil et du modèle d'IA choisi.",
+            "Monter un highlight à la main prend des heures. L'IA de PenguinCut trouve et coupe les moments pour vous : un highlight court est généralement prêt en quelques minutes. Le temps dépend des rushes, de votre appareil et du modèle choisi.",
         },
         {
           q: "Est-ce que ça marche sur mobile ?",
@@ -1536,9 +1566,9 @@ export const LOCALES = [
     path: "/de/",
     label: "German",
     nativeLabel: "Deutsch",
-    title: "PenguinCut — KI-Highlight-Editor für Videos",
+    title: "PenguinCut — KI-Highlight-Editor mit kostenlosem Auto-Cut",
     description:
-      "Mach aus stundenlangem Filmmaterial ein einziges cineastisches Highlight. PenguinCut findet mit KI die besten Momente, fügt Untertitel und Musik hinzu und exportiert ein 16:9 & 9:16-Video im Browser.",
+      "PenguinCut ist ein kostenloser KI-Highlight-Editor mit automatischem Schnitt. Aus Stunden Material wird in Minuten ein 16:9- & 9:16-Highlight – ohne Upload und Videoschnitt.",
     ogImageAlt:
       "PenguinCut KI-Highlight-Editor für Videos — aus stundenlangem Material wird ein cineastisches 16:9 & 9:16-Highlight",
     alts: {
@@ -1548,7 +1578,7 @@ export const LOCALES = [
       resultVertical: "Fertiges PenguinCut-Highlight in 9:16 für Shorts",
     },
     keywords:
-      "KI-Highlight-Editor, Highlight-Generator, Video-Highlights, KI-Videoschnitt, YouTube-Highlights, PenguinCut",
+      "KI-Highlight-Editor, automatischer Videoschnitt, kostenloser KI-Video-Editor, Auto-Cut Video, Highlight-Generator, PenguinCut",
     nav: {
       features: "Funktionen",
       how: "So funktioniert's",
@@ -1558,7 +1588,7 @@ export const LOCALES = [
       open: "Studio öffnen",
     },
     hero: {
-      badge: "KI-Highlight-Editor für Videos",
+      badge: "Kostenloser KI-Highlight-Editor mit Auto-Cut",
       title: "Mach aus stundenlangem Material ",
       accent: "ein einziges cineastisches Highlight.",
       lead:
@@ -1716,7 +1746,12 @@ export const LOCALES = [
         {
           q: "Was ist PenguinCut?",
           a:
-            "PenguinCut ist ein browserbasierter KI-Highlight-Editor für Videos. Er findet die stärksten Momente in deinem Material und macht daraus ein cineastisches 16:9 & 9:16-Video.",
+            "PenguinCut ist ein kostenloser KI-Highlight-Editor im Browser. Die KI schneidet automatisch die stärksten Momente aus stundenlangem Material und fügt sie zu einem cineastischen 16:9 & 9:16-Video zusammen.",
+        },
+        {
+          q: "Schneidet die KI meine Videos automatisch?",
+          a:
+            "Ja. Füge deine Clips hinzu – die KI analysiert das Material, wählt die stärksten Momente und fügt die Schnitte zu einem fertigen Highlight zusammen. Du passt nur Untertitel, Musik und Overlays an und exportierst.",
         },
         {
           q: "Werden meine Videos hochgeladen?",
@@ -1726,7 +1761,7 @@ export const LOCALES = [
         {
           q: "Ist PenguinCut kostenlos?",
           a:
-            "PenguinCut enthält kostenlose KI-Modelle, die du sofort nutzen kannst. Du kannst auch deinen eigenen API-Schlüssel verbinden, um andere Modelle zu verwenden.",
+            "Ja. PenguinCut enthält kostenlose KI-Modelle, die du sofort nutzen kannst – ohne Installation und ohne Upload deiner Originalvideos. Du kannst auch deinen eigenen API-Schlüssel verbinden, um andere Modelle zu verwenden.",
         },
         {
           q: "Welche Videoformate kann ich nutzen?",
@@ -1736,7 +1771,7 @@ export const LOCALES = [
         {
           q: "Wie lange dauert ein Highlight?",
           a:
-            "Ein kurzes Highlight dauert meist einige Minuten. Die Zeit hängt von der Länge des Materials, deinem Gerät und dem gewählten KI-Modell ab.",
+            "Von Hand dauert ein Highlight Stunden. Die KI von PenguinCut findet und schneidet die Momente für dich, sodass ein kurzes Highlight meist in einigen Minuten fertig ist. Die Zeit hängt von Material, Gerät und Modell ab.",
         },
         {
           q: "Funktioniert es auf dem Smartphone?",
