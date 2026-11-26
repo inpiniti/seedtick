@@ -247,11 +247,11 @@ function getBubbleImage(url: string): HTMLImageElement | null {
   return image.complete && image.naturalWidth > 0 ? image : null;
 }
 
+/** 말풍선 텍스트를 줄바꿈만 한다. 끝까지 모두 표시하기 위해 줄 수는 제한하지 않는다. */
 function wrapBubbleText(
   ctx: CanvasRenderingContext2D,
   text: string,
-  maxWidth: number,
-  maxLines = 3
+  maxWidth: number
 ): string[] {
   const lines: string[] = [];
   let current = '';
@@ -261,16 +261,11 @@ function wrapBubbleText(
     if (current && !keepTogether && ctx.measureText(candidate).width > maxWidth) {
       lines.push(current);
       current = char;
-      if (lines.length === maxLines) break;
     } else {
       current = candidate;
     }
   }
-  if (lines.length === maxLines) {
-    if (current) lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, -1)}…`;
-  } else if (current) {
-    lines.push(current);
-  }
+  if (current) lines.push(current);
   return lines;
 }
 
@@ -305,7 +300,7 @@ function drawBubbles(
 
     const image = bubble.imageUrl ? getBubbleImage(bubble.imageUrl) : null;
     const header = bubble.header ?? '';
-    const lines = wrapBubbleText(ctx, bubble.text, 152, 3);
+    const lines = wrapBubbleText(ctx, bubble.text, 152);
     const imageHeight = image ? 34 : 0;
     ctx.font = '700 9px system-ui, sans-serif';
     const headerWidth = header ? ctx.measureText(header).width + 16 : 0;
