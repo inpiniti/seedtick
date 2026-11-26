@@ -169,7 +169,7 @@ export function parseRssCandidates(
       );
       out.push({
         keyword: cleanTitle.slice(0, 24),
-        headline: stripPublisherSuffix(newsTitle || cleanTitle).slice(0, 70),
+        headline: stripPublisherSuffix(newsTitle || cleanTitle).slice(0, 180),
         url: newsUrl,
       });
     } else {
@@ -185,7 +185,7 @@ export function parseRssCandidates(
       if (!shortKey) continue;
       out.push({
         keyword: shortKey,
-        headline: cleanHeadline.slice(0, 70),
+        headline: cleanHeadline.slice(0, 180),
         url: link,
       });
     }
@@ -221,15 +221,15 @@ export function buildDeterministicTopics(candidates: RawCandidate[]): TrendTopic
   ];
 
   return candidates.slice(0, 10).map((c, idx) => {
-    const k = c.keyword.slice(0, 12);
-    // 주제만 읽어도 무슨 일이 있었는지 알 수 있게 헤드라인을 그대로 넣는다.
-    const headline = c.headline.replace(/\s+/g, ' ').trim().slice(0, 56);
+    const k = c.keyword.slice(0, 12).trim();
+    // topic에는 상황 전체를 담고, context에는 같은 말을 반복하지 않는 배경을 둔다.
+    const headline = c.headline.replace(/\s+/g, ' ').trim().slice(0, 180);
     const suffix = suffixes[idx % suffixes.length] ?? '이거 어떻게 생각해?';
-    const topic = `${headline} ${suffix}`.slice(0, 80);
+    const topic = `${headline} ${suffix}`.slice(0, 240);
     return {
       keyword: k,
       topic,
-      context: c.headline.slice(0, 52),
+      context: `요즘 '${k}' 관련 이야기가 자주 보이는데, 함께 얘기해 보자.`,
     };
   });
 }
@@ -338,7 +338,7 @@ export class TrendsService {
             messages: [
               {
                 role: 'system',
-                content: `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"뉴스에 나온 구체적인 상황(무엇이 왜 화제인지)을 반드시 넣고 그에 대해 찬반·취향을 묻는 반말 질문(35~70자)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. topic만 읽어도 무슨 이야기인지 알 수 있게 쓸 것. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.${avoidLine}`,
+                content: `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"뉴스 제목과 핵심 내용을 그대로 포함한 구체적인 상황에 찬반·취향 질문을 붙인 문장(100~180자, 최대 220자. 짧게 줄이지 말 것)","context":"왜 화제인지 배경을 다른 관점으로 1줄(42자이내)"} 형식이다. topic에는 주제만 읽어도 상황이 이해되도록 충분히 쓸 것. context는 topic과 같은 문장을 반복하지 말고 배경만 쓸 것. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.${avoidLine}`,
               },
               {
                 role: 'user',
@@ -346,7 +346,7 @@ export class TrendsService {
               },
             ],
             temperature: 0.5,
-            max_tokens: 1600,
+            max_tokens: 4000,
             reasoning_effort: 'none',
             stream: false,
           },
@@ -374,8 +374,8 @@ export class TrendsService {
         if (!entry || typeof entry !== 'object') continue;
         const rec = entry as Record<string, unknown>;
         const keyword = typeof rec.keyword === 'string' ? rec.keyword.trim().slice(0, 16) : '';
-        const topic = typeof rec.topic === 'string' ? rec.topic.trim().slice(0, 80) : '';
-        const context = typeof rec.context === 'string' ? rec.context.trim().slice(0, 56) : '';
+        const topic = typeof rec.topic === 'string' ? rec.topic.trim().slice(0, 240) : '';
+        const context = typeof rec.context === 'string' ? rec.context.trim().slice(0, 120) : '';
         if (
           !keyword ||
           topic.length < 4 ||

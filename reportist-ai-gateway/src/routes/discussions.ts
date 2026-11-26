@@ -7,7 +7,7 @@ import { isSafeTopicText } from '../domain/trends/TrendsService.ts';
 export const discussionsRoute = new Elysia().post(
   '/v1/discussions/prepare',
   async ({ body, set }) => {
-    const topic = body.topic.trim().slice(0, 80);
+    const topic = body.topic.trim().slice(0, 240);
     if (topic.length < 4 || !isSafeTopicText(`${topic} ${body.context ?? ''}`)) {
       set.status = 400;
       return { error: { code: 'UNSAFE_TOPIC', message: '토론에 부적합한 주제예요.' } };
@@ -17,7 +17,7 @@ export const discussionsRoute = new Elysia().post(
   },
   {
     body: t.Object({
-      topic: t.String({ minLength: 4, maxLength: 80 }),
+      topic: t.String({ minLength: 4, maxLength: 240 }),
       context: t.Optional(t.String({ maxLength: 200 })),
     }),
     response: t.Union([

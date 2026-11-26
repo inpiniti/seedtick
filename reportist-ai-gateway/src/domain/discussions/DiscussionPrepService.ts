@@ -43,7 +43,7 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
 function normalizeTopic(topic: string): string {
-  return topic.toLowerCase().replace(/\s+/g, '').slice(0, 80);
+  return topic.toLowerCase().replace(/\s+/g, '').slice(0, 240);
 }
 
 function trim(value: unknown, max: number): string {

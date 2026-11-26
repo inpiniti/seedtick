@@ -82,29 +82,38 @@ describe('TrendsService filtering', () => {
     expect(keywords).toContain('맥도날드');
     expect(keywords).toContain('붕어빵 지도');
   });
+
+  it('keeps long headlines so a topic can carry the whole situation', () => {
+    const longTitle =
+      '20만원 들고 폰 사러 갔다가 날벼락 삼성 애플도 못 피한다는 이야기가 요즘 화제가 되고 있어 할인 광고에 적힌 금액과 실제 결제 금액이 달라서 소비자들이 당황했다는 후기가 이어지고 있다';
+    const [item] = parseRssCandidates(
+      `<rss version="2.0"><channel><item><title>${longTitle}</title><link>https://news.google.com/articles/long</link></item></channel></rss>`,
+      'google-news'
+    );
+
+    expect(item?.headline.length).toBeGreaterThan(80);
+  });
 });
 
 describe('buildDeterministicTopics', () => {
-  it('includes the concrete headline in the topic so the situation is clear', () => {
-    const [item] = buildDeterministicTopics([
-      {
-        keyword: '삼성 애플도',
-        headline: "'삼성 애플도 못 피한다'…20만원 들고 폰 사러 갔다가 날벼락",
-        url: '',
-      },
-    ]);
+  it('puts the full headline in the topic and keeps context distinct', () => {
+    const headline =
+      '삼성·애플도 못 피한다…20만원 들고 폰 사러 갔다가 날벼락, 매장에선 아무 설명도 없었다';
+    const [item] = buildDeterministicTopics([{ keyword: '삼성 애플도', headline, url: '' }]);
 
-    expect(item?.topic).toContain('20만원');
-    expect(item?.topic).toContain('날벼락');
-    expect(item?.topic?.length).toBeGreaterThan(24);
+    expect(item?.topic).toContain(headline);
+    expect(item?.topic?.length).toBeGreaterThan(60);
     expect(item?.topic).toContain('?');
+    expect(item?.context).not.toContain('20만원');
+    expect(item?.context).not.toBe(item?.topic);
   });
 });
 
 describe('GET /v1/trends', () => {
-  it('keeps a specific curated topic instead of cutting it to a short question', async () => {
+  it('keeps a long curated topic intact and asks for a non-duplicated context', async () => {
     const specificTopic =
-      '20만원 들고 폰 사러 갔다가 날벼락, 삼성 애플도 못 피한다는데 어떻게 생각해?';
+      '삼성·애플도 못 피한다는 제목으로 20만원을 들고 폰을 사러 갔다가 날벼락을 맞았다는 이야기가 화제다. 할인 광고와 실제 결제 금액이 달랐다는 내용인데, 소비자는 이런 상황에서 어떻게 대응하는 게 좋을까?';
+    const specificContext = '할인 광고와 실제 금액 차이가 문제다';
     let systemPrompt = '';
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       (async () => new Response(RSS_XML, { status: 200 })) as unknown as typeof fetch
@@ -113,7 +122,7 @@ describe('GET /v1/trends', () => {
       systemPrompt = String(request.messages[0]?.content ?? '');
       return makeChatResponse(
         JSON.stringify([
-          { keyword: '삼성 애플도', topic: specificTopic, context: '한정 메뉴 줄이 길대' },
+          { keyword: '삼성 애플도', topic: specificTopic, context: specificContext },
           { keyword: '붕어빵', topic: '붕어빵 팥이 최고야?', context: '겨울 간식 인기' },
           { keyword: '산책', topic: '같이 설원 산책 할래?', context: '날씨가 좋아졌대' },
         ])
@@ -124,7 +133,9 @@ describe('GET /v1/trends', () => {
       const response = await app.handle(new Request('http://localhost/v1/trends'));
       const json = (await response.json()) as TrendsPayload;
       expect(json.items[0]?.topic).toBe(specificTopic);
-      expect(systemPrompt).toContain('구체적인 상황');
+      expect(json.items[0]?.context).toBe(specificContext);
+      expect(systemPrompt).toContain('100~180자');
+      expect(systemPrompt).toContain('반복하지 말고');
     } finally {
       fetchSpy.mockRestore();
       chatSpy.mockRestore();
