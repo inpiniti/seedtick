@@ -47,6 +47,8 @@ export class ProxyService {
   private autoModelCursor = 0;
   // 콜드 스타트 재시도 추적 (provider:modelId)
   private readonly coldStartTried = new Set<string>();
+  // 정상 보정 동작이므로 모델별로 한 번만 로그한다.
+  private readonly reasoningStrippedModels = new Set<string>();
 
   constructor(
     errorLogger?: ErrorLogService,
@@ -102,11 +104,17 @@ export class ProxyService {
     return slots;
   }
 
-  private getNextSlot(): KeySlot | null {
+  /** 일일 소진 키는 건너뛰고, 남은 키가 없으면 null을 반환해 루프를 즉시 종료한다. */
+  private getNextSlot(modelId?: string): KeySlot | null {
     if (this.slots.length === 0) return null;
-    const slot = this.slots[this.slotIndex % this.slots.length];
-    this.slotIndex = (this.slotIndex + 1) % this.slots.length;
-    return slot;
+    for (let offset = 0; offset < this.slots.length; offset++) {
+      const index = (this.slotIndex + offset) % this.slots.length;
+      const slot = this.slots[index];
+      if (modelId && this.quota.isExhaustedLocal(slot.provider, modelId, slot.key)) continue;
+      this.slotIndex = (index + 1) % this.slots.length;
+      return slot;
+    }
+    return null;
   }
 
   private initializeAdapters(): void {
@@ -221,7 +229,11 @@ export class ProxyService {
     textOnlyModels = false
   ): Promise<string[]> {
     const direct = requestedModel?.trim();
-    if (direct) return [direct];
+    if (direct) {
+      // 404로 확인된 모델은 다음 요청부터 자동 선택으로 전환해 같은 404를 반복하지 않는다.
+      if (!modelService.isModelUnavailable(direct)) return [direct];
+      console.warn(`[Gateway] 요청 모델 ${direct}은(는) 제공사에서 내려져 자동 모델로 대체합니다.`);
+    }
 
     const AUTO_CANDIDATE_LIMIT = 3;
     const excludeIds: string[] = [];
@@ -269,7 +281,10 @@ export class ProxyService {
 
     const adapted: ChatRequest = { ...request };
     adapted.reasoning_effort = undefined;
-    console.info(`[Gateway] ${modelId}는 추론 비활성화 불가 → reasoning_effort 제거 후 호출`);
+    if (!this.reasoningStrippedModels.has(modelId)) {
+      this.reasoningStrippedModels.add(modelId);
+      console.debug(`[Gateway] ${modelId}는 추론 비활성화 불가 → reasoning_effort 제거 후 호출`);
+    }
     return adapted;
   }
 
@@ -428,13 +443,14 @@ export class ProxyService {
 
       // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
       if (!isGeminiDirect && this.slots.length > 0) {
-        const maxAttempts = Math.max(6, this.slots.length * 2);
+        // 실패한 키는 즉시 쿨다운되므로 같은 키를 두 번 시도할 이유가 없다.
+        const maxAttempts = this.slots.length;
         console.info(
           `[Gateway] 🚀 통합 풀 호출 시작 (총 ${this.slots.length}개 슬롯 교차 로테이션, 최대 ${maxAttempts}회 시도, 모델=${targetModel})`
         );
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          const slot = this.getNextSlot();
+          const slot = this.getNextSlot(targetModel);
           if (!slot) break;
 
           const { provider, key } = slot;
@@ -475,10 +491,14 @@ export class ProxyService {
             });
 
             if (result.status === 429) {
+              // RPM/TPM은 쿨다운, 일일 소진(RPD)은 리셋 시각까지 사용 제외로 처리한다.
+              const allProviderKeys = this.slots
+                .filter((slot) => slot.provider === provider)
+                .map((slot) => slot.key);
+              await this.handleError(category, provider, targetModel, key, allProviderKeys);
               console.warn(
-                `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
+                `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}, ${category}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
               );
-              this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
             } else if (
               result.status === 500 ||
               result.status === 502 ||
@@ -606,13 +626,14 @@ export class ProxyService {
 
       // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
       if (!isGeminiDirect && this.slots.length > 0) {
-        const maxAttempts = Math.max(6, this.slots.length * 2);
+        // 실패한 키는 즉시 쿨다운되므로 같은 키를 두 번 시도할 이유가 없다.
+        const maxAttempts = this.slots.length;
         console.info(
           `[Gateway] 🚀 통합 풀 호출 시작 (총 ${this.slots.length}개 슬롯 교차 로테이션, 최대 ${maxAttempts}회 시도, 모델=${targetModel})`
         );
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          const slot = this.getNextSlot();
+          const slot = this.getNextSlot(targetModel);
           if (!slot) break;
 
           const { provider, key } = slot;
@@ -649,10 +670,14 @@ export class ProxyService {
             });
 
             if (result.status === 429) {
+              // RPM/TPM은 쿨다운, 일일 소진(RPD)은 리셋 시각까지 사용 제외로 처리한다.
+              const allProviderKeys = this.slots
+                .filter((slot) => slot.provider === provider)
+                .map((slot) => slot.key);
+              await this.handleError(category, provider, targetModel, key, allProviderKeys);
               console.warn(
-                `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
+                `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}, ${category}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
               );
-              this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
             } else if (
               result.status === 500 ||
               result.status === 502 ||
@@ -1048,13 +1073,18 @@ export class ProxyService {
         break;
 
       case 'model_not_found':
-        this.cooldown.setModelCooldownAllKeys(provider, modelId, allKeys, 86_400_000, category);
+        // 키가 아니라 모델이 사라진 것이므로 전 키 24시간 차단은 과하다.
+        // 카탈로그에서 즉시 제외하고 재조회 전까지 짧게만 건너뛴다.
+        if (provider === 'openrouter' || provider === 'cline' || provider === 'kilo') {
+          modelService.markModelUnavailable(modelId);
+        }
+        this.cooldown.setCooldown(provider, modelId, apiKey, 60_000, category);
         console.info(
-          `[Gateway] Set cooldown 24h for ALL keys of ${provider}:${modelId} (${category})`
+          `[Gateway] 모델 미존재(404) — ${provider}:${modelId}를 후보에서 제외하고 1분간 건너뜁니다.`
         );
-        await this.errorLogger.warning(
+        void this.errorLogger.warning(
           'GATEWAY_MODEL_NOT_FOUND',
-          `${provider}:${modelId} 모델 미존재 (404) — 전 키 24시간 쿨다운`,
+          `${provider}:${modelId} 모델 미존재 (404) — 카탈로그에서 제외`,
           { provider, modelId }
         );
         break;

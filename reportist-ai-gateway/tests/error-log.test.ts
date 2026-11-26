@@ -69,4 +69,23 @@ describe('ErrorLogService', () => {
 
     expect(insertCalls).toBe(1);
   });
+
+  test('Invalid API key 오류는 원격 로깅을 중단하고 반복 insert하지 않는다', async () => {
+    let insertCalls = 0;
+    const mockClient = {
+      from: vi.fn(() => ({
+        insert: vi.fn(async () => {
+          insertCalls += 1;
+          return { error: { message: 'Invalid API key' } };
+        }),
+      })),
+    };
+
+    const service = new ErrorLogService(mockClient as unknown as SupabaseClient);
+    await service.warning('AUTH_FAIL', '첫 로그');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await service.warning('AUTH_FAIL', '두 번째 로그');
+
+    expect(insertCalls).toBe(1);
+  });
 });

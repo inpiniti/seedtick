@@ -1,6 +1,7 @@
 // ErrorLogService.ts - Supabase error_logs 테이블 연동 에러/이벤트 로거
 import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 import { env } from '../../config/env.ts';
+import { hasSupabaseCredentials, isSupabaseAuthError } from '../../config/supabase.ts';
 
 export type LogLevel = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
 
@@ -14,6 +15,8 @@ export interface LogEntry {
 
 /** Supabase 연결/DNS 장애 시 원격 로깅을 잠시 중단하는 서킷브레이커 (5분). */
 const REMOTE_LOG_PAUSE_MS = 5 * 60 * 1000;
+/** 잘못된 서비스 롤 키는 재배포 전까지 복구되지 않으므로 더 오래 중단한다 (1시간). */
+const AUTH_FAILURE_PAUSE_MS = 60 * 60 * 1000;
 const NETWORK_FAILURE_PATTERN =
   /Unable to connect|Unable to establish|Could not connect|fetch failed|ENOTFOUND|EAI_AGAIN|getaddrinfo|Was there a typo|Connection refused|NetworkError|network timeout/i;
 
@@ -31,7 +34,7 @@ export class ErrorLogService {
 
   private getSupabase(): SupabaseClient | null {
     if (this.supabase) return this.supabase;
-    if (env.supabaseUrl && env.supabaseServiceRoleKey) {
+    if (hasSupabaseCredentials()) {
       try {
         this.supabase = createClient(env.supabaseUrl, env.supabaseServiceRoleKey);
       } catch (err) {
@@ -41,7 +44,25 @@ export class ErrorLogService {
     return this.supabase;
   }
 
+  /** 동일 원인으로 로그가 반복되지 않도록 한 번만 알리고 원격 로깅을 중단한다. */
+  private pauseRemoteLogging(reason: string, durationMs: number): void {
+    this.remoteLoggingPausedUntil = Date.now() + durationMs;
+    if (!this.circuitNotified) {
+      console.warn(
+        `[ErrorLogger] ${reason} — ${Math.round(durationMs / 60_000)}분간 원격 로깅을 중단합니다.`
+      );
+      this.circuitNotified = true;
+    }
+  }
+
   private handleInsertError(error: { message?: string; code?: string }): void {
+    if (isSupabaseAuthError(error)) {
+      this.pauseRemoteLogging(
+        'Supabase 인증 실패 (SUPABASE_SERVICE_ROLE_KEY 확인 필요)',
+        AUTH_FAILURE_PAUSE_MS
+      );
+      return;
+    }
     if (error.code === '42P01' || /Could not find the table/i.test(error.message ?? '')) {
       if (!this.tableUnavailable) {
         console.warn(
@@ -55,16 +76,19 @@ export class ErrorLogService {
   }
 
   private handleInsertException(err: unknown): void {
+    if (isSupabaseAuthError(err)) {
+      this.pauseRemoteLogging(
+        'Supabase 인증 실패 (SUPABASE_SERVICE_ROLE_KEY 확인 필요)',
+        AUTH_FAILURE_PAUSE_MS
+      );
+      return;
+    }
     const message = err instanceof Error ? err.message : String(err);
     if (!NETWORK_FAILURE_PATTERN.test(message)) {
       console.warn('[ErrorLogger] Error writing to error_logs table:', err);
       return;
     }
-    this.remoteLoggingPausedUntil = Date.now() + REMOTE_LOG_PAUSE_MS;
-    if (!this.circuitNotified) {
-      console.warn('[ErrorLogger] Supabase 연결 실패 — 5분간 원격 로깅을 중단합니다.');
-      this.circuitNotified = true;
-    }
+    this.pauseRemoteLogging('Supabase 연결 실패', REMOTE_LOG_PAUSE_MS);
   }
 
   async log(entry: LogEntry): Promise<void> {

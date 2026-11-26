@@ -2,6 +2,7 @@
 
 import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 import { env } from '../../config/env.ts';
+import { hasSupabaseCredentials, isSupabaseAuthError } from '../../config/supabase.ts';
 import type { FreeModelMeta } from '../types.ts';
 
 interface ModelPerfMetric {
@@ -29,27 +30,9 @@ interface SelectModelOptions {
   textOnly?: boolean;
 }
 
-// 17개 기본 모델 (OpenRouter API 일시 장애 시 완벽한 폴백 보장)
+// OpenRouter API 일시 장애 시 사용하는 기본 폴백 모델 목록.
+// 제공사가 내린 모델은 404로 발견 즉시 런타임에서 제외된다 (markModelUnavailable).
 const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
-  {
-    id: 'recursive/flint-v1.0:free',
-    name: 'Recursive: Flint (free)',
-    providerName: 'Recursive',
-    created: 1792627200,
-    createdDate: '2026-10-21',
-    daysAgo: 5,
-    contextLength: 262144,
-    contextLengthFormatted: '256K tokens',
-    description:
-      "Flint is an open-weight mixture-of-experts model from Recursive, with about 2.5B active parameters out of 40B total, built by Recursive's autoresearch system Eureka Machine for coding agents.",
-    modality: 'text->text',
-    inputModalities: ['text'],
-    intelligenceIndex: null,
-    reasoningMandatory: true,
-    intelligenceTier: '코딩 에이전트 특화',
-    parametersSummary: '40B (활성 2.5B)',
-    supportedParameters: ['reasoning', 'temperature', 'tools', 'response_format'],
-  },
   {
     id: 'xingchen-agi/xing4.0-29b-a4b:free',
     name: 'XingChen: Xing4.0 29B A4B (free)',
@@ -573,7 +556,25 @@ export class ModelService {
   private readonly CACHE_TTL_MS = 2 * 60 * 1000; // 2분 캐시
   private supabase: SupabaseClient | null = null;
   private catalogTableUnavailable = false;
+  private catalogAuthDisabled = false;
+  private catalogSyncPausedUntil = 0;
   private lastCatalogSyncAt: string | null = null;
+  /** OpenRouter가 내린 모델 — 404 확인 시 캐시/폴백 목록에서 즉시 제거한다. */
+  private readonly unavailableModelIds = new Set<string>();
+
+  /** 404가 난 모델을 다시 선택하지 않도록 카탈로그에서 영구히(런타임 중) 제외한다. */
+  markModelUnavailable(modelId: string): void {
+    const id = modelId.trim();
+    if (!id) return;
+    this.unavailableModelIds.add(id);
+    if (this.cache) this.cache = this.cache.filter((model) => model.id !== id);
+    // 다음 요청에서 최신 목록을 받아 스테일 폴백이 되살아나지 않게 한다.
+    this.lastFetchTime = 0;
+  }
+
+  isModelUnavailable(modelId: string): boolean {
+    return this.unavailableModelIds.has(modelId.trim());
+  }
 
   async getFreeModels(options?: GetModelsOptions): Promise<FreeModelMeta[]> {
     const now = Date.now();
@@ -786,8 +787,9 @@ export class ModelService {
   }
 
   private filterForConsumer(models: FreeModelMeta[], includeAllOutputs: boolean): FreeModelMeta[] {
-    if (includeAllOutputs) return models;
-    return models.filter((model) => {
+    const available = models.filter((model) => !this.unavailableModelIds.has(model.id));
+    if (includeAllOutputs) return available;
+    return available.filter((model) => {
       if (model.isImageGenerationModel) return true;
       const outputs = model.outputModalities?.length ? model.outputModalities : ['text'];
       return outputs.includes('text');
@@ -1094,7 +1096,7 @@ export class ModelService {
 
   private getSupabase(): SupabaseClient | null {
     if (this.supabase) return this.supabase;
-    if (!env.supabaseUrl || !env.supabaseServiceRoleKey) return null;
+    if (!hasSupabaseCredentials()) return null;
     try {
       this.supabase = createClient(env.supabaseUrl, env.supabaseServiceRoleKey);
     } catch (err) {
@@ -1103,14 +1105,36 @@ export class ModelService {
     return this.supabase;
   }
 
+  /** 카탈로그 동기화 실패를 한 번만 알리고, 인증 오류면 재시도 자체를 중단한다. */
+  private handleCatalogFailure(error: unknown): void {
+    if (this.catalogAuthDisabled) return;
+    if (isSupabaseAuthError(error)) {
+      this.catalogAuthDisabled = true;
+      console.warn(
+        '[ModelService] Supabase 인증 실패 — gateway_model_catalog 동기화를 중단합니다. SUPABASE_SERVICE_ROLE_KEY를 확인하세요.'
+      );
+      return;
+    }
+    if (Date.now() < this.catalogSyncPausedUntil) return;
+    this.catalogSyncPausedUntil = Date.now() + 10 * 60_000;
+    console.warn(
+      '[ModelService] gateway_model_catalog 동기화 실패 — 10분간 재시도를 건너뜁니다.',
+      error instanceof Error ? error.message : error
+    );
+  }
+
   private syncCatalogInBackground(models: FreeModelMeta[]): void {
-    void this.syncCatalog(models).catch((err) => {
-      console.warn('[ModelService] Failed to sync gateway_model_catalog:', err);
-    });
+    void this.syncCatalog(models).catch((err) => this.handleCatalogFailure(err));
   }
 
   private async syncCatalog(models: FreeModelMeta[]): Promise<void> {
-    if (this.catalogTableUnavailable) return;
+    if (
+      this.catalogTableUnavailable ||
+      this.catalogAuthDisabled ||
+      Date.now() < this.catalogSyncPausedUntil
+    ) {
+      return;
+    }
     const client = this.getSupabase();
     if (!client) return;
 
@@ -1147,7 +1171,8 @@ export class ModelService {
         );
         return;
       }
-      throw upsertError;
+      this.handleCatalogFailure(upsertError);
+      return;
     }
 
     const modelIds = rows.map((row) => row.model_id);
@@ -1156,7 +1181,8 @@ export class ModelService {
       .delete()
       .not('model_id', 'in', `(${modelIds.map((id) => `"${id}"`).join(',')})`);
     if (deleteError) {
-      throw deleteError;
+      this.handleCatalogFailure(deleteError);
+      return;
     }
 
     this.lastCatalogSyncAt = new Date().toISOString();

@@ -2,11 +2,14 @@
 
 import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 import { env } from '../../config/env.ts';
+import { hasSupabaseCredentials, isSupabaseAuthError } from '../../config/supabase.ts';
 import type { LLMProvider } from '../types.ts';
 
 export class QuotaManager {
   private supabase: SupabaseClient | null = null;
   private exhaustedMap = new Map<string, number>();
+  private remoteDisabled = false;
+  private remoteWarningNotified = false;
 
   private buildKey(provider: string, model: string, apiKeyHash: string): string {
     return `${provider}:${model}:${apiKeyHash}`;
@@ -16,11 +19,32 @@ export class QuotaManager {
     return apiKey.slice(-8);
   }
 
-  private getSupabase(): SupabaseClient {
+  private getSupabase(): SupabaseClient | null {
+    if (this.remoteDisabled || !hasSupabaseCredentials()) return null;
     if (!this.supabase) {
-      this.supabase = createClient(env.supabaseUrl, env.supabaseServiceRoleKey);
+      try {
+        this.supabase = createClient(env.supabaseUrl, env.supabaseServiceRoleKey);
+      } catch (err) {
+        this.handleRemoteError(err);
+        return null;
+      }
     }
     return this.supabase;
+  }
+
+  /** 인증 실패 등 재시도해도 해결되지 않는 오류는 원격 조회 자체를 끈다. */
+  private handleRemoteError(error: unknown): void {
+    if (isSupabaseAuthError(error)) {
+      this.remoteDisabled = true;
+      if (!this.remoteWarningNotified) {
+        console.warn(
+          '[Gateway] Supabase 인증 실패 — 원격 할당량 동기화를 중단합니다. SUPABASE_SERVICE_ROLE_KEY를 확인하세요.'
+        );
+        this.remoteWarningNotified = true;
+      }
+      return;
+    }
+    console.error('[Gateway] Supabase quota operation failed:', error);
   }
 
   async initialize(): Promise<void> {
@@ -28,14 +52,16 @@ export class QuotaManager {
   }
 
   private async loadExhaustedKeys(): Promise<void> {
+    const client = this.getSupabase();
+    if (!client) return;
     const now = new Date().toISOString();
-    const { data, error } = await this.getSupabase()
+    const { data, error } = await client
       .from('gateway_quota_exhausted')
       .select('provider, model, api_key_hash, reset_at')
       .gt('reset_at', now);
 
     if (error) {
-      console.error('[Gateway] Failed to load exhausted keys:', error);
+      this.handleRemoteError(error);
       return;
     }
 
@@ -77,8 +103,10 @@ export class QuotaManager {
     // 인메모리 즉시 반영
     this.exhaustedMap.set(this.buildKey(provider, model, hash), resetAt.getTime());
 
-    // Supabase 비동기 기록 (응답 지연 없음)
-    this.getSupabase()
+    // Supabase 비동기 기록 (응답 지연 없음). 인증 실패 시 인메모리 상태만 유지한다.
+    const client = this.getSupabase();
+    if (!client) return;
+    void client
       .from('gateway_quota_exhausted')
       .upsert(
         {
@@ -92,9 +120,12 @@ export class QuotaManager {
           onConflict: 'provider,model,api_key_hash',
         }
       )
-      .then((result) => {
-        if (result.error) console.error('[Gateway] Failed to mark exhausted:', result.error);
-      });
+      .then(
+        (result) => {
+          if (result.error) this.handleRemoteError(result.error);
+        },
+        (err: unknown) => this.handleRemoteError(err)
+      );
   }
 
   isExhaustedLocal(provider: LLMProvider, model: string, apiKey: string): boolean {
@@ -108,10 +139,12 @@ export class QuotaManager {
     if (this.isExhaustedLocal(provider, model, apiKey)) return true;
 
     // 2차: Supabase 확인 (캐시 미스 시)
+    const client = this.getSupabase();
+    if (!client) return false;
     const hash = this.getApiKeyHash(apiKey);
     const now = new Date().toISOString();
 
-    const { data, error } = await this.getSupabase()
+    const { data, error } = await client
       .from('gateway_quota_exhausted')
       .select('id')
       .eq('provider', provider)
@@ -120,19 +153,25 @@ export class QuotaManager {
       .gt('reset_at', now)
       .single();
 
-    if (error) return false;
+    if (error) {
+      // 캐시 미스는 정상적인 상황이므로 조회 실패는 조용히 인메모리 결과만 반환한다.
+      if (isSupabaseAuthError(error)) this.handleRemoteError(error);
+      return false;
+    }
     return !!data;
   }
 
   async cleanupExpired(): Promise<number> {
+    const client = this.getSupabase();
+    if (!client) return 0;
     const now = new Date().toISOString();
-    const { error, count } = await this.getSupabase()
+    const { error, count } = await client
       .from('gateway_quota_exhausted')
       .delete()
       .lt('reset_at', now);
 
     if (error) {
-      console.error('[Gateway] Cleanup failed:', error);
+      this.handleRemoteError(error);
       return 0;
     }
 
