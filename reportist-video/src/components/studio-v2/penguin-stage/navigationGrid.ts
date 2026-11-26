@@ -213,15 +213,27 @@ export function ejectFromObstacles(
   };
 }
 
-/** 8방향 A* + 벽 여유 가중치 + Line-of-Sight String-Pulling. */
+/**
+ * 8방향 A* + 벽 여유 가중치 + Line-of-Sight String-Pulling.
+ * 도달할 수 없으면 빈 배열을 반환한다. 직선 폴백은 개체를 장애물에 계속 밀어 넣어
+ * 매 프레임 밀어냄(eject)과 전진이 반복되면서 제자리 떨림이 발생한다.
+ */
 export function findPath(grid: NavGrid, start: Vec2, goal: Vec2): Vec2[] {
-  const startCell = toCell(grid, start);
   const goalCell = toCell(grid, goal);
   const total = grid.cols * grid.rows;
-  const startId = startCell.r * grid.cols + startCell.c;
   const goalId = goalCell.r * grid.cols + goalCell.c;
+  if (grid.blocked[goalId]) return [];
 
-  if (grid.blocked[startId] || grid.blocked[goalId]) return [goal];
+  // 장애물 경계에 붙어 있으면 시작 셀이 막힐 수 있다. 가장 가까운 이동 가능 셀로 투영한다.
+  let pathStart = start;
+  let startCell = toCell(grid, start);
+  let startId = startCell.r * grid.cols + startCell.c;
+  if (grid.blocked[startId]) {
+    pathStart = findNearestWalkable(grid, start);
+    startCell = toCell(grid, pathStart);
+    startId = startCell.r * grid.cols + startCell.c;
+    if (grid.blocked[startId]) return [];
+  }
 
   const gScore = new Float32Array(total).fill(Infinity);
   const fScore = new Float32Array(total).fill(Infinity);
@@ -275,7 +287,7 @@ export function findPath(grid: NavGrid, start: Vec2, goal: Vec2): Vec2[] {
     }
   }
 
-  if (startId !== goalId && cameFrom[goalId] === -1) return [goal];
+  if (startId !== goalId && cameFrom[goalId] === -1) return [];
 
   const cells: Vec2[] = [];
   let cursor = goalId;
@@ -285,7 +297,7 @@ export function findPath(grid: NavGrid, start: Vec2, goal: Vec2): Vec2[] {
   }
   cells.reverse();
 
-  const points = [start, ...cells, goal];
+  const points = [pathStart, ...cells, goal];
   return stringPull(points, grid.obstacles).slice(1);
 }
 

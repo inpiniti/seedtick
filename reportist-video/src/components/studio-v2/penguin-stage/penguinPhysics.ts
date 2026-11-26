@@ -116,6 +116,10 @@ export function setDestination(
   state.lookOffset *= 0.4;
   state.nextIdleAt = now + 3000 + Math.random() * 3000;
   resetWanderTimer(state, now);
+  // 수동 명령도 정체 감시 대상에 포함한다. (isWandering이 false여도 도달 불가 지점에서
+  // 전진·밀어냄이 반복되며 제자리에서 떨리므로)
+  state.wanderDeadlineAt = now + WANDER_STALL_MS;
+  state.wanderLastDist = Infinity;
 }
 
 /**
@@ -140,8 +144,15 @@ export function reconcilePenguin(state: PenguinState, grid: NavGrid): void {
 
   // 목적지나 경로가 새 장애물에 막힌 경우에만 경로를 다시 계산한다.
   const goal = goalBlocked ? findNearestWalkable(grid, state.target) : state.target;
-  state.waypoints = findPath(grid, { x: state.x, y: state.y }, goal);
-  state.target = goal;
+  const path = findPath(grid, { x: state.x, y: state.y }, goal);
+  if (path.length > 0) {
+    state.waypoints = path;
+    state.target = goal;
+  } else {
+    // 새 장애물로 도달 불가가 되면 경로를 폐기해 제자리 떨림을 막는다.
+    state.waypoints.length = 0;
+    state.target = null;
+  }
 }
 
 /**
@@ -187,22 +198,20 @@ export function stepPenguin(
     break;
   }
 
-  // [교착 방지] 겹친 개체의 밀어냄이나 장애물 때문에 웨이포인트에 닿지 못하면
-  // nextWanderAt이 Infinity로 남아 영구 정지한다. 기한이 지나면 경로를 폐기하고
-  // 짧은 뒤 다시 배회하도록 되돌린다.
-  if (state.isWandering) {
+  // [교착 방지] 자연 배회와 수동 우클릭 명령 모두 웨이포인트 접근이 멈추면 경로를 폐기한다.
+  // 수동 명령은 isWandering이 false라 기존 감시에서 빠져, 도달 불가 지점에서
+  // 전진과 장애물 밀어냄이 반복되며 제자리에서 무한히 떨렸다.
+  if (state.wanderDeadlineAt > 0 && now >= state.wanderDeadlineAt) {
+    state.waypoints.length = 0;
+    state.target = null;
+    state.isWandering = false;
+    state.wanderDeadlineAt = 0;
+    state.wanderLastDist = 0;
+    state.nextWanderAt = now + 500 + Math.random() * 800;
+  } else if (state.isWandering && state.wanderDeadlineAt <= 0) {
     // 이전 세션/수동 설정으로 기한이 비어 있어도 반드시 감시를 시작한다.
-    if (state.wanderDeadlineAt <= 0) {
-      state.wanderDeadlineAt = now + WANDER_STALL_MS;
-      state.wanderLastDist = Infinity;
-    } else if (now >= state.wanderDeadlineAt) {
-      state.waypoints.length = 0;
-      state.target = null;
-      state.isWandering = false;
-      state.wanderDeadlineAt = 0;
-      state.wanderLastDist = 0;
-      state.nextWanderAt = now + 500 + Math.random() * 800;
-    }
+    state.wanderDeadlineAt = now + WANDER_STALL_MS;
+    state.wanderLastDist = Infinity;
   }
 
   if (state.waypoints.length === 0) {
@@ -210,10 +219,11 @@ export function stepPenguin(
     if (state.isWandering) {
       // 산책 도착 — 잠시 쉬었다가 다시 배회한다.
       state.isWandering = false;
-      state.wanderDeadlineAt = 0;
-      state.wanderLastDist = 0;
       state.nextWanderAt = now + 2200 + Math.random() * 3200;
     }
+    // 경로가 끝났으므로 정체 감시를 해제한다. 아래에서 새 경로를 세우면 다시 설정된다.
+    state.wanderDeadlineAt = 0;
+    state.wanderLastDist = 0;
     if (now >= state.nextWanderAt) {
       const from = { x: state.x, y: state.y };
       const goal = pickWanderGoal(grid, from);

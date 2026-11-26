@@ -222,9 +222,12 @@ export const StudioPenguinStage = forwardRef<
         const start = { x: agent.physics.x, y: agent.physics.y };
         const goal = findNearestWalkable(grid, { x, y });
         const waypoints = findPath(grid, start, goal);
-        setDestination(agent.physics, waypoints, goal, now);
-        agent.isWandering = false;
-        agent.wanderGoal = goal;
+        // 도달할 수 없는 지점이면 경로를 세우지 않는다. (장애물에 부딪혀 제자리에서 떨리는 현상 방지)
+        if (waypoints.length > 0) {
+          setDestination(agent.physics, waypoints, goal, now);
+          agent.isWandering = false;
+          agent.wanderGoal = goal;
+        }
         pingRef.current = {
           x: clamp(x, 0, grid.width),
           y: clamp(y, 0, grid.height),
