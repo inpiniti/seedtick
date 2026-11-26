@@ -373,7 +373,7 @@ export const StudioPenguinStage = forwardRef<
       current.ended = true;
       const last = current.history[current.history.length - 1];
       const summary = last
-        ? `${reason}. ${ANIMAL_LABELS[last.speaker]} 말처럼 ${last.text}`.slice(0, 130)
+        ? `${reason}. ${ANIMAL_LABELS[last.speaker]} 말처럼 ${last.text}`
         : `${reason}. 잠시 쉬어가자.`;
       pendingSpeech = { agentId: current.memberIds[0] ?? 0, text: summary, mbti: '정리' };
     };
