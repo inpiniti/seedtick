@@ -19,6 +19,11 @@ describe('ErrorClassifier', () => {
     [400, 'maximum context length exceeded', 'context_too_long'],
     [400, 'max output tokens exceeded', 'output_too_long'],
     [400, 'max_tokens limit reached', 'output_too_long'],
+    [
+      400,
+      'Reasoning is mandatory for this endpoint and cannot be disabled.',
+      'reasoning_mandatory',
+    ],
     [400, 'content_filter violation', 'safety_filter'],
     [400, 'safety settings triggered', 'safety_filter'],
     [401, 'Unauthorized', 'unauthorized'],

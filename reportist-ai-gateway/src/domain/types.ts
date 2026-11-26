@@ -246,6 +246,7 @@ export type ErrorCategory =
   | 'daily_exhausted'
   | 'context_too_long'
   | 'output_too_long'
+  | 'reasoning_mandatory'
   | 'safety_filter'
   | 'unauthorized'
   | 'forbidden'

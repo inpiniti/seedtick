@@ -792,6 +792,14 @@ export class ModelService {
     });
   }
 
+  /** 모델 카탈로그에서 단일 모델 메타를 찾는다. 요청 파라미터 호환성 판단에 쓴다. */
+  async findModelById(modelId: string): Promise<FreeModelMeta | null> {
+    const id = modelId.trim();
+    if (!id) return null;
+    const all = await this.getFreeModels();
+    return all.find((model) => model.id === id) ?? null;
+  }
+
   async selectBestModel(options: SelectModelOptions): Promise<FreeModelMeta | null> {
     const all = await this.getFreeModels();
     const filtered = all

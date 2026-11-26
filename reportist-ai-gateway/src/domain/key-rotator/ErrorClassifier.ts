@@ -14,6 +14,12 @@ export class ErrorClassifier {
     if (httpStatus === 400) {
       if (/context.length|maximum.context/i.test(errorBody)) return 'context_too_long';
       if (/max.output|output.token|max_tokens/i.test(errorBody)) return 'output_too_long';
+      // 추론이 필수인 모델에 reasoning_effort=none을 보내면 키와 무관하게 400이 난다.
+      if (
+        /reasoning.*(mandatory|required|cannot be disabled)|cannot be disabled/i.test(errorBody)
+      ) {
+        return 'reasoning_mandatory';
+      }
       if (/content.filter|safety/i.test(errorBody)) return 'safety_filter';
       return 'unknown';
     }

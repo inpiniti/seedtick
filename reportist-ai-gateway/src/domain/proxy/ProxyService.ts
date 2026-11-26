@@ -27,6 +27,12 @@ import { GeminiAdapter } from './adapters/GeminiAdapter.ts';
 import type { ILLMAdapter } from './adapters/ILLMAdapter.ts';
 import { OpenAICompatAdapter } from './adapters/OpenAICompatAdapter.ts';
 
+function isReasoningDisabledEffort(effort: string | undefined): boolean {
+  if (!effort) return false;
+  const lower = effort.trim().toLowerCase();
+  return lower === 'none' || lower === 'off' || lower === '기본' || lower === '끄기';
+}
+
 export class ProxyService {
   private readonly rotator: KeyRotator;
   private readonly cooldown: CooldownManager;
@@ -240,6 +246,28 @@ export class ProxyService {
     return [...candidates.slice(start), ...candidates.slice(0, start)];
   }
 
+  /**
+   * 모델 스펙에 맞게 요청을 보정한다. 추론 종료를 요청했지만 모델이 추론을 강제하면
+   * reasoning 파라미터를 아예 보내지 않아 400을 예방한다 (키를 바꿔도 소용없는 오류).
+   */
+  private async adaptRequestForModel(request: ChatRequest, modelId: string): Promise<ChatRequest> {
+    if (!isReasoningDisabledEffort(request.reasoning_effort)) return request;
+
+    const meta = await modelService.findModelById(modelId);
+    if (!meta) return request;
+
+    const cannotDisable =
+      meta.reasoningMandatory === true ||
+      meta.supportsReasoning === false ||
+      Boolean(meta.supportedEfforts?.length && !meta.supportedEfforts.includes('none'));
+    if (!cannotDisable) return request;
+
+    const adapted: ChatRequest = { ...request };
+    adapted.reasoning_effort = undefined;
+    console.info(`[Gateway] ${modelId}는 추론 비활성화 불가 → reasoning_effort 제거 후 호출`);
+    return adapted;
+  }
+
   private async openCodeExhausted(
     attempts: GatewayAttempt[],
     model: string
@@ -377,6 +405,7 @@ export class ProxyService {
     const isGeminiDirectRequest = Boolean(request.model?.trim().startsWith('gemini'));
 
     for (const targetModel of targetModels) {
+      const modelRequest = await this.adaptRequestForModel(request, targetModel);
       if (targetModel.startsWith('opencode/')) {
         const opencodeResult = await this.chatOpenCode(request, targetModel, opencodeKeyOverride);
         if (!('error' in opencodeResult)) return opencodeResult;
@@ -411,7 +440,7 @@ export class ProxyService {
           try {
             const result = await this.callWithColdStartRetry(
               adapter,
-              request,
+              modelRequest,
               targetModel,
               key,
               provider,
@@ -453,7 +482,16 @@ export class ProxyService {
               console.warn(
                 `[Gateway] HTTP ${result.status} ([${provider}], 키: ${keyMasked}): ${result.errorBody.slice(0, 180)} (시도 ${attempt}/${maxAttempts})`
               );
-              await this.handleError(category, provider, targetModel, key, [key]);
+              const providerKeys = this.slots
+                .filter((slot) => slot.provider === provider)
+                .map((slot) => slot.key);
+              await this.handleError(category, provider, targetModel, key, providerKeys);
+              if (this.shouldBreakModelLoop(category)) {
+                console.info(
+                  `[Gateway] 다음 모델로 전환: ${provider}:${targetModel} (${category})`
+                );
+                break;
+              }
             }
 
             // 401/403은 모델/키를 바꿔도 소용이 없으므로 400ms 대기 없이 다음 슬롯으로 넘어간다.
@@ -541,6 +579,7 @@ export class ProxyService {
     const isGeminiDirectRequest = Boolean(request.model?.trim().startsWith('gemini'));
 
     for (const targetModel of targetModels) {
+      const modelRequest = await this.adaptRequestForModel(request, targetModel);
       if (targetModel.startsWith('opencode/')) {
         const opencodeResult = await this.chatStreamOpenCode(
           request,
@@ -578,7 +617,7 @@ export class ProxyService {
 
           this.rotator.acquireKey(provider, key);
           try {
-            const result = await adapter.callStream(request, targetModel, key, 120_000);
+            const result = await adapter.callStream(modelRequest, targetModel, key, 120_000);
             if (result.ok && result.stream) {
               console.info(
                 `[Gateway] Stream success: [${provider}] ${targetModel} (키: ${keyMasked})`
@@ -616,7 +655,16 @@ export class ProxyService {
               console.warn(
                 `[Gateway] HTTP ${result.status} ([${provider}], 키: ${keyMasked}): ${result.errorBody.slice(0, 180)} (시도 ${attempt}/${maxAttempts})`
               );
-              await this.handleError(category, provider, targetModel, key, [key]);
+              const providerKeys = this.slots
+                .filter((slot) => slot.provider === provider)
+                .map((slot) => slot.key);
+              await this.handleError(category, provider, targetModel, key, providerKeys);
+              if (this.shouldBreakModelLoop(category)) {
+                console.info(
+                  `[Gateway] 다음 모델로 전환: ${provider}:${targetModel} (${category})`
+                );
+                break;
+              }
             }
 
             // 401/403은 모델/키를 바꿔도 소용이 없으므로 400ms 대기 없이 다음 슬롯으로 넘어간다.
@@ -999,6 +1047,14 @@ export class ProxyService {
         );
         break;
 
+      case 'reasoning_mandatory':
+        // 모델 스펙을 몰라 보정하지 못한 요청이었을 수 있으므로 짧게만 차단하고 다음 모델로 넘어간다.
+        this.cooldown.setModelCooldownAllKeys(provider, modelId, allKeys, 5 * 60_000, category);
+        console.info(
+          `[Gateway] Set cooldown 5m for ALL keys of ${provider}:${modelId} (${category})`
+        );
+        break;
+
       case 'server_overloaded':
         this.cooldown.setCooldown(provider, modelId, apiKey, 30_000, category);
         console.info(
@@ -1029,6 +1085,7 @@ export class ProxyService {
       'model_not_found',
       'context_too_long',
       'output_too_long',
+      'reasoning_mandatory',
       'safety_filter',
       'unknown',
     ].includes(category);
@@ -1192,7 +1249,8 @@ export class ProxyService {
     );
 
     try {
-      const result = await adapter.call(request, targetModel, config.apiKey, 120_000);
+      const modelRequest = await this.adaptRequestForModel(request, targetModel);
+      const result = await adapter.call(modelRequest, targetModel, config.apiKey, 120_000);
       if (result.ok && result.response) {
         console.info(`[Gateway PassThrough] 성공: provider=${provider}, model=${targetModel}`);
         return result.response;
@@ -1212,7 +1270,7 @@ export class ProxyService {
               modelId: targetModel,
               apiKeyHash: config.apiKey.slice(-6),
               httpStatus: result.status,
-              errorCategory: 'unknown',
+              errorCategory: this.classifier.classify(result.status, result.errorBody),
               errorSnippet: result.errorBody.slice(0, 200),
               attemptedAt: new Date().toISOString(),
             },
@@ -1257,7 +1315,8 @@ export class ProxyService {
     }
 
     try {
-      const result = await adapter.callStream(request, targetModel, config.apiKey, 120_000);
+      const modelRequest = await this.adaptRequestForModel(request, targetModel);
+      const result = await adapter.callStream(modelRequest, targetModel, config.apiKey, 120_000);
       if (result.ok && result.stream) {
         console.info(
           `[Gateway PassThrough Stream] 성공: provider=${provider}, model=${targetModel}`
@@ -1279,7 +1338,7 @@ export class ProxyService {
               modelId: targetModel,
               apiKeyHash: config.apiKey.slice(-6),
               httpStatus: result.status,
-              errorCategory: 'unknown',
+              errorCategory: this.classifier.classify(result.status, result.errorBody),
               errorSnippet: result.errorBody.slice(0, 200),
               attemptedAt: new Date().toISOString(),
             },
