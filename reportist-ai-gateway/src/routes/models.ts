@@ -7,7 +7,11 @@ import type { FreeModelMeta, LLMProvider } from '../domain/types.ts';
 
 const PROVIDERS: LLMProvider[] = ['openrouter', 'cline', 'kilo', 'opencode', 'gemini'];
 
-type KeyMatrixCell = { status: 'y' | 'n'; reason?: 'cooldown' | 'daily_exhausted' };
+type KeyMatrixCell = {
+  status: 'y' | 'n';
+  reason?: 'cooldown' | 'daily_exhausted' | 'unknown_error';
+  blockedUntil?: string | null;
+};
 type KeyMatrixRow = {
   keyLabel: string;
   provider: LLMProvider;
@@ -56,6 +60,11 @@ function buildStateKey(provider: LLMProvider, modelId: string, keyHash: string):
   return `${provider}:${modelId}:${keyHash}`;
 }
 
+function toIsoOrNull(ms: number | null): string | null {
+  if (ms === null) return null;
+  return new Date(ms).toISOString();
+}
+
 function getProviderModels(
   provider: LLMProvider,
   allModels: FreeModelMeta[],
@@ -96,12 +105,8 @@ export const modelsRoute = new Elysia()
 
     const status = await modelService.getCatalogStatus(forceRefresh);
     const now = Date.now();
-    const activeCooldownSet = new Set(
-      Array.from(proxyService.getCooldownMap().entries())
-        .filter(([, expiresAt]) => expiresAt > now)
-        .map(([stateKey]) => stateKey)
-    );
-    const exhaustedSet = proxyService.getExhaustedKeys();
+    const cooldownMap = proxyService.getCooldownMap();
+    const exhaustedMap = proxyService.getExhaustedMap();
 
     const rowsByProvider = providers.map((provider) => {
       const keyStates = proxyService.getKeyStates(provider);
@@ -114,21 +119,35 @@ export const modelsRoute = new Elysia()
 
         for (const model of models) {
           const stateKey = buildStateKey(provider, model.id, key.apiKeyHash);
-          const isExhausted = exhaustedSet.has(stateKey);
-          const isCoolingDown = activeCooldownSet.has(stateKey);
+          const exhaustedUntil = exhaustedMap.get(stateKey);
+          const cooldownState = cooldownMap.get(stateKey);
+          const isExhausted = typeof exhaustedUntil === 'number' && exhaustedUntil > now;
+          const isCoolingDown = Boolean(
+            cooldownState && (cooldownState.expiresAt === null || cooldownState.expiresAt > now)
+          );
           const blocked = isExhausted || isCoolingDown;
           if (blocked) blockedCount++;
           else availableCount++;
 
+          let reason: KeyMatrixCell['reason'];
+          let blockedUntil: string | null | undefined;
+          if (isExhausted) {
+            reason = 'daily_exhausted';
+            blockedUntil = toIsoOrNull(exhaustedUntil ?? null);
+          } else if (isCoolingDown) {
+            if (cooldownState?.reason === 'unknown') {
+              reason = 'unknown_error';
+              blockedUntil = null;
+            } else {
+              reason = 'cooldown';
+              blockedUntil = toIsoOrNull(cooldownState?.expiresAt ?? null);
+            }
+          }
+
           modelStates[model.id] = {
             status: blocked ? 'n' : 'y',
-            reason: blocked
-              ? isExhausted
-                ? 'daily_exhausted'
-                : isCoolingDown
-                  ? 'cooldown'
-                  : undefined
-              : undefined,
+            reason: blocked ? reason : undefined,
+            blockedUntil: blocked ? blockedUntil : undefined,
           };
         }
 
@@ -226,6 +245,21 @@ export const modelsRoute = new Elysia()
       return parts.length > 1 ? parts[1] : plain;
     }
 
+    function formatRemaining(untilIso) {
+      if (!untilIso) return '';
+      const target = new Date(untilIso).getTime();
+      if (!Number.isFinite(target)) return '';
+      const remainMs = target - Date.now();
+      if (remainMs <= 0) return '곧 해제';
+      const totalSec = Math.ceil(remainMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return h + '시간 ' + m + '분 남음';
+      if (m > 0) return m + '분 ' + s + '초 남음';
+      return s + '초 남음';
+    }
+
     function renderMatrix(matrixJson) {
       const root = document.getElementById('key-matrix');
       root.innerHTML = '';
@@ -250,8 +284,12 @@ export const modelsRoute = new Elysia()
                 ? '일일 소진'
                 : cell?.reason === 'cooldown'
                   ? '쿨다운'
-                  : '오류';
-              return '<td title="' + reason + '"><div class="' + cls + '">n</div><div class="reason">' + reason + '</div></td>';
+                  : '미확인 오류';
+              const remain = cell?.reason === 'unknown_error'
+                ? '수동 확인 필요'
+                : formatRemaining(cell?.blockedUntil);
+              const detail = remain ? reason + ' · ' + remain : reason;
+              return '<td title="' + detail + '"><div class="' + cls + '">n</div><div class="reason">' + detail + '</div></td>';
             })
             .join('');
           return (

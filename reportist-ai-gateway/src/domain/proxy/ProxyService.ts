@@ -976,12 +976,16 @@ export class ProxyService {
   }
 
   // 디버그용 getter
-  getCooldownMap(): Map<string, number> {
+  getCooldownMap(): Map<string, { expiresAt: number | null; reason: string }> {
     return this.cooldown.getMap();
   }
 
   getExhaustedKeys(): Set<string> {
     return this.quota.getExhaustedSet();
+  }
+
+  getExhaustedMap(): Map<string, number> {
+    return this.quota.getExhaustedMap();
   }
 
   getKeyStates(provider: LLMProvider = 'openrouter') {

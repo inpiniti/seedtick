@@ -153,6 +153,11 @@ export class QuotaManager {
     this.pruneExpiredLocal();
     return new Set(this.exhaustedMap.keys());
   }
+
+  getExhaustedMap(): Map<string, number> {
+    this.pruneExpiredLocal();
+    return new Map(this.exhaustedMap);
+  }
 }
 
 export const quotaManager = new QuotaManager();
