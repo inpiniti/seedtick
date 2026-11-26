@@ -37,6 +37,7 @@ import type {
   Footprint,
   Palette,
   Ping,
+  Rect,
   SnowParticle,
   StageAgent,
   Vec2,
@@ -186,6 +187,7 @@ export const StudioPenguinStage = forwardRef<
   const footprintsRef = useRef<Map<number, Footprint[]>>(new Map());
   const particlesRef = useRef<SnowParticle[]>([]);
   const pingRef = useRef<Ping | null>(null);
+  const previewRectRef = useRef<Rect | null>(null);
   const paletteRef = useRef<Palette>(resolvePalette(false));
   const sizeRef = useRef({ width: 0, height: 0 });
   const initializedRef = useRef(false);
@@ -258,6 +260,22 @@ export const StudioPenguinStage = forwardRef<
     paletteRef.current = resolvePalette(dark);
     let lastObstacleKey = '';
 
+    /** 중앙 미리보기(빈 상태 카드 포함)의 캔버스 상대 좌표. 원형 얼음 웅덩이 위치. */
+    const measurePreviewRect = (origin: DOMRect): Rect | null => {
+      const node = obstacleRoot.querySelector<HTMLElement>(
+        '.sv2-preview-frame, .sv2-preview-empty-card'
+      );
+      if (!node) return null;
+      const r = node.getBoundingClientRect();
+      if (r.width <= 4 || r.height <= 4) return null;
+      return {
+        left: r.left - origin.left,
+        top: r.top - origin.top,
+        right: r.right - origin.left,
+        bottom: r.bottom - origin.top,
+      };
+    };
+
     const spawnAgents = (grid: NavGrid): void => {
       const now = performance.now();
       const centerX = grid.width / 2;
@@ -322,6 +340,7 @@ export const StudioPenguinStage = forwardRef<
       const grid = buildGrid(width, height, obstacles);
       lastObstacleKey = obstacleKey(obstacles);
       gridRef.current = grid;
+      previewRectRef.current = measurePreviewRect(rect);
 
       if (!initializedRef.current) {
         spawnAgents(grid);
@@ -372,6 +391,7 @@ export const StudioPenguinStage = forwardRef<
       lastObstacleKey = key;
       const grid = buildGrid(width, height, obstacles);
       gridRef.current = grid;
+      previewRectRef.current = measurePreviewRect(host.getBoundingClientRect());
       reconcileAgents(grid);
     };
 
@@ -683,6 +703,7 @@ export const StudioPenguinStage = forwardRef<
         selectedSpecies: speciesRef.current,
         // 동물이 피한 장애물 영역은 말풍선도 피해야 미리보기에 가리지 않는다.
         obstacles: grid.obstacles,
+        previewRect: previewRectRef.current,
       });
     };
 

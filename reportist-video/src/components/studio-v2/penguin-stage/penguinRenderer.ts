@@ -1,5 +1,6 @@
 import { placeBubble, type BubbleBox } from './bubblePlacement.ts';
 import { FOOTPRINT_LIFETIME } from './penguinPhysics.ts';
+import { drawSnowScenery } from './snowScenery.ts';
 import {
   getAgentTheme,
   getSpeciesTheme,
@@ -65,7 +66,8 @@ export function resolvePalette(dark: boolean): Palette {
   };
 }
 
-const PARTICLE_COUNT = 42;
+/** 계속 내리는 눈. 앞뒤 겹을 나눠 깊이감을 준다. */
+const PARTICLE_COUNT = 110;
 
 export function createParticles(width: number, height: number): SnowParticle[] {
   const particles: SnowParticle[] = [];
@@ -73,11 +75,11 @@ export function createParticles(width: number, height: number): SnowParticle[] {
     particles.push({
       x: Math.random() * width,
       y: Math.random() * height,
-      r: 0.8 + Math.random() * 0.8,
-      vx: 3 + Math.random() * 5,
-      vy: 8 + Math.random() * 8,
+      r: 1.1 + Math.random() * 1.9,
+      vx: 5 + Math.random() * 10,
+      vy: 16 + Math.random() * 22,
       phase: Math.random() * TAU,
-      opacity: 0.12 + Math.random() * 0.12,
+      opacity: 0.28 + Math.random() * 0.42,
     });
   }
   return particles;
@@ -92,9 +94,9 @@ export function stepParticles(
 ): void {
   if (reducedMotion) return;
   for (const p of particles) {
-    p.x += (p.vx + Math.sin(p.phase) * 1.2) * dt;
+    p.x += (p.vx + Math.sin(p.phase) * 3.5) * dt;
     p.y += p.vy * dt;
-    p.phase += dt * 1.4;
+    p.phase += dt * 1.1;
     if (p.y > height + 4) {
       p.y = -4;
       p.x = Math.random() * width;
@@ -117,15 +119,26 @@ export interface RenderOptions {
   selectedSpecies: AnimalSpecies;
   /** 캔버스 위의 DOM 오버레이 영역. 말풍선을 이 밖에 배치한다. */
   obstacles: Rect[];
+  /** 중앙 미리보기창 위치. 원형 얼음 웅덩이를 이 아래에 그린다. */
+  previewRect: Rect | null;
 }
 
-/** 레이어 순서: 눈송이 → 발자국 → 목표 파동 → 개체(접지점 y 깊이순) → 말풍선. */
+/** 레이어 순서: 설원 배경 → 눈송이(뒤) → 발자국 → 목표 파동 → 개체 → 말풍선 → 눈송이(앞). */
 export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): void {
   ctx.clearRect(0, 0, o.width, o.height);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  drawParticles(ctx, o.particles, o.palette);
+  drawSnowScenery(
+    ctx,
+    o.width,
+    o.height,
+    o.now,
+    o.reducedMotion,
+    o.palette,
+    o.previewRect
+  );
+  drawParticles(ctx, o.particles, o.palette, false);
   drawFootprints(ctx, o.footprints, o.palette, o.now);
   if (o.ping) drawPing(ctx, o.ping, o.palette, o.now);
 
@@ -166,6 +179,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): vo
     );
   }
   drawBubbles(ctx, o.agents, o.now, o.width, o.height, o.palette, o.obstacles);
+  drawParticles(ctx, o.particles, o.palette, true);
 }
 
 function paletteFromTheme(t: SpeciesTheme, dark: boolean): Palette {
@@ -407,16 +421,27 @@ function drawBubbles(
   ctx.restore();
 }
 
+/** 앞(큰 눈송이)·뒤(작은 눈송이) 겹을 나눠 그린다. */
 function drawParticles(
   ctx: CanvasRenderingContext2D,
   particles: SnowParticle[],
-  palette: Palette
+  palette: Palette,
+  foreground: boolean
 ): void {
+  const dark = palette.snowBg === '#0e1116';
   for (const p of particles) {
-    ctx.fillStyle = rgba(palette.inkRgb, p.opacity);
+    if ((p.r > 2.1) !== foreground) continue;
+    const alpha = p.opacity * (foreground ? 0.62 : 0.78);
+    ctx.fillStyle = dark ? `rgba(255, 255, 255, ${alpha})` : `rgba(104, 136, 170, ${alpha})`;
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.r, 0, TAU);
     ctx.fill();
+    if (p.r > 2.5) {
+      ctx.fillStyle = dark ? `rgba(255, 255, 255, ${alpha * 0.7})` : `rgba(255, 255, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x - p.r * 0.22, p.y - p.r * 0.22, p.r * 0.45, 0, TAU);
+      ctx.fill();
+    }
   }
 }
 

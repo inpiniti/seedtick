@@ -23,7 +23,7 @@ export interface Footprint {
   bornAt: number;
 }
 
-/** 설원 위를 아주 느리게 흩날리는 초미세 눈송이. */
+/** 설원 위를 계속해서 흩날리는 눈송이. 큰 입자는 동물 앞에도 그린다. */
 export interface SnowParticle {
   x: number;
   y: number;
