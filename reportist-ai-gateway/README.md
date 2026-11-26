@@ -61,6 +61,7 @@ bun run typecheck
 - `POST /v1/chat/completions`: OpenAI 규격 챗 완성 엔드포인트
 - `GET /health`: 헬스체크
 - `GET /v1/models/status`: 실시간 모델 정책/모달리티/성능 집계(JSON)
+- `GET /v1/models/key-matrix`: 키별 모델 사용 가능 여부 매트릭스(JSON, y/n)
 - `GET /v1/models/live`: 실시간 모델 상태 페이지(웹)
 - `GET /debug/keys`: 각 OpenRouter 키의 실시간 인플라이트(active) 요청 현황 조회
 - `GET /debug/cooldown`: 현재 쿨다운 중인 키 목록 조회

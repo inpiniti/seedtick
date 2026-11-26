@@ -130,4 +130,26 @@ describe('ModelService & Models Route', () => {
     expect(json.total).toBeGreaterThan(0);
     expect(json.trainingPolicy.nonTraining).toBeGreaterThan(0);
   });
+
+  it('GET /v1/models/key-matrix should return provider matrix payload', async () => {
+    const response = await app.handle(
+      new Request(
+        'http://localhost/v1/models/key-matrix?provider=openrouter&modelLimit=3&refresh=1',
+        {
+          method: 'GET',
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as {
+      modelLimit: number;
+      providers: Array<{ provider: string; modelColumns: string[]; rows: unknown[] }>;
+    };
+
+    expect(json.modelLimit).toBe(3);
+    expect(Array.isArray(json.providers)).toBe(true);
+    expect(json.providers[0]?.provider).toBe('openrouter');
+    expect(json.providers[0]?.modelColumns.length).toBeLessThanOrEqual(3);
+  });
 });
