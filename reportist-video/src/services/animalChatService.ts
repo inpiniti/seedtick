@@ -155,6 +155,37 @@ let trendPoolFetchedAt = 0;
 let trendCursor = 0;
 let trendFetchPromise: Promise<DiscussionTopicInfo[]> | null = null;
 
+/** 이미 토론에 내보낸 주제. 같은 trends 주제가 다시 나오지 않도록 건너뛴다. */
+const discussedTopicKeys = new Set<string>();
+
+function topicKey(topic: string): string {
+  return topic.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+/** 주제를 토론 완료로 표시한다. 다음 요청부터는 이 주제를 건너뛴다. */
+export function markTopicDiscussed(topic: string): void {
+  const key = topicKey(topic);
+  if (key) discussedTopicKeys.add(key);
+}
+
+/** 커서부터 시작해 아직 토론하지 않은 주제를 고른다. 전부 사용했다면 기록을 비운다. */
+function pickUnusedTopic(items: DiscussionTopicInfo[]): DiscussionTopicInfo | null {
+  if (items.length === 0) return null;
+  const start = ((trendCursor % items.length) + items.length) % items.length;
+  for (let offset = 0; offset < items.length; offset += 1) {
+    const item = items[(start + offset) % items.length];
+    if (item && !discussedTopicKeys.has(topicKey(item.topic))) {
+      trendCursor = start + offset + 1;
+      return item;
+    }
+  }
+  // 풀을 전부 토론했다면 새 순환을 시작한다.
+  discussedTopicKeys.clear();
+  const item = items[start];
+  trendCursor = start + 1;
+  return item ?? null;
+}
+
 function fetchWithTimeout(timeoutMs: number, signal?: AbortSignal): AbortSignal {
   const controller = new AbortController();
   const onAbort = (): void => controller.abort();
@@ -212,25 +243,31 @@ async function loadTrendPool(signal?: AbortSignal): Promise<DiscussionTopicInfo[
   return trendFetchPromise;
 }
 
-/** 게이트웨이 /v1/trends 캐시 풀에서 주제를 순환 반환. 실패 시 로컬 주제. */
+/** 게이트웨이 /v1/trends 캐시 풀에서 아직 토론하지 않은 주제를 반환. 실패 시 로컬 주제. */
 export async function requestDiscussionTopic(signal?: AbortSignal): Promise<DiscussionTopicInfo> {
   if (
     cachedTopics.length > 0 &&
     performance.now() - trendPoolFetchedAt < TREND_CLIENT_TTL_MS
   ) {
-    const item = cachedTopics[trendCursor % cachedTopics.length];
-    trendCursor += 1;
-    if (item) return item;
+    const item = pickUnusedTopic(cachedTopics);
+    if (item) {
+      markTopicDiscussed(item.topic);
+      return item;
+    }
   }
   const pool = await loadTrendPool(signal);
   if (pool.length > 0) {
-    const item = pool[trendCursor % pool.length] ?? pool[0];
-    trendCursor += 1;
-    if (item) return item;
+    const item = pickUnusedTopic(pool) ?? pool[0];
+    if (item) {
+      markTopicDiscussed(item.topic);
+      return item;
+    }
   }
-  return {
+  const fallback = {
     topic: FALLBACK_TOPICS[Math.floor(performance.now() / 22000) % FALLBACK_TOPICS.length] ?? '',
   };
+  markTopicDiscussed(fallback.topic);
+  return fallback;
 }
 
 const BRIEFING_CLIENT_TTL_MS = 30 * 60 * 1000;

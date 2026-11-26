@@ -380,6 +380,20 @@ export const StudioPenguinStage = forwardRef<
 
     let nextTurnAt = 0;
     let pendingSpeech: { agentId: number; text: string; mbti: string } | null = null;
+    let advanceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /** 요약을 보여준 뒤 새 주제로 넘어간다. 내보내기 중이면 끝날 때까지 미룬다. */
+    const scheduleAdvance = (delayMs: number): void => {
+      if (advanceTimer !== null) clearTimeout(advanceTimer);
+      advanceTimer = window.setTimeout(() => {
+        advanceTimer = null;
+        if (exportingRef.current) {
+          scheduleAdvance(1500);
+          return;
+        }
+        advanceRef.current();
+      }, delayMs);
+    };
 
     const finishDiscussion = (reason: string): void => {
       const current = activeDiscussion;
@@ -390,10 +404,16 @@ export const StudioPenguinStage = forwardRef<
         ? `${reason}. ${ANIMAL_LABELS[last.speaker]} 말처럼 ${last.text}`
         : `${reason}. 잠시 쉬어가자.`;
       pendingSpeech = { agentId: current.memberIds[0] ?? 0, text: summary, mbti: '정리' };
+      // 요약 말풍선을 보여준 뒤 아직 토론하지 않은 주제로 자동 전환한다.
+      scheduleAdvance(TURN_DISPLAY_MS + TURN_GAP_MS + 600);
     };
 
-    /** 새 주제는 사용자가 직접 요청할 때만 시작한다. 자동으로 바뀌지 않는다. */
+    /** 토론을 끝내고 주제를 비운다. 다음 턴에서 안 토론한 새 주제를 요청한다. */
     const advanceTopic = (): void => {
+      if (advanceTimer !== null) {
+        clearTimeout(advanceTimer);
+        advanceTimer = null;
+      }
       chatAbortRef.current?.abort();
       chatAbortRef.current = null;
       chatInFlightRef.current = false;
@@ -699,6 +719,7 @@ export const StudioPenguinStage = forwardRef<
     if (!document.hidden && !exportingRef.current) schedule();
 
     return () => {
+      if (advanceTimer !== null) clearTimeout(advanceTimer);
       stop();
       clickSurface.removeEventListener('click', onClick);
       clickSurface.removeEventListener('pointermove', onPointerMove);
