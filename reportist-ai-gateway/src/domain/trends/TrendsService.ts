@@ -1,15 +1,12 @@
 // TrendsService.ts - 한국 실시간 화제 수집·안전 필터링·30분 캐시 서비스
 
 import { proxyService } from '../proxy/ProxyService.ts';
-import {
-  ANIMAL_PERSONAS,
-  type TrendTopicBase,
-  type TrendTopicItem,
-  attachTrendLines,
-  parseTrendLines,
-} from './animalPersonas.ts';
 
-export type { TrendLine, TrendTopicItem } from './animalPersonas.ts';
+export interface TrendTopicItem {
+  keyword: string;
+  topic: string;
+  context: string;
+}
 
 export interface TrendsPayload {
   items: TrendTopicItem[];
@@ -51,7 +48,7 @@ const BLOCKED_PATTERN =
 
 const BLOCKED_URL_PATTERN = /\/(politics|judicial|crime|disaster)\//i;
 
-export const FALLBACK_TREND_ITEMS: TrendTopicBase[] = [
+export const FALLBACK_TREND_ITEMS: TrendTopicItem[] = [
   {
     keyword: '오픈런 맛집',
     topic: '맛집 새벽 오픈런 줄 서볼 수 있어?',
@@ -193,7 +190,7 @@ export function filterSafeCandidates(candidates: RawCandidate[]): RawCandidate[]
 }
 
 /** LLM 쿼터 소진 시에도 RSS만으로 자연스러운 토론 주제를 만드는 결정론적 변환기. */
-export function buildDeterministicTopics(candidates: RawCandidate[]): TrendTopicBase[] {
+export function buildDeterministicTopics(candidates: RawCandidate[]): TrendTopicItem[] {
   const templates = [
     (k: string) => `요즘 ${k} 이야기 많던데 어떻게 생각해?`,
     (k: string) => `${k}, 너희도 관심 있어?`,
@@ -259,14 +256,11 @@ export class TrendsService {
     }
   }
 
-  private async curateWithLLM(candidates: RawCandidate[]): Promise<TrendTopicBase[] | null> {
+  private async curateWithLLM(candidates: RawCandidate[]): Promise<TrendTopicItem[] | null> {
     const numbered = candidates
       .slice(0, 14)
       .map((c, i) => `${i + 1}. [${c.keyword}] ${c.headline}`)
       .join('\n');
-    const personaList = ANIMAL_PERSONAS.map((p) => `${p.species}(${p.mbti}, ${p.keyword})`).join(
-      ', '
-    );
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_CURATE_TIMEOUT_MS);
@@ -276,7 +270,8 @@ export class TrendsService {
           messages: [
             {
               role: 'system',
-              content: `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)","lines":[{"speaker":"동물영문id","text":"한국어 반말 한 줄(20자 이내)"},...]} 형식이다. lines는 서로 다른 동물 8마리로 구성하고 speaker는 반드시 아래 12종 중 하나여야 한다: ${personaList}. 각 동물의 성향에 맞춰 찬반·취향이 부딪히도록 써라.마크다운 코드블록 없이 순수 JSON 배열만 출력해라.`,
+              content:
+                '너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.',
             },
             {
               role: 'user',
@@ -284,7 +279,7 @@ export class TrendsService {
             },
           ],
           temperature: 0.5,
-          max_tokens: 3500,
+          max_tokens: 900,
           reasoning_effort: 'none',
           stream: false,
         }),
@@ -304,14 +299,13 @@ export class TrendsService {
       const parsed = JSON.parse(raw.slice(start, end + 1)) as unknown;
       if (!Array.isArray(parsed)) return null;
 
-      const items: TrendTopicBase[] = [];
+      const items: TrendTopicItem[] = [];
       for (const entry of parsed) {
         if (!entry || typeof entry !== 'object') continue;
         const rec = entry as Record<string, unknown>;
         const keyword = typeof rec.keyword === 'string' ? rec.keyword.trim().slice(0, 16) : '';
         const topic = typeof rec.topic === 'string' ? rec.topic.trim().slice(0, 32) : '';
         const context = typeof rec.context === 'string' ? rec.context.trim().slice(0, 56) : '';
-        const base: TrendTopicBase = { keyword, topic, context };
         if (
           !keyword ||
           topic.length < 4 ||
@@ -319,7 +313,7 @@ export class TrendsService {
         ) {
           continue;
         }
-        items.push({ ...base, lines: parseTrendLines(rec.lines, base, BLOCKED_PATTERN) });
+        items.push({ keyword, topic, context });
       }
       return items.length >= 3 ? items.slice(0, 10) : null;
     } catch {
@@ -345,7 +339,7 @@ export class TrendsService {
 
     if (safe.length === 0) {
       const fallbackPayload: TrendsPayload = {
-        items: attachTrendLines(FALLBACK_TREND_ITEMS, Date.now()),
+        items: FALLBACK_TREND_ITEMS,
         updatedAt,
         source: 'fallback',
       };
@@ -356,12 +350,8 @@ export class TrendsService {
 
     const curated = await this.curateWithLLM(safe);
     const payload: TrendsPayload = curated
-      ? { items: attachTrendLines(curated, Date.now()), updatedAt, source: 'rss+llm' }
-      : {
-          items: attachTrendLines(buildDeterministicTopics(safe), Date.now()),
-          updatedAt,
-          source: 'rss',
-        };
+      ? { items: curated, updatedAt, source: 'rss+llm' }
+      : { items: buildDeterministicTopics(safe), updatedAt, source: 'rss' };
 
     this.cache = payload;
     this.lastFetchTime = Date.now();
