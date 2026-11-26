@@ -6,7 +6,8 @@ import type { ILLMAdapter } from './ILLMAdapter.ts';
 function normalizeReasoningEffort(effort?: string): string | null {
   if (!effort) return null;
   const lower = effort.toLowerCase().trim();
-  if (lower === 'none' || lower === 'off' || lower === '기본' || lower === '끄기') return null;
+  // 'none'은 끄라는 명시적 지시이므로 버리지 않고 상위 API로 그대로 전달한다.
+  if (lower === 'none' || lower === 'off' || lower === '기본' || lower === '끄기') return 'none';
   if (lower === 'low' || lower === '낮음') return 'low';
   if (lower === 'medium' || lower === '중간') return 'medium';
   if (lower === 'high' || lower === '높음') return 'high';
@@ -132,17 +133,9 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       const choicesRaw = Array.isArray(rawData.choices) ? rawData.choices : [];
       const choices = choicesRaw.map((c: Record<string, unknown>, i: number) => {
         const msg = (c?.message as Record<string, unknown>) ?? {};
-        let content = typeof msg.content === 'string' ? msg.content : '';
-        // 만약 content가 비어있고 reasoning 또는 reasoning_content가 있다면 대체
-        if (!content.trim() && typeof msg.reasoning === 'string' && msg.reasoning.trim()) {
-          content = msg.reasoning;
-        } else if (
-          !content.trim() &&
-          typeof msg.reasoning_content === 'string' &&
-          msg.reasoning_content.trim()
-        ) {
-          content = msg.reasoning_content;
-        }
+        // 영어 reasoning 사고 과정을 content로 덮어쓰면 200 Success로 위장된 오염 응답이 된다.
+        // 빈 content는 아래 검증에서 실패로 처리해 다음 키/모델로 폴백한다.
+        const content = typeof msg.content === 'string' ? msg.content : '';
         return {
           index: typeof c?.index === 'number' ? c.index : i,
           message: {

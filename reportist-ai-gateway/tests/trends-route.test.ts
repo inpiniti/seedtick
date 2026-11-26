@@ -101,10 +101,11 @@ describe('GET /v1/trends', () => {
     try {
       const response = await app.handle(new Request('http://localhost/v1/trends'));
       expect(response.status).toBe(200);
-      expect(response.headers.get('cache-control')).toContain('s-maxage=900');
+      expect(response.headers.get('cache-control')).toContain('s-maxage=1800');
       const json = (await response.json()) as TrendsPayload;
       expect(json.items.length).toBeGreaterThanOrEqual(3);
       expect(json.source).toBe('rss+llm');
+      expect(json.items[0]?.lines.length).toBeGreaterThanOrEqual(3);
       expect(fetchSpy).toHaveBeenCalled();
       expect(chatSpy).toHaveBeenCalled();
     } finally {
@@ -156,6 +157,8 @@ describe('GET /v1/trends', () => {
       expect(json.source).toBe('rss');
       expect(json.items.length).toBeGreaterThan(0);
       expect(json.items[0]?.topic).toContain('?');
+      expect(json.items[0]?.lines.length).toBe(8);
+      expect(json.items[0]?.lines[0]?.mbti).toBeTruthy();
     } finally {
       fetchSpy.mockRestore();
       chatSpy.mockRestore();

@@ -39,4 +39,11 @@ describe('CooldownManager', () => {
     expect(manager.isCoolingDown('kilo', 'model1', 'key1')).toBe(false);
     expect(manager.isCoolingDown('cline', 'model2', 'key1')).toBe(false);
   });
+
+  test('401 인증 실패 키는 모든 모델에서 즉시 차단된다', () => {
+    manager.setProviderKeyCooldown('kilo', 'expired-key', 6 * 3_600_000, 'unauthorized');
+    expect(manager.isCoolingDown('kilo', 'model-a', 'expired-key')).toBe(true);
+    expect(manager.isCoolingDown('kilo', 'model-b', 'expired-key')).toBe(true);
+    expect(manager.isCoolingDown('openrouter', 'model-a', 'expired-key')).toBe(false);
+  });
 });

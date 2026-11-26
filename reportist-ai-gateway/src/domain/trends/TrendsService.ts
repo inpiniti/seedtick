@@ -1,12 +1,15 @@
 // TrendsService.ts - 한국 실시간 화제 수집·안전 필터링·30분 캐시 서비스
 
 import { proxyService } from '../proxy/ProxyService.ts';
+import {
+  ANIMAL_PERSONAS,
+  type TrendTopicBase,
+  type TrendTopicItem,
+  attachTrendLines,
+  parseTrendLines,
+} from './animalPersonas.ts';
 
-export interface TrendTopicItem {
-  keyword: string;
-  topic: string;
-  context: string;
-}
+export type { TrendLine, TrendTopicItem } from './animalPersonas.ts';
 
 export interface TrendsPayload {
   items: TrendTopicItem[];
@@ -22,7 +25,7 @@ interface RawCandidate {
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const RSS_TIMEOUT_MS = 4500;
-const LLM_CURATE_TIMEOUT_MS = 12_000;
+const LLM_CURATE_TIMEOUT_MS = 20_000;
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
@@ -44,11 +47,11 @@ const RSS_FEEDS = [
 
 /** 아기 동물 배경 수다에 부적절한 사건·사고·범죄·재난·정치·전쟁 키워드 하드 필터. */
 const BLOCKED_PATTERN =
-  /(사망|숨져|숨진|시신|살인|살해|폭행|성폭행|성추행|성범죄|구속|체포|경찰|검찰|수사|기소|재판|징역|선고|화재|폭발|추락|참사|사고|지진|실종|학대|마약|도박|사기|피해자|용의자|부검|투신|극단적|대통령|국회|여당|야당|민주당|국민의힘|탄핵|대권|총선|대선|장관|의원|특검|계엄|정치|북한|미사일|전쟁|공습|폭격|테러|타결\s*불발|파업)/i;
+  /(사망|숨져|숨진|시신|살인|살해|폭행|성폭행|성추행|성범죄|구속|체포|경찰|검찰|수사|기소|재판|징역|선고|화재|폭발|추락|참사|사고|지진|실종|학대|마약|도박|사기|피해자|용의자|부검|투신|극단적|대통령|국회|여당|야당|민주당|국민의힘|탄핵|대권|총선|대선|장관|의원|특검|계엄|정치|북한|미사일|전쟁|공습|폭격|테러|타결\s*불발|파업|사단|부대|동거|불륜|이혼|폭로)/i;
 
 const BLOCKED_URL_PATTERN = /\/(politics|judicial|crime|disaster)\//i;
 
-export const FALLBACK_TREND_ITEMS: TrendTopicItem[] = [
+export const FALLBACK_TREND_ITEMS: TrendTopicBase[] = [
   {
     keyword: '오픈런 맛집',
     topic: '맛집 새벽 오픈런 줄 서볼 수 있어?',
@@ -114,6 +117,14 @@ function stripPublisherSuffix(title: string): string {
   return title.trim();
 }
 
+/** [단독]·[속보] 같은 말머리 노이즈를 제거해 화제 핵심어가 가려지지 않게 한다. */
+function stripHeadlineNoise(title: string): string {
+  return title
+    .replace(/^\s*\[[^\]]{1,10}\]\s*/g, '')
+    .replace(/^\s*(단독|속보|긴급)\s*[:：]?\s*/g, '')
+    .trim();
+}
+
 export function parseRssCandidates(
   xml: string,
   kind: 'google-trends' | 'google-news'
@@ -123,23 +134,27 @@ export function parseRssCandidates(
 
   for (const match of itemMatches) {
     const block = match[1] ?? '';
-    const rawTitle = decodeXmlEntities(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? '');
-    if (!rawTitle) continue;
+    const cleanTitle = stripHeadlineNoise(
+      decodeXmlEntities(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? '')
+    );
+    if (!cleanTitle) continue;
 
     if (kind === 'google-trends') {
-      const newsTitle = decodeXmlEntities(
-        block.match(/<ht:news_item_title>([\s\S]*?)<\/ht:news_item_title>/)?.[1] ?? ''
+      const newsTitle = stripHeadlineNoise(
+        decodeXmlEntities(
+          block.match(/<ht:news_item_title>([\s\S]*?)<\/ht:news_item_title>/)?.[1] ?? ''
+        )
       );
       const newsUrl = decodeXmlEntities(
         block.match(/<ht:news_item_url>([\s\S]*?)<\/ht:news_item_url>/)?.[1] ?? ''
       );
       out.push({
-        keyword: rawTitle.slice(0, 24),
-        headline: stripPublisherSuffix(newsTitle || rawTitle).slice(0, 70),
+        keyword: cleanTitle.slice(0, 24),
+        headline: stripPublisherSuffix(newsTitle || cleanTitle).slice(0, 70),
         url: newsUrl,
       });
     } else {
-      const cleanHeadline = stripPublisherSuffix(rawTitle);
+      const cleanHeadline = stripPublisherSuffix(cleanTitle);
       const link = decodeXmlEntities(block.match(/<link>([\s\S]*?)<\/link>/)?.[1] ?? '');
       const shortKey = cleanHeadline
         .replace(/[\[\]()'"“”‘’…·,:!?]/g, ' ')
@@ -178,7 +193,7 @@ export function filterSafeCandidates(candidates: RawCandidate[]): RawCandidate[]
 }
 
 /** LLM 쿼터 소진 시에도 RSS만으로 자연스러운 토론 주제를 만드는 결정론적 변환기. */
-export function buildDeterministicTopics(candidates: RawCandidate[]): TrendTopicItem[] {
+export function buildDeterministicTopics(candidates: RawCandidate[]): TrendTopicBase[] {
   const templates = [
     (k: string) => `요즘 ${k} 이야기 많던데 어떻게 생각해?`,
     (k: string) => `${k}, 너희도 관심 있어?`,
@@ -244,11 +259,14 @@ export class TrendsService {
     }
   }
 
-  private async curateWithLLM(candidates: RawCandidate[]): Promise<TrendTopicItem[] | null> {
+  private async curateWithLLM(candidates: RawCandidate[]): Promise<TrendTopicBase[] | null> {
     const numbered = candidates
       .slice(0, 14)
       .map((c, i) => `${i + 1}. [${c.keyword}] ${c.headline}`)
       .join('\n');
+    const personaList = ANIMAL_PERSONAS.map((p) => `${p.species}(${p.mbti}, ${p.keyword})`).join(
+      ', '
+    );
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_CURATE_TIMEOUT_MS);
@@ -258,8 +276,7 @@ export class TrendsService {
           messages: [
             {
               role: 'system',
-              content:
-                '너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고는 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)"} 형식이다. 마크다운 코드블록 없이 순수 JSON 배열만 출력해라.',
+              content: `너는 귀여운 아기 동물들의 설원 수다방 작가다. 입력된 오늘의 한국 뉴스/트렌드 목록에서 사건·사고·범죄·정치·진영 갈등·부고·사적인 가십은 모두 버리고, 음식·일상·문화·영화·음악·게임·IT·스포츠·계절 유행처럼 가볍고 재밌는 화제 6~8개를 골라 JSON 배열로만 출력해라. 각 원소는 {"keyword":"핵심어(10자이내)","topic":"동물들이 찬반/취향을 말할 반말 질문(22자이내)","context":"왜 화제인지 1줄 요약(42자이내)","lines":[{"speaker":"동물영문id","text":"한국어 반말 한 줄(20자 이내)"},...]} 형식이다. lines는 서로 다른 동물 8마리로 구성하고 speaker는 반드시 아래 12종 중 하나여야 한다: ${personaList}. 각 동물의 성향에 맞춰 찬반·취향이 부딪히도록 써라.마크다운 코드블록 없이 순수 JSON 배열만 출력해라.`,
             },
             {
               role: 'user',
@@ -267,7 +284,8 @@ export class TrendsService {
             },
           ],
           temperature: 0.5,
-          max_tokens: 900,
+          max_tokens: 3500,
+          reasoning_effort: 'none',
           stream: false,
         }),
         new Promise<never>((_resolve, reject) => {
@@ -286,13 +304,14 @@ export class TrendsService {
       const parsed = JSON.parse(raw.slice(start, end + 1)) as unknown;
       if (!Array.isArray(parsed)) return null;
 
-      const items: TrendTopicItem[] = [];
+      const items: TrendTopicBase[] = [];
       for (const entry of parsed) {
         if (!entry || typeof entry !== 'object') continue;
         const rec = entry as Record<string, unknown>;
         const keyword = typeof rec.keyword === 'string' ? rec.keyword.trim().slice(0, 16) : '';
         const topic = typeof rec.topic === 'string' ? rec.topic.trim().slice(0, 32) : '';
         const context = typeof rec.context === 'string' ? rec.context.trim().slice(0, 56) : '';
+        const base: TrendTopicBase = { keyword, topic, context };
         if (
           !keyword ||
           topic.length < 4 ||
@@ -300,7 +319,7 @@ export class TrendsService {
         ) {
           continue;
         }
-        items.push({ keyword, topic, context });
+        items.push({ ...base, lines: parseTrendLines(rec.lines, base, BLOCKED_PATTERN) });
       }
       return items.length >= 3 ? items.slice(0, 10) : null;
     } catch {
@@ -326,7 +345,7 @@ export class TrendsService {
 
     if (safe.length === 0) {
       const fallbackPayload: TrendsPayload = {
-        items: FALLBACK_TREND_ITEMS,
+        items: attachTrendLines(FALLBACK_TREND_ITEMS, Date.now()),
         updatedAt,
         source: 'fallback',
       };
@@ -337,8 +356,12 @@ export class TrendsService {
 
     const curated = await this.curateWithLLM(safe);
     const payload: TrendsPayload = curated
-      ? { items: curated, updatedAt, source: 'rss+llm' }
-      : { items: buildDeterministicTopics(safe), updatedAt, source: 'rss' };
+      ? { items: attachTrendLines(curated, Date.now()), updatedAt, source: 'rss+llm' }
+      : {
+          items: attachTrendLines(buildDeterministicTopics(safe), Date.now()),
+          updatedAt,
+          source: 'rss',
+        };
 
     this.cache = payload;
     this.lastFetchTime = Date.now();

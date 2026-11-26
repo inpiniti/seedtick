@@ -456,7 +456,8 @@ export class ProxyService {
               await this.handleError(category, provider, targetModel, key, [key]);
             }
 
-            if (attempt < maxAttempts) {
+            // 401/403은 모델/키를 바꿔도 소용이 없으므로 400ms 대기 없이 다음 슬롯으로 넘어간다.
+            if (attempt < maxAttempts && category !== 'unauthorized' && category !== 'forbidden') {
               await new Promise((r) => setTimeout(r, 400));
             }
           } finally {
@@ -618,7 +619,8 @@ export class ProxyService {
               await this.handleError(category, provider, targetModel, key, [key]);
             }
 
-            if (attempt < maxAttempts) {
+            // 401/403은 모델/키를 바꿔도 소용이 없으므로 400ms 대기 없이 다음 슬롯으로 넘어간다.
+            if (attempt < maxAttempts && category !== 'unauthorized' && category !== 'forbidden') {
               await new Promise((r) => setTimeout(r, 400));
             }
           } finally {
@@ -973,13 +975,14 @@ export class ProxyService {
 
       case 'forbidden':
       case 'unauthorized':
-        this.cooldown.setCooldown(provider, modelId, apiKey, 3_600_000, category);
+        // 만료된 키는 다른 모델에서도 똑같이 401을 내므로 제공사 전체 와일드카드로 6시간 차단한다.
+        this.cooldown.setProviderKeyCooldown(provider, apiKey, 6 * 3_600_000, category);
         console.info(
-          `[Gateway] Set cooldown 1h for ${provider}:${modelId}:${apiKey.slice(-8)} (${category})`
+          `[Gateway] Set provider-wide cooldown 6h for ${provider}:*:${apiKey.slice(-8)} (${category})`
         );
-        await this.errorLogger.warning(
+        void this.errorLogger.warning(
           'GATEWAY_AUTH_FAILED',
-          `${provider}:${modelId} 키(${apiKey.slice(-8)}) 인증 실패 (${category})`,
+          `${provider} 키(${apiKey.slice(-8)}) 인증 실패 (${category}) — 모든 모델에서 차단`,
           { provider, modelId, apiKeyHash: apiKey.slice(-8), category }
         );
         break;

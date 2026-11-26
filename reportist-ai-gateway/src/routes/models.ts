@@ -60,6 +60,11 @@ function buildStateKey(provider: LLMProvider, modelId: string, keyHash: string):
   return `${provider}:${modelId}:${keyHash}`;
 }
 
+/** 인증 실패(401/403) 키는 모델과 무관하게 막히므로 와일드카드 상태도 함께 조회한다. */
+function buildProviderStateKey(provider: LLMProvider, keyHash: string): string {
+  return `${provider}:*:${keyHash}`;
+}
+
 function toIsoOrNull(ms: number | null): string | null {
   if (ms === null) return null;
   return new Date(ms).toISOString();
@@ -120,7 +125,9 @@ export const modelsRoute = new Elysia()
         for (const model of models) {
           const stateKey = buildStateKey(provider, model.id, key.apiKeyHash);
           const exhaustedUntil = exhaustedMap.get(stateKey);
-          const cooldownState = cooldownMap.get(stateKey);
+          const cooldownState =
+            cooldownMap.get(stateKey) ??
+            cooldownMap.get(buildProviderStateKey(provider, key.apiKeyHash));
           const isExhausted = typeof exhaustedUntil === 'number' && exhaustedUntil > now;
           const isCoolingDown = Boolean(
             cooldownState && (cooldownState.expiresAt === null || cooldownState.expiresAt > now)

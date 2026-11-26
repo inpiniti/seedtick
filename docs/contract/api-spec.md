@@ -67,6 +67,36 @@ Authorization: Bearer {GATEWAY_SECRET}
 Content-Type: application/json
 ```
 
+### GET /v1/trends
+
+실시간 한국 화제와 설원 동물 12종의 MBTI 대본을 한 번에 반환합니다. 인증 불필요, 30분 CDN 캐시.
+
+**Response (200)**
+```json
+{
+  "items": [
+    {
+      "keyword": "겨울 간식",
+      "topic": "붕어빵은 팥이 최고야 슈크림이 최고야?",
+      "context": "날씨가 추워지면서 길거리 겨울 간식 지도 앱까지 다시 인기래",
+      "lines": [
+        { "speaker": "penguin", "mbti": "ENFJ", "text": "다들 붕어빵 어때? 내가 먼저 꺼낼게!" },
+        { "speaker": "cat", "mbti": "INTP", "text": "붕어빵? 원리가 궁금하네." }
+      ]
+    }
+  ],
+  "updatedAt": "2026-11-26T09:00:00.000Z",
+  "source": "rss+llm"
+}
+```
+
+**Headers**
+```
+Cache-Control: public, s-maxage=1800, stale-while-revalidate=3600
+```
+
+`source`는 `rss+llm` / `rss` / `fallback` 중 하나입니다. LLM이 실패하더라도 `lines`는 결정론적 MBTI 대본으로 항상 채워집니다.
+
 ---
 
 ## 2. Analyzer 내부 서비스 API
