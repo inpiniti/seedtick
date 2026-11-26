@@ -1,6 +1,7 @@
 import { placeBubble, type BubbleBox } from './bubblePlacement.ts';
 import { FOOTPRINT_LIFETIME } from './penguinPhysics.ts';
 import { drawSnowScenery } from './snowScenery.ts';
+import { PERSPECTIVE_Y } from './stageStyle.ts';
 import {
   getAgentTheme,
   getSpeciesTheme,
@@ -18,7 +19,6 @@ import type {
 } from './types.ts';
 
 const TAU = Math.PI * 2;
-const PERSPECTIVE_Y = 0.58;
 const clamp = (v: number, min: number, max: number): number =>
   v < min ? min : v > max ? max : v;
 const rgba = (rgb: string, alpha: number): string => `rgba(${rgb}, ${alpha})`;
@@ -432,7 +432,9 @@ function drawParticles(
   for (const p of particles) {
     if ((p.r > 2.1) !== foreground) continue;
     const alpha = p.opacity * (foreground ? 0.62 : 0.78);
-    ctx.fillStyle = dark ? `rgba(255, 255, 255, ${alpha})` : `rgba(104, 136, 170, ${alpha})`;
+    ctx.fillStyle = dark
+      ? `rgba(255, 255, 255, ${alpha})`
+      : rgba(palette.inkRgb, alpha * 0.55);
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.r, 0, TAU);
     ctx.fill();
