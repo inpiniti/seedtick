@@ -43,7 +43,7 @@ jobs:
             else
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          elif git -c core.quotepath=false diff --name-only HEAD^ HEAD | grep -q "^reportist-video/"; then
+          elif git -c core.quotepath=false diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -q "^reportist-video/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -77,7 +77,7 @@ jobs:
             else
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          elif git -c core.quotepath=false diff --name-only HEAD^ HEAD | grep -q "^reportist-ai-gateway/"; then
+          elif git -c core.quotepath=false diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -q "^reportist-ai-gateway/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -111,7 +111,7 @@ jobs:
             else
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          elif git -c core.quotepath=false diff --name-only HEAD^ HEAD | grep -q "^reportist-chat/"; then
+          elif git -c core.quotepath=false diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -q "^reportist-chat/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -145,7 +145,7 @@ jobs:
             else
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          elif git -c core.quotepath=false diff --name-only HEAD^ HEAD | grep -q "^reportist-game/"; then
+          elif git -c core.quotepath=false diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -q "^reportist-game/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT

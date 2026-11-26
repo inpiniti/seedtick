@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/error-handler.ts';
 import { chatRoute } from './routes/chat.ts';
 import { debugRoute } from './routes/debug.ts';
 import { decisionsRoute } from './routes/decisions.ts';
+import { discussionsRoute } from './routes/discussions.ts';
 import { healthRoute } from './routes/health.ts';
 import { imagesRoute } from './routes/images.ts';
 import { modelsRoute } from './routes/models.ts';
@@ -29,6 +30,7 @@ export const app = new Elysia()
   .use(modelsRoute)
   .use(imagesRoute)
   .use(chatRoute)
+  .use(discussionsRoute)
   .use(decisionsRoute)
   .use(yahooRoute)
   .use(trendsRoute)

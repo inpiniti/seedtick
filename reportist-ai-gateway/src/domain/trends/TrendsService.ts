@@ -14,7 +14,7 @@ export interface TrendsPayload {
   source: 'rss+llm' | 'rss' | 'fallback';
 }
 
-interface RawCandidate {
+export interface RawCandidate {
   keyword: string;
   headline: string;
   url: string;
@@ -47,6 +47,11 @@ const BLOCKED_PATTERN =
   /(사망|숨져|숨진|시신|살인|살해|폭행|성폭행|성추행|성범죄|구속|체포|경찰|검찰|수사|기소|재판|징역|선고|화재|폭발|추락|참사|사고|지진|실종|학대|마약|도박|사기|피해자|용의자|부검|투신|극단적|대통령|국회|여당|야당|민주당|국민의힘|탄핵|대권|총선|대선|장관|의원|특검|계엄|정치|북한|미사일|전쟁|공습|폭격|테러|타결\s*불발|파업|사단|부대|동거|불륜|이혼|폭로)/i;
 
 const BLOCKED_URL_PATTERN = /\/(politics|judicial|crime|disaster)\//i;
+
+/** 다른 서비스(토론 자료 조사)에서도 같은 안전 기준을 쓰도록 공개한다. */
+export function isSafeTopicText(text: string): boolean {
+  return !BLOCKED_PATTERN.test(text);
+}
 
 export const FALLBACK_TREND_ITEMS: TrendTopicItem[] = [
   {
