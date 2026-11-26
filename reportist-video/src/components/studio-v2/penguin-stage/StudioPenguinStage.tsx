@@ -256,7 +256,6 @@ export const StudioPenguinStage = forwardRef<
 
     const BUBBLE_DURATION_MS = 3000;
     const MAX_TURNS_PER_TOPIC = 12;
-    const DISCUSSION_GROUP_SIZE = 4;
 
     interface Discussion {
       topic: string;
@@ -278,18 +277,10 @@ export const StudioPenguinStage = forwardRef<
         chatAbortRef.current = controller;
         try {
           if (!discussion || discussion.turns >= MAX_TURNS_PER_TOPIC) {
-            const anchor = agents[Math.floor(Math.random() * agents.length)];
-            const nearest = agents
-              .filter((a) => a !== anchor)
-              .sort(
-                (a, b) =>
-                  Math.hypot(a.physics.x - anchor.physics.x, a.physics.y - anchor.physics.y) -
-                  Math.hypot(b.physics.x - anchor.physics.x, b.physics.y - anchor.physics.y)
-              );
-            const members = [anchor];
-            for (const candidate of nearest) {
-              if (members.length >= DISCUSSION_GROUP_SIZE) break;
-              members.push(candidate);
+            const members = [...agents];
+            for (let i = members.length - 1; i > 0; i -= 1) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [members[i], members[j]] = [members[j], members[i]];
             }
             // 주제를 먼저 확정한 뒤 1번 발언을 요청해 첫 마디 엇박자를 제거한다.
             const topicInfo = await requestDiscussionTopic(controller.signal);
