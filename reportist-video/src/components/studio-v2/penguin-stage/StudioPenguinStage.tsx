@@ -337,7 +337,8 @@ export const StudioPenguinStage = forwardRef<
     clickSurface.addEventListener('click', onClick);
     clickSurface.addEventListener('pointermove', onPointerMove);
 
-    const BUBBLE_DURATION_MS = 5600;
+    /** 한 발언이 화면에 머무는 시간. 말풍선 자체는 다음 발언까지 유지된다. */
+    const TURN_DISPLAY_MS = 5600;
     const TURN_GAP_MS = 500;
 
     let nextTurnAt = 0;
@@ -361,6 +362,7 @@ export const StudioPenguinStage = forwardRef<
       chatInFlightRef.current = false;
       pendingSpeech = null;
       activeDiscussion = null;
+      for (const agent of agentsRef.current) agent.bubble = undefined;
       setTranscript([]);
       setBriefing(null);
       nextTurnAt = 0;
@@ -540,25 +542,31 @@ export const StudioPenguinStage = forwardRef<
         }
       }
 
-      if (pendingSpeech) {
-        const hasActiveBubble = agents.some(
-          (a) => a.bubble && now - a.bubble.bornAt < a.bubble.durationMs
-        );
-        if (!hasActiveBubble) {
-          const target = agents.find((a) => a.id === pendingSpeech?.agentId);
-          if (target) {
-            target.bubble = {
-              text: pendingSpeech.text,
-              header: `${ANIMAL_LABELS[target.species]} · ${pendingSpeech.mbti}`,
-              bornAt: now,
-              durationMs: BUBBLE_DURATION_MS,
-            };
-            nextTurnAt = now + BUBBLE_DURATION_MS + TURN_GAP_MS;
+      const speech = pendingSpeech;
+      if (speech) {
+        const target = agents.find((a) => a.id === speech.agentId);
+        if (target) {
+          // 최근 발언자의 말풍선만 남기고 이전 풍선은 지운다.
+          for (const agent of agents) {
+            if (agent.bubble && agent !== target) agent.bubble = undefined;
           }
-          pendingSpeech = null;
+          target.bubble = {
+            text: speech.text,
+            header: `${ANIMAL_LABELS[target.species]} · ${speech.mbti}`,
+            bornAt: now,
+            durationMs: TURN_DISPLAY_MS,
+            persistent: true,
+          };
+          // 지금 말하는 개체를 선택 상태로 자동 전환한다.
+          if (speciesRef.current !== target.species) {
+            speciesRef.current = target.species;
+            onSelectSpeciesRef.current?.(target.species);
+          }
+          nextTurnAt = now + TURN_DISPLAY_MS + TURN_GAP_MS;
         }
+        pendingSpeech = null;
       }
-      // 말풍선이 사라진 뒤 짧게 호흡을 두고 다음 대사를 띄운다.
+      // 한 발언이 표시된 뒤 짧게 호흡을 두고 다음 대사를 띄운다.
       if (!chatInFlightRef.current && !pendingSpeech && now >= nextTurnAt) {
         startConversationTurn(now);
       }

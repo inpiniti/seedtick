@@ -83,6 +83,8 @@ export interface SpeechBubbleData {
   imageUrl?: string;
   bornAt: number;
   durationMs: number;
+  /** 다음 발언이 나올 때까지 사라지지 않고 화면에 남는다. */
+  persistent?: boolean;
 }
 
 /** 스테이지에 동시에 존재하는 개체 하나. */

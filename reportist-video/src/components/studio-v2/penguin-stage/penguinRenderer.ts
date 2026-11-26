@@ -296,9 +296,11 @@ function drawBubbles(
     const bubble = agent.bubble;
     if (!bubble) continue;
     const age = now - bubble.bornAt;
-    if (age < 0 || age > bubble.durationMs) continue;
+    if (age < 0 || (!bubble.persistent && age > bubble.durationMs)) continue;
     const progress = age / bubble.durationMs;
-    const alpha = progress < 0.08 ? progress / 0.08 : progress > 0.88 ? (1 - progress) / 0.12 : 1;
+    const fadingIn = progress < 0.08;
+    const fadingOut = !bubble.persistent && progress > 0.88;
+    const alpha = fadingIn ? progress / 0.08 : fadingOut ? (1 - progress) / 0.12 : 1;
     if (alpha <= 0) continue;
 
     const image = bubble.imageUrl ? getBubbleImage(bubble.imageUrl) : null;
