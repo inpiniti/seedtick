@@ -1337,7 +1337,10 @@ function drawChibiMammal(
     }
   }
 
-  drawMammalArms(ctx, t, ws, Math.sin(phi), move, t.id === 'panda' ? t.accent : t.coat);
+  // 등 뒤로 걸어갈 때는 팔이 몸에 가려져 보이지 않는다.
+  if (front > -0.35) {
+    drawMammalArms(ctx, t, ws, Math.sin(phi), move, t.id === 'panda' ? t.accent : t.coat);
+  }
 
   const headR = t.archetype === 'ursine' ? 10.6 : t.archetype === 'rodent' ? 9.6 : 10.2;
   const headY = -24.8;
@@ -1814,7 +1817,10 @@ function drawDeerChibi(
     }
     ctx.restore();
   }
-  drawMammalArms(ctx, t, ws, Math.sin(phi), move, t.coat);
+  // 등 뒤로 걸어갈 때는 팔이 몸에 가려져 보이지 않는다.
+  if (front > -0.35) {
+    drawMammalArms(ctx, t, ws, Math.sin(phi), move, t.coat);
+  }
 
   // 작은 잎귀.
   for (const s of [-1, 1]) {
