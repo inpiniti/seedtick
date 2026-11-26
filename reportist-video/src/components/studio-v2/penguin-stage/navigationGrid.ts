@@ -23,8 +23,16 @@ export const OBSTACLE_SELECTORS = [
 export const CELL = 12;
 export const PAD_X = 18;
 export const PAD_Y = 14;
-export const PAD_BOTTOM = 24;
+/**
+ * 동물 몸통은 접지점 위로 최대 약 39px(사슴 뿔 포함) 그려진다.
+ * 장애물 아래에 이만큼 여백을 두지 않으면 바로 아래를 지나는 동물의 머리가
+ * 상단바·미리보기에 가려 잘려 보인다.
+ */
+export const HEAD_CLEARANCE = 44;
+export const PAD_BOTTOM = HEAD_CLEARANCE;
 export const EDGE_MARGIN = 16;
+/** 캔버스 상단도 잘리므로 접지점은 머리 높이만큼 아래에 있어야 한다. */
+export const TOP_EDGE_MARGIN = HEAD_CLEARANCE;
 
 export interface NavGrid {
   width: number;
@@ -56,6 +64,10 @@ const NEIGHBORS: ReadonlyArray<readonly [number, number, number]> = [
 const clamp = (v: number, min: number, max: number): number =>
   v < min ? min : v > max ? max : v;
 
+/** 좁은 화면에서도 이동 가능한 셀이 남도록 상단 금지 구역을 height 비율로 제한한다. */
+const topEdgeMargin = (height: number): number =>
+  Math.min(TOP_EDGE_MARGIN, Math.max(EDGE_MARGIN, height * 0.25));
+
 /** 화면에 실제로 보이는(4px 초과) 장애물만 로컬 좌표 AABB로 수집·팽창한다. */
 export function collectObstacles(root: HTMLElement, origin: DOMRect): Rect[] {
   const obstacles: Rect[] = [];
@@ -80,6 +92,7 @@ export function buildGrid(width: number, height: number, obstacles: Rect[]): Nav
   const cols = Math.max(1, Math.ceil(width / CELL));
   const rows = Math.max(1, Math.ceil(height / CELL));
   const blocked = new Uint8Array(cols * rows);
+  const topMargin = topEdgeMargin(height);
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -88,7 +101,7 @@ export function buildGrid(width: number, height: number, obstacles: Rect[]): Nav
       let isBlocked =
         x < EDGE_MARGIN ||
         x > width - EDGE_MARGIN ||
-        y < EDGE_MARGIN ||
+        y < topMargin ||
         y > height - EDGE_MARGIN;
       if (!isBlocked) {
         for (const o of obstacles) {
@@ -161,7 +174,10 @@ export function findNearestWalkable(grid: NavGrid, p: Vec2): Vec2 {
     }
     if (best) return best;
   }
-  return { x: clamp(p.x, EDGE_MARGIN, grid.width - EDGE_MARGIN), y: clamp(p.y, EDGE_MARGIN, grid.height - EDGE_MARGIN) };
+  return {
+    x: clamp(p.x, EDGE_MARGIN, grid.width - EDGE_MARGIN),
+    y: clamp(p.y, topEdgeMargin(grid.height), grid.height - EDGE_MARGIN),
+  };
 }
 
 /** resize 후 펭귄이 장애물에 갇혔을 때 가장 가까운 바깥으로 밀어낸다. */
@@ -171,8 +187,9 @@ export function ejectFromObstacles(
   width: number,
   height: number
 ): Vec2 {
+  const minY = topEdgeMargin(height);
   let x = clamp(p.x, EDGE_MARGIN, Math.max(EDGE_MARGIN, width - EDGE_MARGIN));
-  let y = clamp(p.y, EDGE_MARGIN, Math.max(EDGE_MARGIN, height - EDGE_MARGIN));
+  let y = clamp(p.y, minY, Math.max(minY, height - EDGE_MARGIN));
   for (let pass = 0; pass < 4; pass++) {
     let moved = false;
     for (const o of obstacles) {
@@ -192,7 +209,7 @@ export function ejectFromObstacles(
   }
   return {
     x: clamp(x, EDGE_MARGIN, Math.max(EDGE_MARGIN, width - EDGE_MARGIN)),
-    y: clamp(y, EDGE_MARGIN, Math.max(EDGE_MARGIN, height - EDGE_MARGIN)),
+    y: clamp(y, minY, Math.max(minY, height - EDGE_MARGIN)),
   };
 }
 
