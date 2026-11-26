@@ -14,7 +14,13 @@ import {
   type QueueJobUpdate,
 } from './analyzerQueueService.ts';
 
-export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
+// 같은 도메인의 /v1 리라이트(Vercel) 또는 개발 프록시(Vite)를 통해 게이트웨이를 호출한다.
+// 크로스오리진 직접 호출은 프리플라이트마다 CORS 헤더가 맞는지에 따라 실패할 수 있어 기본값을 상대 경로로 둔다.
+// 다른 호스트에 배포할 때는 VITE_GATEWAY_URL로 절대 URL을 지정하면 된다.
+const configuredGatewayUrl = (import.meta.env.VITE_GATEWAY_URL as string | undefined)?.trim();
+export const DEFAULT_GATEWAY_URL = configuredGatewayUrl
+  ? configuredGatewayUrl.replace(/\/+$/, '')
+  : '';
 
 /**
  * 공용 무료 게이트웨이 시크릿.
