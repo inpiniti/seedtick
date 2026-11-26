@@ -19,6 +19,7 @@ import {
   resolvePalette,
   stepParticles,
 } from './penguinRenderer.ts';
+import type { AnimalSpecies } from './species.ts';
 import type {
   Footprint,
   Palette,
@@ -56,6 +57,7 @@ export interface StudioPenguinStageHandle {
 interface StudioPenguinStageProps {
   isExporting: boolean;
   isVideoPlaying: boolean;
+  species: AnimalSpecies;
 }
 
 interface LoopControl {
@@ -69,7 +71,7 @@ const clamp = (v: number, min: number, max: number): number =>
 export const StudioPenguinStage = forwardRef<
   StudioPenguinStageHandle,
   StudioPenguinStageProps
->(function StudioPenguinStage({ isExporting, isVideoPlaying }, ref) {
+>(function StudioPenguinStage({ isExporting, isVideoPlaying, species }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<PenguinState>(createPenguin(0, 0, 0));
   const gridRef = useRef<NavGrid | null>(null);
@@ -87,6 +89,8 @@ export const StudioPenguinStage = forwardRef<
   exportingRef.current = isExporting;
   const videoPlayingRef = useRef(isVideoPlaying);
   videoPlayingRef.current = isVideoPlaying;
+  const speciesRef = useRef(species);
+  speciesRef.current = species;
 
   useImperativeHandle(
     ref,
@@ -222,6 +226,7 @@ export const StudioPenguinStage = forwardRef<
         ping: pingRef.current,
         palette: paletteRef.current,
         reducedMotion: reducedMotionRef.current,
+        species: speciesRef.current,
       });
     };
 

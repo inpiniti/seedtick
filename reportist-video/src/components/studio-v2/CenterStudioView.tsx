@@ -91,6 +91,11 @@ import {
   StudioPenguinStage,
   type StudioPenguinStageHandle,
 } from './penguin-stage/StudioPenguinStage.tsx';
+import {
+  getStoredAnimal,
+  setStoredAnimal,
+  type AnimalSpecies,
+} from './penguin-stage/species.ts';
 
 // 무거운 모달은 지연 로드
 const SegmentTrimModal = lazy(() =>
@@ -753,6 +758,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [playhead, setPlayhead] = useState(0);
   const playheadRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // 스테이지 동물 종류 — 설정 모달에서 바꾸면 localStorage에 저장된다.
+  const [stageAnimal, setStageAnimal] = useState<AnimalSpecies>(getStoredAnimal);
 
   // 빈 설원 여백만 우클릭 명령을 받는다. 버튼·프리뷰·타임라인 위는 기본 동작 유지.
   const penguinStageRef = useRef<StudioPenguinStageHandle>(null);
@@ -1447,6 +1455,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
             ref={penguinStageRef}
             isExporting={isReStitching}
             isVideoPlaying={isPlaying}
+            species={stageAnimal}
           />
           <div className="sv2-stage-wrap">
             {isProcessing && (
@@ -1607,6 +1616,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
               showTitle={overlayOptions.showTitle !== false}
               onOverlayChange={updateOverlay}
               onHighlightModeChange={handleHighlightModeChange}
+              animal={stageAnimal}
+              onAnimalChange={(next) => {
+                setStoredAnimal(next);
+                setStageAnimal(next);
+                bumpSettings();
+              }}
             />
           </Suspense>
         )}

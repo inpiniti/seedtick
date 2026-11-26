@@ -2816,6 +2816,14 @@
 .sv2-settings-row > :last-child {
   justify-self: end;
 }
+/* 동물 선택처럼 칩이 많은 행은 제목 아래 전체 폭으로 배치한다. */
+.sv2-settings-row--column {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.sv2-settings-row--column .sv2-settings-chips {
+  justify-content: flex-start;
+}
 .sv2-settings-row-text {
   display: flex;
   flex-direction: column;

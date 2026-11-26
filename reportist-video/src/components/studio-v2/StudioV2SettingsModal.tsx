@@ -39,6 +39,11 @@ import {
 } from '../../services/subtitleRefineService.ts';
 import type { HighlightMode, SubtitleTone, VideoOverlayOptions } from '../../types/video.ts';
 import type { StudioModelDisplay } from './types.ts';
+import {
+  ANIMAL_LABELS,
+  ANIMAL_SPECIES,
+  type AnimalSpecies,
+} from './penguin-stage/species.ts';
 import { Tooltip } from '../ui/Tooltip.tsx';
 
 // 무거운 콘텐츠는 해당 섹션을 처음 열 때만 로드한다.
@@ -78,6 +83,9 @@ interface StudioV2SettingsModalProps {
   modelDisplay: StudioModelDisplay;
   isLoadingModels: boolean;
   onOpenModelModal: () => void;
+  /** 스테이지 배경 동물 종류. */
+  animal: AnimalSpecies;
+  onAnimalChange: (species: AnimalSpecies) => void;
 }
 
 export const StudioV2SettingsModal = ({
@@ -97,6 +105,8 @@ export const StudioV2SettingsModal = ({
   modelDisplay,
   isLoadingModels,
   onOpenModelModal,
+  animal,
+  onAnimalChange,
 }: StudioV2SettingsModalProps) => {
   const { ui, t } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -118,6 +128,9 @@ export const StudioV2SettingsModal = ({
   showTitlePropRef.current = showTitleProp;
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
+  const [selectedAnimal, setSelectedAnimal] = useState<AnimalSpecies>(animal);
+  const animalPropRef = useRef(animal);
+  animalPropRef.current = animal;
 
   // 모달을 열 때마다 다른 탭/레거시 화면에서 바뀐 저장값을 다시 읽어 온다.
   useEffect(() => {
@@ -131,6 +144,7 @@ export const StudioV2SettingsModal = ({
     setShowTitle(showTitlePropRef.current);
     setShowAge(getStoredShowAge());
     setBirthDate(getStoredBirthDate());
+    setSelectedAnimal(animalPropRef.current);
   }, [isOpen]);
 
   useEffect(() => {
@@ -382,6 +396,30 @@ export const StudioV2SettingsModal = ({
             <h3>
               <CalendarDays size={14} /> {ui('화면 표시')}
             </h3>
+
+            <div className="sv2-settings-row sv2-settings-row--column">
+              <div className="sv2-settings-row-text">
+                <strong>{ui('배경 동물')}</strong>
+                <span>{ui('설원에서 함께 있을 동물을 골라요. 우클릭하면 그 동물이 걸어가요.')}</span>
+              </div>
+              <div className="sv2-settings-chips">
+                {ANIMAL_SPECIES.map((species) => (
+                  <button
+                    key={species}
+                    type="button"
+                    className="sv2-settings-chip"
+                    data-active={selectedAnimal === species}
+                    aria-pressed={selectedAnimal === species}
+                    onClick={() => {
+                      setSelectedAnimal(species);
+                      onAnimalChange(species);
+                    }}
+                  >
+                    {ANIMAL_LABELS[species]}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">
