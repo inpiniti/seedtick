@@ -38,6 +38,7 @@ export class ProxyService {
   private readonly slots: KeySlot[];
   private slotIndex = 0;
   private opencodeIndex = 0;
+  private autoModelCursor = 0;
   // 콜드 스타트 재시도 추적 (provider:modelId)
   private readonly coldStartTried = new Set<string>();
 
@@ -207,6 +208,38 @@ export class ProxyService {
     return Array.from(required);
   }
 
+  private async resolveTargetModels(
+    requestedModel: string | undefined,
+    requiredInputs: Array<'text' | 'image' | 'audio' | 'video'>,
+    outputModality: 'text' | 'image' | 'audio' | 'video'
+  ): Promise<string[]> {
+    const direct = requestedModel?.trim();
+    if (direct) return [direct];
+
+    const AUTO_CANDIDATE_LIMIT = 3;
+    const excludeIds: string[] = [];
+    const candidates: string[] = [];
+
+    for (let i = 0; i < AUTO_CANDIDATE_LIMIT; i++) {
+      const selected = await modelService.selectBestModel({
+        outputModality,
+        requiredInputs,
+        excludeIds,
+      });
+      if (!selected?.id) break;
+      candidates.push(selected.id);
+      excludeIds.push(selected.id);
+    }
+
+    if (candidates.length === 0) {
+      return ['nvidia/nemotron-3.5-super-vl:free'];
+    }
+
+    const start = this.autoModelCursor % candidates.length;
+    this.autoModelCursor = (this.autoModelCursor + 1) % Number.MAX_SAFE_INTEGER;
+    return [...candidates.slice(start), ...candidates.slice(0, start)];
+  }
+
   private async openCodeExhausted(
     attempts: GatewayAttempt[],
     model: string
@@ -335,92 +368,100 @@ export class ProxyService {
     opencodeKeyOverride?: string
   ): Promise<ChatResponse | GatewayError> {
     const attempts: GatewayAttempt[] = [];
-    const autoModel = await modelService.selectBestModel({
-      outputModality: 'text',
-      requiredInputs: this.inferRequiredInputs(request),
-    });
-    const targetModel =
-      request.model?.trim() || autoModel?.id || 'nvidia/nemotron-3.5-super-vl:free';
-    if (targetModel.startsWith('opencode/')) {
-      return this.chatOpenCode(request, targetModel, opencodeKeyOverride);
+    const directModel = request.model?.trim();
+    if (directModel?.startsWith('opencode/')) {
+      return this.chatOpenCode(request, directModel, opencodeKeyOverride);
     }
-    const isGeminiDirect = targetModel.startsWith('gemini');
+    const requiredInputs = this.inferRequiredInputs(request);
+    const targetModels = await this.resolveTargetModels(request.model, requiredInputs, 'text');
+    const isGeminiDirectRequest = Boolean(request.model?.trim().startsWith('gemini'));
 
-    // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
-    if (!isGeminiDirect && this.slots.length > 0) {
-      const maxAttempts = Math.max(6, this.slots.length * 2);
-      console.info(
-        `[Gateway] 🚀 통합 풀 호출 시작 (총 ${this.slots.length}개 슬롯 교차 로테이션, 최대 ${maxAttempts}회 시도, 모델=${targetModel})`
-      );
+    for (const targetModel of targetModels) {
+      if (targetModel.startsWith('opencode/')) {
+        const opencodeResult = await this.chatOpenCode(request, targetModel, opencodeKeyOverride);
+        if (!('error' in opencodeResult)) return opencodeResult;
+        attempts.push(...(opencodeResult.error.attempts ?? []));
+        continue;
+      }
 
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const slot = this.getNextSlot();
-        if (!slot) break;
+      const isGeminiDirect = targetModel.startsWith('gemini');
 
-        const { provider, key } = slot;
-        const keyMasked = key.length > 12 ? `${key.slice(0, 8)}...${key.slice(-4)}` : '***';
+      // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
+      if (!isGeminiDirect && this.slots.length > 0) {
+        const maxAttempts = Math.max(6, this.slots.length * 2);
+        console.info(
+          `[Gateway] 🚀 통합 풀 호출 시작 (총 ${this.slots.length}개 슬롯 교차 로테이션, 최대 ${maxAttempts}회 시도, 모델=${targetModel})`
+        );
 
-        if (this.cooldown.isCoolingDown(provider, targetModel, key)) {
-          continue;
-        }
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          const slot = this.getNextSlot();
+          if (!slot) break;
 
-        const adapter = this.adapters.get(provider);
-        if (!adapter) continue;
+          const { provider, key } = slot;
+          const keyMasked = key.length > 12 ? `${key.slice(0, 8)}...${key.slice(-4)}` : '***';
 
-        this.rotator.acquireKey(provider, key);
-        try {
-          const result = await this.callWithColdStartRetry(
-            adapter,
-            request,
-            targetModel,
-            key,
-            provider,
-            attempts
-          );
-
-          if (result.ok && result.response) {
-            console.info(`[Gateway] Success: [${provider}] ${targetModel} (키: ${keyMasked})`);
-            return result.response;
+          if (this.cooldown.isCoolingDown(provider, targetModel, key)) {
+            continue;
           }
 
-          const category = this.classifier.classify(result.status, result.errorBody);
-          attempts.push({
-            provider,
-            modelId: targetModel,
-            apiKeyHash: key.slice(-8),
-            httpStatus: result.status,
-            errorCategory: category,
-            errorSnippet: result.errorBody.slice(0, 200),
-            attemptedAt: new Date().toISOString(),
-          });
+          const adapter = this.adapters.get(provider);
+          if (!adapter) continue;
 
-          if (result.status === 429) {
-            console.warn(
-              `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
+          this.rotator.acquireKey(provider, key);
+          try {
+            const result = await this.callWithColdStartRetry(
+              adapter,
+              request,
+              targetModel,
+              key,
+              provider,
+              attempts
             );
-            this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
-          } else if (
-            result.status === 500 ||
-            result.status === 502 ||
-            result.status === 503 ||
-            result.status === 504
-          ) {
-            console.warn(
-              `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
-            );
-            this.cooldown.setCooldown(provider, targetModel, key, 15_000, 'server_overloaded');
-          } else {
-            console.warn(
-              `[Gateway] HTTP ${result.status} ([${provider}], 키: ${keyMasked}): ${result.errorBody.slice(0, 180)} (시도 ${attempt}/${maxAttempts})`
-            );
-            await this.handleError(category, provider, targetModel, key, [key]);
-          }
 
-          if (attempt < maxAttempts) {
-            await new Promise((r) => setTimeout(r, 400));
+            if (result.ok && result.response) {
+              console.info(`[Gateway] Success: [${provider}] ${targetModel} (키: ${keyMasked})`);
+              return result.response;
+            }
+
+            const category = this.classifier.classify(result.status, result.errorBody);
+            attempts.push({
+              provider,
+              modelId: targetModel,
+              apiKeyHash: key.slice(-8),
+              httpStatus: result.status,
+              errorCategory: category,
+              errorSnippet: result.errorBody.slice(0, 200),
+              attemptedAt: new Date().toISOString(),
+            });
+
+            if (result.status === 429) {
+              console.warn(
+                `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
+              );
+              this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
+            } else if (
+              result.status === 500 ||
+              result.status === 502 ||
+              result.status === 503 ||
+              result.status === 504
+            ) {
+              console.warn(
+                `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
+              );
+              this.cooldown.setCooldown(provider, targetModel, key, 15_000, 'server_overloaded');
+            } else {
+              console.warn(
+                `[Gateway] HTTP ${result.status} ([${provider}], 키: ${keyMasked}): ${result.errorBody.slice(0, 180)} (시도 ${attempt}/${maxAttempts})`
+              );
+              await this.handleError(category, provider, targetModel, key, [key]);
+            }
+
+            if (attempt < maxAttempts) {
+              await new Promise((r) => setTimeout(r, 400));
+            }
+          } finally {
+            this.rotator.releaseKey(provider, key);
           }
-        } finally {
-          this.rotator.releaseKey(provider, key);
         }
       }
     }
@@ -428,7 +469,9 @@ export class ProxyService {
     // 2. Gemini 직통 또는 통합 풀 소진 시 Gemini 폴백
     const geminiAdapter = this.adapters.get('gemini');
     if (geminiAdapter && env.geminiKeys.length > 0) {
-      const geminiModel = isGeminiDirect ? targetModel : 'gemini-3.5-flash-lite';
+      const geminiModel = isGeminiDirectRequest
+        ? request.model?.trim() || 'gemini-3.5-flash-lite'
+        : 'gemini-3.5-flash-lite';
       for (const apiKey of env.geminiKeys) {
         if (this.cooldown.isCoolingDown('gemini', geminiModel, apiKey)) continue;
         this.rotator.acquireKey('gemini', apiKey);
@@ -488,88 +531,99 @@ export class ProxyService {
     opencodeKeyOverride?: string
   ): Promise<{ ok: true; stream: ReadableStream<Uint8Array> } | GatewayError> {
     const attempts: GatewayAttempt[] = [];
-    const autoModel = await modelService.selectBestModel({
-      outputModality: 'text',
-      requiredInputs: this.inferRequiredInputs(request),
-    });
-    const targetModel =
-      request.model?.trim() || autoModel?.id || 'nvidia/nemotron-3.5-super-vl:free';
-    if (targetModel.startsWith('opencode/')) {
-      return this.chatStreamOpenCode(request, targetModel, opencodeKeyOverride);
+    const directModel = request.model?.trim();
+    if (directModel?.startsWith('opencode/')) {
+      return this.chatStreamOpenCode(request, directModel, opencodeKeyOverride);
     }
-    const isGeminiDirect = targetModel.startsWith('gemini');
+    const requiredInputs = this.inferRequiredInputs(request);
+    const targetModels = await this.resolveTargetModels(request.model, requiredInputs, 'text');
+    const isGeminiDirectRequest = Boolean(request.model?.trim().startsWith('gemini'));
 
-    // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
-    if (!isGeminiDirect && this.slots.length > 0) {
-      const maxAttempts = Math.max(6, this.slots.length * 2);
-      console.info(
-        `[Gateway] 🚀 통합 풀 호출 시작 (총 ${this.slots.length}개 슬롯 교차 로테이션, 최대 ${maxAttempts}회 시도, 모델=${targetModel})`
-      );
+    for (const targetModel of targetModels) {
+      if (targetModel.startsWith('opencode/')) {
+        const opencodeResult = await this.chatStreamOpenCode(
+          request,
+          targetModel,
+          opencodeKeyOverride
+        );
+        if (!('error' in opencodeResult)) return opencodeResult;
+        attempts.push(...(opencodeResult.error.attempts ?? []));
+        continue;
+      }
+      const isGeminiDirect = targetModel.startsWith('gemini');
 
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const slot = this.getNextSlot();
-        if (!slot) break;
+      // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
+      if (!isGeminiDirect && this.slots.length > 0) {
+        const maxAttempts = Math.max(6, this.slots.length * 2);
+        console.info(
+          `[Gateway] 🚀 통합 풀 호출 시작 (총 ${this.slots.length}개 슬롯 교차 로테이션, 최대 ${maxAttempts}회 시도, 모델=${targetModel})`
+        );
 
-        const { provider, key } = slot;
-        const keyMasked = key.length > 12 ? `${key.slice(0, 8)}...${key.slice(-4)}` : '***';
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          const slot = this.getNextSlot();
+          if (!slot) break;
 
-        if (this.cooldown.isCoolingDown(provider, targetModel, key)) {
-          continue;
-        }
+          const { provider, key } = slot;
+          const keyMasked = key.length > 12 ? `${key.slice(0, 8)}...${key.slice(-4)}` : '***';
 
-        const adapter = this.adapters.get(provider);
-        if (!adapter || !adapter.callStream) {
-          continue;
-        }
-
-        this.rotator.acquireKey(provider, key);
-        try {
-          const result = await adapter.callStream(request, targetModel, key, 120_000);
-          if (result.ok && result.stream) {
-            console.info(
-              `[Gateway] Stream success: [${provider}] ${targetModel} (키: ${keyMasked})`
-            );
-            return { ok: true, stream: result.stream };
+          if (this.cooldown.isCoolingDown(provider, targetModel, key)) {
+            continue;
           }
 
-          const category = this.classifier.classify(result.status, result.errorBody);
-          attempts.push({
-            provider,
-            modelId: targetModel,
-            apiKeyHash: key.slice(-8),
-            httpStatus: result.status,
-            errorCategory: category,
-            errorSnippet: result.errorBody.slice(0, 200),
-            attemptedAt: new Date().toISOString(),
-          });
-
-          if (result.status === 429) {
-            console.warn(
-              `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
-            );
-            this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
-          } else if (
-            result.status === 500 ||
-            result.status === 502 ||
-            result.status === 503 ||
-            result.status === 504
-          ) {
-            console.warn(
-              `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
-            );
-            this.cooldown.setCooldown(provider, targetModel, key, 15_000, 'server_overloaded');
-          } else {
-            console.warn(
-              `[Gateway] HTTP ${result.status} ([${provider}], 키: ${keyMasked}): ${result.errorBody.slice(0, 180)} (시도 ${attempt}/${maxAttempts})`
-            );
-            await this.handleError(category, provider, targetModel, key, [key]);
+          const adapter = this.adapters.get(provider);
+          if (!adapter || !adapter.callStream) {
+            continue;
           }
 
-          if (attempt < maxAttempts) {
-            await new Promise((r) => setTimeout(r, 400));
+          this.rotator.acquireKey(provider, key);
+          try {
+            const result = await adapter.callStream(request, targetModel, key, 120_000);
+            if (result.ok && result.stream) {
+              console.info(
+                `[Gateway] Stream success: [${provider}] ${targetModel} (키: ${keyMasked})`
+              );
+              return { ok: true, stream: result.stream };
+            }
+
+            const category = this.classifier.classify(result.status, result.errorBody);
+            attempts.push({
+              provider,
+              modelId: targetModel,
+              apiKeyHash: key.slice(-8),
+              httpStatus: result.status,
+              errorCategory: category,
+              errorSnippet: result.errorBody.slice(0, 200),
+              attemptedAt: new Date().toISOString(),
+            });
+
+            if (result.status === 429) {
+              console.warn(
+                `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
+              );
+              this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
+            } else if (
+              result.status === 500 ||
+              result.status === 502 ||
+              result.status === 503 ||
+              result.status === 504
+            ) {
+              console.warn(
+                `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
+              );
+              this.cooldown.setCooldown(provider, targetModel, key, 15_000, 'server_overloaded');
+            } else {
+              console.warn(
+                `[Gateway] HTTP ${result.status} ([${provider}], 키: ${keyMasked}): ${result.errorBody.slice(0, 180)} (시도 ${attempt}/${maxAttempts})`
+              );
+              await this.handleError(category, provider, targetModel, key, [key]);
+            }
+
+            if (attempt < maxAttempts) {
+              await new Promise((r) => setTimeout(r, 400));
+            }
+          } finally {
+            this.rotator.releaseKey(provider, key);
           }
-        } finally {
-          this.rotator.releaseKey(provider, key);
         }
       }
     }
@@ -577,7 +631,9 @@ export class ProxyService {
     // 2. Gemini 직통 또는 통합 풀 소진 시 Gemini 폴백
     const geminiAdapter = this.adapters.get('gemini');
     if (geminiAdapter?.callStream && env.geminiKeys.length > 0) {
-      const geminiModel = isGeminiDirect ? targetModel : 'gemini-3.5-flash-lite';
+      const geminiModel = isGeminiDirectRequest
+        ? request.model?.trim() || 'gemini-3.5-flash-lite'
+        : 'gemini-3.5-flash-lite';
       for (const apiKey of env.geminiKeys) {
         if (this.cooldown.isCoolingDown('gemini', geminiModel, apiKey)) continue;
         this.rotator.acquireKey('gemini', apiKey);
