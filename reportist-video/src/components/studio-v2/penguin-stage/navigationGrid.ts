@@ -105,6 +105,33 @@ export function buildGrid(width: number, height: number, obstacles: Rect[]): Nav
   return { width, height, cols, rows, blocked, obstacles };
 }
 
+/** 점이 속한 셀이 이동 가능한지 확인한다. findNearestWalkable과 달리 위치를 바꾸지 않는다. */
+export function isCellWalkable(grid: NavGrid, p: Vec2): boolean {
+  const c = clamp(Math.floor(p.x / CELL), 0, grid.cols - 1);
+  const r = clamp(Math.floor(p.y / CELL), 0, grid.rows - 1);
+  return grid.blocked[r * grid.cols + c] === 0;
+}
+
+/** 점이 팽창된 장애물 AABB 안에 있는지 확인한다. */
+export function isPointInObstacle(grid: NavGrid, p: Vec2): boolean {
+  return grid.obstacles.some(
+    (o) => p.x > o.left && p.x < o.right && p.y > o.top && p.y < o.bottom
+  );
+}
+
+/** 경로(현재 위치 → 웨이포인트들)가 새 장애물과 겹치는지 확인한다. */
+export function isPathBlocked(grid: NavGrid, from: Vec2, waypoints: Vec2[]): boolean {
+  let prev = from;
+  for (const wp of waypoints) {
+    if (isPointInObstacle(grid, wp)) return true;
+    for (const obstacle of grid.obstacles) {
+      if (segmentIntersectsRect(prev, wp, obstacle)) return true;
+    }
+    prev = wp;
+  }
+  return false;
+}
+
 /** 점을 가장 가까운 이동 가능 셀 중심으로 나선형 탐색해 투영한다. */
 export function findNearestWalkable(grid: NavGrid, p: Vec2): Vec2 {
   const center = clamp(Math.floor(p.x / CELL), 0, grid.cols - 1);

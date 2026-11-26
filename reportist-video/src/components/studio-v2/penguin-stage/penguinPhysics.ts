@@ -3,6 +3,9 @@ import {
   ejectFromObstacles,
   findNearestWalkable,
   findPath,
+  isCellWalkable,
+  isPathBlocked,
+  isPointInObstacle,
   type NavGrid,
 } from './navigationGrid.ts';
 import type { AnimalGait } from './species.ts';
@@ -107,6 +110,32 @@ export function setDestination(
   state.lookOffset *= 0.4;
   state.nextIdleAt = now + 3000 + Math.random() * 3000;
   resetWanderTimer(state, now);
+}
+
+/**
+ * 장애물 지도가 바뀐 뒤 물리 상태를 정리한다.
+ * 이미 이동 가능한 위치와 유효한 경로는 그대로 둔다. 매번 셀 중심으로 스냅하면
+ * 프레임 사이의 미세 이동이 되돌아와 제자리에서 걷는 것처럼 보인다
+ * (AI 분석 중 상태 문구·타임라인 변경으로 지도가 자주 갱신될수록 심해진다).
+ */
+export function reconcilePenguin(state: PenguinState, grid: NavGrid): void {
+  const position = { x: state.x, y: state.y };
+  if (!isCellWalkable(grid, position) || isPointInObstacle(grid, position)) {
+    const walkable = findNearestWalkable(grid, position);
+    state.x = walkable.x;
+    state.y = walkable.y;
+  }
+
+  if (!state.target) return;
+  const goalBlocked =
+    !isCellWalkable(grid, state.target) || isPointInObstacle(grid, state.target);
+  const pathBlocked = isPathBlocked(grid, { x: state.x, y: state.y }, state.waypoints);
+  if (!goalBlocked && !pathBlocked) return;
+
+  // 목적지나 경로가 새 장애물에 막힌 경우에만 경로를 다시 계산한다.
+  const goal = goalBlocked ? findNearestWalkable(grid, state.target) : state.target;
+  state.waypoints = findPath(grid, { x: state.x, y: state.y }, goal);
+  state.target = goal;
 }
 
 /**

@@ -9,6 +9,7 @@ import {
 import {
   createPenguin,
   pruneFootprints,
+  reconcilePenguin,
   setDestination,
   stepPenguin,
 } from './penguinPhysics.ts';
@@ -280,17 +281,7 @@ export const StudioPenguinStage = forwardRef<
     };
 
     const reconcileAgents = (grid: NavGrid): void => {
-      for (const agent of agentsRef.current) {
-        const st = agent.physics;
-        const walkable = findNearestWalkable(grid, { x: st.x, y: st.y });
-        st.x = walkable.x;
-        st.y = walkable.y;
-        if (st.target) {
-          const goal = findNearestWalkable(grid, st.target);
-          st.waypoints = findPath(grid, { x: st.x, y: st.y }, goal);
-          st.target = goal;
-        }
-      }
+      for (const agent of agentsRef.current) reconcilePenguin(agent.physics, grid);
     };
 
     const remeasure = (): void => {
