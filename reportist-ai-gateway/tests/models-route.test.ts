@@ -71,6 +71,22 @@ describe('ModelService & Models Route', () => {
                     provider_info: { dataPolicy: { training: false, retainsPrompts: false } },
                   },
                 },
+                {
+                  slug: 'test/frontend-speech-model',
+                  name: 'Fixture Speech Model (free)',
+                  description: 'Text to speech test model',
+                  created_at: '2026-11-18T03:54:16.556Z',
+                  input_modalities: ['text'],
+                  output_modalities: ['speech'],
+                  context_length: 0,
+                  endpoint: {
+                    id: 'ep_0',
+                    model_variant_slug: 'test/frontend-speech-model:free',
+                    provider_display_name: 'Fixture Speech',
+                    provider_info: { dataPolicy: { training: false, retainsPrompts: true } },
+                    supported_parameters: [],
+                  },
+                },
               ],
             },
           }),
@@ -156,8 +172,11 @@ describe('ModelService & Models Route', () => {
     expect(response.status).toBe(200);
     const json = (await response.json()) as {
       outputModalities: Record<string, number>;
+      data: Array<{ id: string; outputModalities?: string[] }>;
     };
     expect(json.outputModalities.audio).toBeGreaterThanOrEqual(1);
+    expect(json.outputModalities.speech).toBeGreaterThanOrEqual(1);
+    expect(json.data.some((model) => model.id === 'test/frontend-speech-model:free')).toBeTruthy();
   });
 
   it('GET /v1/models/key-matrix should return provider matrix payload', async () => {

@@ -10,6 +10,11 @@ interface ModelPerfMetric {
   dataPolicy?: FreeModelMeta['dataPolicy'];
 }
 
+interface OpenRouterLiveCatalog {
+  perfByModel: Map<string, ModelPerfMetric>;
+  extraFreeModels: FreeModelMeta[];
+}
+
 interface GetModelsOptions {
   forceRefresh?: boolean;
   includeAllOutputs?: boolean;
@@ -575,26 +580,33 @@ export class ModelService {
     }
 
     try {
-      const [response, livePerf] = await Promise.all([
+      const [response, liveCatalog] = await Promise.all([
         fetch('https://openrouter.ai/api/v1/models', {
           headers: {
             'HTTP-Referer': 'https://reportist.kr',
             'X-Title': 'Reportist',
           },
         }),
-        this.fetchOpenRouterLivePerf(),
+        this.fetchOpenRouterLiveCatalog(),
       ]);
+      const livePerf = liveCatalog.perfByModel;
 
       if (!response.ok) {
         console.warn(`[ModelService] Failed to fetch OpenRouter models: HTTP ${response.status}`);
-        const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+        const fallback = this.withFrontendExtraModels(
+          this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS),
+          liveCatalog.extraFreeModels
+        );
         this.syncCatalogInBackground(fallback);
         return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
       }
 
       const json = (await response.json()) as { data?: unknown[] };
       if (!Array.isArray(json?.data)) {
-        const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+        const fallback = this.withFrontendExtraModels(
+          this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS),
+          liveCatalog.extraFreeModels
+        );
         this.syncCatalogInBackground(fallback);
         return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
       }
@@ -707,13 +719,19 @@ export class ModelService {
       if (freeModels.length > 0) {
         // 최신 생성순 정렬
         freeModels.sort((a, b) => b.created - a.created);
-        this.cache = this.withImageModels(freeModels);
+        this.cache = this.withFrontendExtraModels(
+          this.withImageModels(freeModels),
+          liveCatalog.extraFreeModels
+        );
         this.lastFetchTime = now;
         this.syncCatalogInBackground(this.cache);
         return this.filterForConsumer(this.cache, options?.includeAllOutputs === true);
       }
 
-      const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+      const fallback = this.withFrontendExtraModels(
+        this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS),
+        liveCatalog.extraFreeModels
+      );
       this.syncCatalogInBackground(fallback);
       return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
     } catch (err) {
@@ -814,6 +832,19 @@ export class ModelService {
     return Array.from(byId.values()).sort((a, b) => b.created - a.created);
   }
 
+  private withFrontendExtraModels(
+    models: FreeModelMeta[],
+    frontendExtras: FreeModelMeta[]
+  ): FreeModelMeta[] {
+    if (frontendExtras.length === 0) return models;
+    const byId = new Map<string, FreeModelMeta>();
+    for (const model of models) byId.set(model.id, model);
+    for (const model of frontendExtras) {
+      if (!byId.has(model.id)) byId.set(model.id, model);
+    }
+    return Array.from(byId.values()).sort((a, b) => b.created - a.created);
+  }
+
   private trainingRiskRank(model: FreeModelMeta): number {
     if (model.dataPolicy?.training === false) return 0;
     if (model.dataPolicy?.training === true) return 2;
@@ -868,8 +899,9 @@ export class ModelService {
     return provider || 'unknown';
   }
 
-  private async fetchOpenRouterLivePerf(): Promise<Map<string, ModelPerfMetric>> {
-    const map = new Map<string, ModelPerfMetric>();
+  private async fetchOpenRouterLiveCatalog(): Promise<OpenRouterLiveCatalog> {
+    const perfByModel = new Map<string, ModelPerfMetric>();
+    const extraFreeModels: FreeModelMeta[] = [];
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 3500);
@@ -882,19 +914,30 @@ export class ModelService {
       });
       clearTimeout(timer);
 
-      if (!res.ok) return map;
+      if (!res.ok) return { perfByModel, extraFreeModels };
 
       const json = (await res.json()) as {
         data?: {
           endpoint_perf?: Record<string, { p50_throughput?: number; p50_latency?: number }>;
           models?: Array<{
             slug?: string;
+            name?: string;
+            description?: string;
+            created_at?: string;
+            updated_at?: string;
+            input_modalities?: string[];
+            output_modalities?: string[];
+            context_length?: number;
             endpoint?: {
               id?: string;
+              model_variant_slug?: string;
+              provider_display_name?: string;
               provider_info?: { dataPolicy?: Record<string, unknown> };
               data_policy?: Record<string, unknown>;
+              supported_parameters?: string[];
             };
             data_policy?: Record<string, unknown>;
+            supports_reasoning?: boolean;
           }>;
         };
       };
@@ -941,21 +984,86 @@ export class ModelService {
             ? Math.round(perf.p50_latency)
             : 0;
 
-        if (!model.slug || (!speed && !latency && !dataPolicy)) continue;
+        if (model.slug && (speed || latency || dataPolicy)) {
+          const entry: ModelPerfMetric = {
+            speedTokensPerSecond: speed,
+            latencyMs: latency,
+            dataPolicy,
+          };
+          perfByModel.set(model.slug, entry);
+          perfByModel.set(`${model.slug}:free`, entry);
+          perfByModel.set(model.slug.replace(/:free$/i, ''), entry);
+        }
 
-        const entry: ModelPerfMetric = {
-          speedTokensPerSecond: speed,
-          latencyMs: latency,
+        const outputModalities =
+          Array.isArray(model.output_modalities) && model.output_modalities.length > 0
+            ? model.output_modalities
+            : ['text'];
+        const outputsText = outputModalities.includes('text');
+        if (outputsText) continue;
+
+        const modelId = model.endpoint?.model_variant_slug || model.slug;
+        if (!modelId || !modelId.endsWith(':free')) continue;
+
+        const inputModalities =
+          Array.isArray(model.input_modalities) && model.input_modalities.length > 0
+            ? model.input_modalities
+            : ['text'];
+        const modality = `${inputModalities.join('+')}->${outputModalities.join('+')}`;
+        const createdAt = model.created_at || model.updated_at;
+        const createdDateObj = createdAt ? new Date(createdAt) : new Date();
+        const createdMs = Number.isFinite(createdDateObj.getTime())
+          ? createdDateObj.getTime()
+          : Date.now();
+        const createdSec = Math.floor(createdMs / 1000);
+        const daysAgo = Math.max(0, Math.floor((Date.now() - createdMs) / (24 * 60 * 60 * 1000)));
+        const createdDate = new Date(createdMs).toISOString().split('T')[0];
+        const contextLength = typeof model.context_length === 'number' ? model.context_length : 0;
+        const contextLengthFormatted = contextLength > 0 ? `${contextLength} tokens` : '-';
+        const supportedParameters = model.endpoint?.supported_parameters ?? [];
+        const providerName = model.endpoint?.provider_display_name ?? 'OpenRouter';
+        const name = model.name || modelId;
+        const description = model.description || '';
+        const { intelligenceTier, parametersSummary } = this.deriveModelIntelligence(
+          modelId,
+          name,
+          description,
+          null
+        );
+
+        extraFreeModels.push({
+          id: modelId,
+          name,
+          providerName,
+          created: createdSec,
+          createdDate,
+          daysAgo,
+          contextLength,
+          contextLengthFormatted,
+          description,
+          modality,
+          inputModalities,
+          outputModalities,
+          supportsReasoning: Boolean(model.supports_reasoning),
+          supportsTools: supportedParameters.includes('tools'),
+          supportsStructuredOutput:
+            supportedParameters.includes('structured_outputs') ||
+            supportedParameters.includes('response_format'),
           dataPolicy,
-        };
-        map.set(model.slug, entry);
-        map.set(`${model.slug}:free`, entry);
-        map.set(model.slug.replace(/:free$/i, ''), entry);
+          speedTokensPerSecond: speed || null,
+          latencyMs: latency || null,
+          intelligenceIndex: null,
+          codingIndex: null,
+          agenticIndex: null,
+          intelligenceTier,
+          parametersSummary,
+          supportedParameters,
+        });
       }
     } catch {
       // 실시간 메트릭 실패 시 기본 데이터만 사용
     }
-    return map;
+    return { perfByModel, extraFreeModels };
   }
 
   private getSupabase(): SupabaseClient | null {
