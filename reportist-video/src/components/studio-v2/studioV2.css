@@ -976,11 +976,16 @@
 .sv2-discussion-topic p {
   margin: 0;
   font-weight: 600;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
 }
-.sv2-discussion-topic-context {
+.sv2-discussion-topic .sv2-discussion-topic-context {
   margin-top: 3px;
   color: var(--sv2-text-3);
   font-weight: 500;
+  -webkit-line-clamp: 2;
 }
 .sv2-discussion-controls {
   position: absolute;

@@ -261,11 +261,11 @@ async function loadTrendPool(
       };
       const items = (payload.items ?? [])
         .map((item) => ({
-          topic: typeof item?.topic === 'string' ? item.topic.trim().slice(0, 80) : '',
+          topic: typeof item?.topic === 'string' ? item.topic.trim().slice(0, 240) : '',
           keyword:
             typeof item?.keyword === 'string' ? item.keyword.trim().slice(0, 16) : undefined,
           context:
-            typeof item?.context === 'string' ? item.context.trim().slice(0, 80) : undefined,
+            typeof item?.context === 'string' ? item.context.trim().slice(0, 120) : undefined,
         }))
         .filter((item) => item.topic.length >= 4 && !isDiscussed(item));
       if (items.length === 0) return [];
@@ -333,7 +333,7 @@ export async function requestDiscussionBriefing(
   context: string | undefined,
   signal?: AbortSignal
 ): Promise<DiscussionBriefing | null> {
-  const key = topic.trim().toLowerCase().slice(0, 80);
+  const key = topic.trim().toLowerCase().slice(0, 240);
   const hit = briefingCache.get(key);
   if (hit && performance.now() - hit.fetchedAt < BRIEFING_CLIENT_TTL_MS) return hit.briefing;
 
