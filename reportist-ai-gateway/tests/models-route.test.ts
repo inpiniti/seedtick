@@ -7,6 +7,7 @@
 import { afterAll, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { app } from '../src/app.ts';
 import { modelService } from '../src/domain/models/ModelService.ts';
+import { proxyService } from '../src/domain/proxy/ProxyService.ts';
 
 // OpenRouter /api/v1/models 응답과 동일한 형태의 텍스트 무료 모델 16개.
 const FIXTURE_MODELS = Array.from({ length: 16 }, (_, i) => ({
@@ -241,5 +242,51 @@ describe('ModelService & Models Route', () => {
     expect(Array.isArray(json.providers)).toBe(true);
     expect(json.providers[0]?.provider).toBe('openrouter');
     expect(json.providers[0]?.modelColumns.length).toBeLessThanOrEqual(3);
+  });
+
+  it('GET /v1/models/key-matrix shows in-use keys as n and idle keys as y', async () => {
+    type MatrixJson = {
+      providers: Array<{
+        modelColumns: string[];
+        rows: Array<{
+          active: number;
+          availableCount: number;
+          blockedCount: number;
+          modelStates: Record<string, { status: string; reason?: string }>;
+        }>;
+      }>;
+    };
+    const getKeyStatesSpy = spyOn(proxyService, 'getKeyStates').mockReturnValue([
+      { index: 1, apiKeyHash: 'busyhash0000001', active: 2 },
+    ]);
+
+    const fetchMatrix = async (): Promise<MatrixJson> => {
+      const response = await app.handle(
+        new Request('http://localhost/v1/models/key-matrix?provider=openrouter&modelLimit=1', {
+          method: 'GET',
+        })
+      );
+      expect(response.status).toBe(200);
+      return (await response.json()) as MatrixJson;
+    };
+
+    try {
+      const busy = await fetchMatrix();
+      const busyModelId = busy.providers[0]?.modelColumns[0] ?? '';
+      expect(busy.providers[0]?.rows[0]?.active).toBe(2);
+      expect(busy.providers[0]?.rows[0]?.availableCount).toBe(0);
+      expect(busy.providers[0]?.rows[0]?.blockedCount).toBe(1);
+      expect(busy.providers[0]?.rows[0]?.modelStates[busyModelId]?.status).toBe('n');
+      expect(busy.providers[0]?.rows[0]?.modelStates[busyModelId]?.reason).toBe('in_use');
+
+      getKeyStatesSpy.mockReturnValue([{ index: 1, apiKeyHash: 'busyhash0000001', active: 0 }]);
+      const idle = await fetchMatrix();
+      const idleModelId = idle.providers[0]?.modelColumns[0] ?? '';
+      expect(idle.providers[0]?.rows[0]?.availableCount).toBe(1);
+      expect(idle.providers[0]?.rows[0]?.blockedCount).toBe(0);
+      expect(idle.providers[0]?.rows[0]?.modelStates[idleModelId]?.status).toBe('y');
+    } finally {
+      getKeyStatesSpy.mockRestore();
+    }
   });
 });

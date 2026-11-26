@@ -44,6 +44,7 @@ export class ProxyService {
   private readonly slots: KeySlot[];
   private slotIndex = 0;
   private opencodeIndex = 0;
+  private geminiIndex = 0;
   private autoModelCursor = 0;
   // 콜드 스타트 재시도 추적 (provider:modelId)
   private readonly coldStartTried = new Set<string>();
@@ -104,17 +105,56 @@ export class ProxyService {
     return slots;
   }
 
-  /** 일일 소진 키는 건너뛰고, 남은 키가 없으면 null을 반환해 루프를 즉시 종료한다. */
+  /**
+   * 다음에 사용할 슬롯을 고른다.
+   * - 일일 소진/쿨다운 키는 후보에서 아예 제외한다.
+   * - 처리 중(active > 0) 키는 유휴 키가 남아 있는 한 다시 고르지 않는다.
+   * - 전부 사용 중이면 active가 가장 적은 키로 폴백해 요청을 끊지 않는다.
+   * - 동률에는 현재 커서에서 가까운 순서를 유지해 라운드로빈을 보장한다.
+   */
   private getNextSlot(modelId?: string): KeySlot | null {
     if (this.slots.length === 0) return null;
+
+    const candidates: Array<{ slot: KeySlot; index: number; offset: number; active: number }> = [];
     for (let offset = 0; offset < this.slots.length; offset++) {
       const index = (this.slotIndex + offset) % this.slots.length;
       const slot = this.slots[index];
       if (modelId && this.quota.isExhaustedLocal(slot.provider, modelId, slot.key)) continue;
-      this.slotIndex = (index + 1) % this.slots.length;
-      return slot;
+      if (modelId && this.cooldown.isCoolingDown(slot.provider, modelId, slot.key)) continue;
+      candidates.push({
+        slot,
+        index,
+        offset,
+        active: this.rotator.getActiveCount(slot.provider, slot.key),
+      });
     }
-    return null;
+    if (candidates.length === 0) return null;
+
+    const selected = candidates.reduce((best, candidate) =>
+      candidate.active < best.active ||
+      (candidate.active === best.active && candidate.offset < best.offset)
+        ? candidate
+        : best
+    );
+    this.slotIndex = (selected.index + 1) % this.slots.length;
+    return selected.slot;
+  }
+
+  /** 커서 위치를 기준으로 유휴 키를 먼저, 동률이면 가까운 키를 먼저 반환한다. */
+  private orderKeysForUse(
+    provider: LLMProvider,
+    keys: string[],
+    cursor: number
+  ): Array<{ key: string; index: number }> {
+    return keys
+      .map((key, index) => ({
+        key,
+        index,
+        offset: (index - cursor + keys.length) % keys.length,
+        active: this.rotator.getActiveCount(provider, key),
+      }))
+      .sort((a, b) => a.active - b.active || a.offset - b.offset)
+      .map(({ key, index }) => ({ key, index }));
   }
 
   private initializeAdapters(): void {
@@ -323,8 +363,7 @@ export class ProxyService {
     const adapter = this.adapters.get('opencode');
     const keys = this.getOpenCodeKeys(keyOverride);
     if (adapter && keys.length > 0) {
-      for (let offset = 0; offset < keys.length; offset++) {
-        const key = keys[(this.opencodeIndex + offset) % keys.length];
+      for (const { key, index } of this.orderKeysForUse('opencode', keys, this.opencodeIndex)) {
         if (this.cooldown.isCoolingDown('opencode', targetModel, key)) continue;
         this.rotator.acquireKey('opencode', key);
         try {
@@ -337,7 +376,7 @@ export class ProxyService {
             attempts
           );
           if (result.ok && result.response) {
-            this.opencodeIndex = (this.opencodeIndex + offset + 1) % keys.length;
+            this.opencodeIndex = (index + 1) % keys.length;
             return result.response;
           }
           const category = this.classifier.classify(result.status, result.errorBody);
@@ -375,14 +414,13 @@ export class ProxyService {
     const adapter = this.adapters.get('opencode');
     const keys = this.getOpenCodeKeys(keyOverride);
     if (adapter?.callStream && keys.length > 0) {
-      for (let offset = 0; offset < keys.length; offset++) {
-        const key = keys[(this.opencodeIndex + offset) % keys.length];
+      for (const { key, index } of this.orderKeysForUse('opencode', keys, this.opencodeIndex)) {
         if (this.cooldown.isCoolingDown('opencode', targetModel, key)) continue;
         this.rotator.acquireKey('opencode', key);
         try {
           const result = await adapter.callStream(request, targetModel, key, 180_000);
           if (result.ok && result.stream) {
-            this.opencodeIndex = (this.opencodeIndex + offset + 1) % keys.length;
+            this.opencodeIndex = (index + 1) % keys.length;
             return { ok: true, stream: result.stream };
           }
           const category = this.classifier.classify(result.status, result.errorBody);
@@ -543,7 +581,11 @@ export class ProxyService {
       const geminiModel = isGeminiDirectRequest
         ? request.model?.trim() || 'gemini-3.5-flash-lite'
         : 'gemini-3.5-flash-lite';
-      for (const apiKey of env.geminiKeys) {
+      for (const { key: apiKey, index } of this.orderKeysForUse(
+        'gemini',
+        env.geminiKeys,
+        this.geminiIndex
+      )) {
         if (this.cooldown.isCoolingDown('gemini', geminiModel, apiKey)) continue;
         this.rotator.acquireKey('gemini', apiKey);
         try {
@@ -556,6 +598,7 @@ export class ProxyService {
             attempts
           );
           if (result.ok && result.response) {
+            this.geminiIndex = (index + 1) % env.geminiKeys.length;
             console.info(`[Gateway] Fallback success: [gemini] ${geminiModel}`);
             return result.response;
           }
@@ -721,12 +764,17 @@ export class ProxyService {
       const geminiModel = isGeminiDirectRequest
         ? request.model?.trim() || 'gemini-3.5-flash-lite'
         : 'gemini-3.5-flash-lite';
-      for (const apiKey of env.geminiKeys) {
+      for (const { key: apiKey, index } of this.orderKeysForUse(
+        'gemini',
+        env.geminiKeys,
+        this.geminiIndex
+      )) {
         if (this.cooldown.isCoolingDown('gemini', geminiModel, apiKey)) continue;
         this.rotator.acquireKey('gemini', apiKey);
         try {
           const result = await geminiAdapter.callStream(request, geminiModel, apiKey, 120_000);
           if (result.ok && result.stream) {
+            this.geminiIndex = (index + 1) % env.geminiKeys.length;
             console.info(`[Gateway] Stream fallback success: [gemini] ${geminiModel}`);
             return { ok: true, stream: result.stream };
           }

@@ -9,7 +9,7 @@ const PROVIDERS: LLMProvider[] = ['openrouter', 'cline', 'kilo', 'opencode', 'ge
 
 type KeyMatrixCell = {
   status: 'y' | 'n';
-  reason?: 'cooldown' | 'daily_exhausted' | 'unknown_error';
+  reason?: 'cooldown' | 'daily_exhausted' | 'in_use' | 'unknown_error';
   blockedUntil?: string | null;
 };
 type KeyMatrixRow = {
@@ -132,7 +132,9 @@ export const modelsRoute = new Elysia()
           const isCoolingDown = Boolean(
             cooldownState && (cooldownState.expiresAt === null || cooldownState.expiresAt > now)
           );
-          const blocked = isExhausted || isCoolingDown;
+          // 처리 중인 키는 다른 요청이 쓰지 않으므로 사용 불가(n)로 표시한다.
+          const inUse = key.active > 0;
+          const blocked = isExhausted || isCoolingDown || inUse;
           if (blocked) blockedCount++;
           else availableCount++;
 
@@ -149,6 +151,8 @@ export const modelsRoute = new Elysia()
               reason = 'cooldown';
               blockedUntil = toIsoOrNull(cooldownState?.expiresAt ?? null);
             }
+          } else if (inUse) {
+            reason = 'in_use';
           }
 
           modelStates[model.id] = {
@@ -234,7 +238,7 @@ export const modelsRoute = new Elysia()
   </div>
 
   <h2>키별 모델 가능 상태</h2>
-  <p class="muted">y는 지금 바로 사용 가능, n은 쿨다운 또는 일일 소진 상태예요.</p>
+  <p class="muted">y는 지금 바로 사용 가능, n은 사용 중·쿨다운·일일 소진 상태예요.</p>
   <div id="key-matrix"></div>
   <script>
     function escapeHtml(value) {
@@ -291,7 +295,9 @@ export const modelsRoute = new Elysia()
                 ? '일일 소진'
                 : cell?.reason === 'cooldown'
                   ? '쿨다운'
-                  : '미확인 오류';
+                  : cell?.reason === 'in_use'
+                    ? '사용 중'
+                    : '미확인 오류';
               const remain = cell?.reason === 'unknown_error'
                 ? '수동 확인 필요'
                 : formatRemaining(cell?.blockedUntil);
