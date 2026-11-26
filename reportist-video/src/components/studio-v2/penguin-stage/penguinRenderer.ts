@@ -2034,23 +2034,24 @@ function drawElephantChibi(
 
     // 코는 얼굴 앞에서 진행 방향 쪽으로 굽는다. 옆으로 걸을 때도 몸 중앙에
     // 남지 않도록 fx만큼 옮기고 side 방향으로 기울인다.
-    const traceTrunk = (close: boolean): void => {
+    // 윗변을 closePath()로 이으면 기울인 코가 얼굴을 가로지르는 선으로 보이므로
+    // 열린 경로로 두고 fill()의 암묵적 닫힘만 사용한다.
+    const traceTrunk = (): void => {
       ctx.beginPath();
       ctx.moveTo(-2.6, 0);
       ctx.bezierCurveTo(-3.4, 6, -2.6, 12, 0.6, 13.5);
       ctx.bezierCurveTo(3.4, 12.5, 3.2, 7.5, 2.4, 0.2);
-      if (close) ctx.closePath();
     };
     ctx.save();
     ctx.translate(fx, -23);
     ctx.rotate(-side * 0.55);
     if (t.dark) {
-      traceTrunk(false);
+      traceTrunk();
       ctx.strokeStyle = t.outerRim;
       ctx.lineWidth = 2.8;
       ctx.stroke();
     }
-    traceTrunk(true);
+    traceTrunk();
     ctx.fillStyle = t.coat;
     ctx.fill();
     ctx.strokeStyle = t.outline;
