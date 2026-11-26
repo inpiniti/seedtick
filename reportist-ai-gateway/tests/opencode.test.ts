@@ -125,6 +125,7 @@ describe('OpenCode bridge provider', () => {
     const hy4 = byId.get('opencode/hy4-flash-free');
     expect(hy4?.inputModalities).toEqual(['text', 'image']);
     expect(hy4?.modality).toBe('text+image->text');
+    expect(hy4?.dataPolicy?.training).toBe(true);
     expect(hy4?.supportsReasoning).toBe(true);
     expect(hy4?.supportsTools).toBe(true);
     expect(hy4?.supportedEfforts).toEqual(['none', 'high']);

@@ -199,9 +199,23 @@ export interface FreeModelMeta {
   reasoningToggle?: boolean;
   /** 모델 상세 스펙 문서 URL */
   docsUrl?: string;
+  /** OpenRouter 제공사 데이터 정책 (학습/보관 관련) */
+  dataPolicy?: ModelDataPolicy;
+  /** p50 기준 추론 속도(tokens/sec) */
+  speedTokensPerSecond?: number | null;
+  /** p50 기준 첫 토큰 지연(ms) */
+  latencyMs?: number | null;
   intelligenceTier: string;
   parametersSummary: string;
   supportedParameters: string[];
+}
+
+export interface ModelDataPolicy {
+  training?: boolean;
+  trainingOpenRouter?: boolean;
+  retainsPrompts?: boolean;
+  retentionDays?: number | null;
+  safetyRetention?: boolean;
 }
 
 export interface ChatChoice {

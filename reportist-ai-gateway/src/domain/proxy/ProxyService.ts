@@ -6,6 +6,7 @@ import { CooldownManager } from '../key-rotator/CooldownManager.ts';
 import { ErrorClassifier } from '../key-rotator/ErrorClassifier.ts';
 import { KeyRotator } from '../key-rotator/KeyRotator.ts';
 import { QuotaManager } from '../key-rotator/QuotaManager.ts';
+import { modelService } from '../models/ModelService.ts';
 import type {
   ChatRequest,
   ChatResponse,
@@ -191,6 +192,21 @@ export class ProxyService {
     return [...new Set(keyOverride?.trim() ? [keyOverride.trim()] : env.opencodeKeys)];
   }
 
+  private inferRequiredInputs(request: ChatRequest): Array<'text' | 'image' | 'audio' | 'video'> {
+    const required = new Set<'text' | 'image' | 'audio' | 'video'>(['text']);
+    for (const message of request.messages) {
+      if (!Array.isArray(message.content)) continue;
+      for (const part of message.content) {
+        if (!part || typeof part !== 'object') continue;
+        const typed = part as { type?: string };
+        if (typed.type === 'image_url') required.add('image');
+        if (typed.type === 'input_audio') required.add('audio');
+        if (typed.type === 'video_url') required.add('video');
+      }
+    }
+    return Array.from(required);
+  }
+
   private async openCodeExhausted(
     attempts: GatewayAttempt[],
     model: string
@@ -319,7 +335,12 @@ export class ProxyService {
     opencodeKeyOverride?: string
   ): Promise<ChatResponse | GatewayError> {
     const attempts: GatewayAttempt[] = [];
-    const targetModel = request.model ?? 'nvidia/nemotron-3.5-super-vl:free';
+    const autoModel = await modelService.selectBestModel({
+      outputModality: 'text',
+      requiredInputs: this.inferRequiredInputs(request),
+    });
+    const targetModel =
+      request.model?.trim() || autoModel?.id || 'nvidia/nemotron-3.5-super-vl:free';
     if (targetModel.startsWith('opencode/')) {
       return this.chatOpenCode(request, targetModel, opencodeKeyOverride);
     }
@@ -467,7 +488,12 @@ export class ProxyService {
     opencodeKeyOverride?: string
   ): Promise<{ ok: true; stream: ReadableStream<Uint8Array> } | GatewayError> {
     const attempts: GatewayAttempt[] = [];
-    const targetModel = request.model ?? 'nvidia/nemotron-3.5-super-vl:free';
+    const autoModel = await modelService.selectBestModel({
+      outputModality: 'text',
+      requiredInputs: this.inferRequiredInputs(request),
+    });
+    const targetModel =
+      request.model?.trim() || autoModel?.id || 'nvidia/nemotron-3.5-super-vl:free';
     if (targetModel.startsWith('opencode/')) {
       return this.chatStreamOpenCode(request, targetModel, opencodeKeyOverride);
     }
@@ -608,7 +634,11 @@ export class ProxyService {
   async generateImage(
     request: ImageGenerationRequest
   ): Promise<ImageGenerationResponse | GatewayError> {
-    const model = request.model?.trim() || 'recraft/recraft-v4.1-flash-v2:free';
+    const autoModel = await modelService.selectBestModel({
+      outputModality: 'image',
+      requiredInputs: ['text'],
+    });
+    const model = request.model?.trim() || autoModel?.id || 'recraft/recraft-v4.1-flash-v2:free';
     const keys = env.openrouterKeys;
     const attempts: GatewayAttempt[] = [];
 

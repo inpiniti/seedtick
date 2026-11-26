@@ -11,7 +11,7 @@ export const authMiddleware = new Elysia().onBeforeHandle(({ request, headers, s
   const url = new URL(request.url);
   if (
     url.pathname === '/health' ||
-    url.pathname === '/v1/models' ||
+    url.pathname.startsWith('/v1/models') ||
     url.pathname.startsWith('/v1/yahoo')
   ) {
     return;

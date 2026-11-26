@@ -1,7 +1,25 @@
 // ModelService.ts - OpenRouter 무료 텍스트 모델 목록 및 메타데이터 서비스
 
+import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 import { env } from '../../config/env.ts';
 import type { FreeModelMeta } from '../types.ts';
+
+interface ModelPerfMetric {
+  speedTokensPerSecond: number;
+  latencyMs: number;
+  dataPolicy?: FreeModelMeta['dataPolicy'];
+}
+
+interface GetModelsOptions {
+  forceRefresh?: boolean;
+}
+
+interface SelectModelOptions {
+  outputModality: 'text' | 'image' | 'audio' | 'video';
+  requiredInputs?: Array<'text' | 'image' | 'audio' | 'video'>;
+  excludeIds?: string[];
+  excludeProviderPrefixes?: string[];
+}
 
 // 17개 기본 모델 (OpenRouter API 일시 장애 시 완벽한 폴백 보장)
 const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
@@ -521,6 +539,10 @@ function buildOpenCodeFreeModels(now: number): FreeModelMeta[] {
       modality: `${seed.inputModalities.join('+')}->text`,
       inputModalities: seed.inputModalities,
       outputModalities: ['text'],
+      dataPolicy: {
+        // OpenCode는 공개 정책 메타가 일관되게 제공되지 않아 안전 우선으로 학습 사용 가능(true)로 간주한다.
+        training: true,
+      },
       supportsReasoning: seed.supportsReasoning,
       supportsTools: seed.supportsTools,
       supportsStructuredOutput: seed.supportsStructuredOutput,
@@ -540,30 +562,40 @@ function buildOpenCodeFreeModels(now: number): FreeModelMeta[] {
 export class ModelService {
   private cache: FreeModelMeta[] | null = null;
   private lastFetchTime = 0;
-  private readonly CACHE_TTL_MS = 60 * 60 * 1000; // 1시간 캐시
+  private readonly CACHE_TTL_MS = 2 * 60 * 1000; // 2분 캐시
+  private supabase: SupabaseClient | null = null;
+  private catalogTableUnavailable = false;
+  private lastCatalogSyncAt: string | null = null;
 
-  async getFreeModels(): Promise<FreeModelMeta[]> {
+  async getFreeModels(options?: GetModelsOptions): Promise<FreeModelMeta[]> {
     const now = Date.now();
-    if (this.cache && now - this.lastFetchTime < this.CACHE_TTL_MS) {
+    if (!options?.forceRefresh && this.cache && now - this.lastFetchTime < this.CACHE_TTL_MS) {
       return this.withImageModels(this.cache);
     }
 
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        headers: {
-          'HTTP-Referer': 'https://reportist.kr',
-          'X-Title': 'Reportist',
-        },
-      });
+      const [response, livePerf] = await Promise.all([
+        fetch('https://openrouter.ai/api/v1/models', {
+          headers: {
+            'HTTP-Referer': 'https://reportist.kr',
+            'X-Title': 'Reportist',
+          },
+        }),
+        this.fetchOpenRouterLivePerf(),
+      ]);
 
       if (!response.ok) {
         console.warn(`[ModelService] Failed to fetch OpenRouter models: HTTP ${response.status}`);
-        return this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+        const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+        this.syncCatalogInBackground(fallback);
+        return fallback;
       }
 
       const json = (await response.json()) as { data?: unknown[] };
       if (!Array.isArray(json?.data)) {
-        return this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+        const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+        this.syncCatalogInBackground(fallback);
+        return fallback;
       }
 
       const rawModels = json.data as Array<Record<string, unknown>>;
@@ -641,6 +673,8 @@ export class ModelService {
           intelligenceIndex
         );
 
+        const live = livePerf.get(id.replace(/:free$/i, '')) ?? livePerf.get(id);
+
         freeModels.push({
           id,
           name,
@@ -663,6 +697,9 @@ export class ModelService {
           supportsReasoning,
           supportsTools,
           supportsStructuredOutput,
+          dataPolicy: live?.dataPolicy,
+          speedTokensPerSecond: live?.speedTokensPerSecond ?? null,
+          latencyMs: live?.latencyMs ?? null,
           intelligenceTier,
           parametersSummary,
           supportedParameters,
@@ -674,14 +711,82 @@ export class ModelService {
         freeModels.sort((a, b) => b.created - a.created);
         this.cache = this.withImageModels(freeModels);
         this.lastFetchTime = now;
+        this.syncCatalogInBackground(this.cache);
         return this.cache;
       }
 
-      return this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+      const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+      this.syncCatalogInBackground(fallback);
+      return fallback;
     } catch (err) {
       console.error('[ModelService] Error fetching openrouter models:', err);
-      return this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+      const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
+      this.syncCatalogInBackground(fallback);
+      return fallback;
     }
+  }
+
+  async getCatalogStatus(forceRefresh = false): Promise<{
+    lastCatalogSyncAt: string | null;
+    total: number;
+    providers: Record<string, number>;
+    outputModalities: Record<string, number>;
+    trainingPolicy: { nonTraining: number; unknown: number; training: number };
+    data: FreeModelMeta[];
+  }> {
+    const models = await this.getFreeModels({ forceRefresh });
+    const providers: Record<string, number> = {};
+    const outputModalities: Record<string, number> = {};
+    const trainingPolicy = { nonTraining: 0, unknown: 0, training: 0 };
+
+    for (const model of models) {
+      const provider = this.getProviderTag(model.id);
+      providers[provider] = (providers[provider] ?? 0) + 1;
+
+      const outs = model.outputModalities?.length ? model.outputModalities : ['text'];
+      for (const out of outs) {
+        outputModalities[out] = (outputModalities[out] ?? 0) + 1;
+      }
+
+      const risk = this.trainingRiskRank(model);
+      if (risk === 0) trainingPolicy.nonTraining++;
+      else if (risk === 1) trainingPolicy.unknown++;
+      else trainingPolicy.training++;
+    }
+
+    return {
+      lastCatalogSyncAt: this.lastCatalogSyncAt,
+      total: models.length,
+      providers,
+      outputModalities,
+      trainingPolicy,
+      data: models,
+    };
+  }
+
+  async selectBestModel(options: SelectModelOptions): Promise<FreeModelMeta | null> {
+    const all = await this.getFreeModels();
+    const filtered = all
+      .filter((model) => !this.isGuardrailModel(model))
+      .filter((model) => {
+        const outputs = model.outputModalities?.length ? model.outputModalities : ['text'];
+        return outputs.includes(options.outputModality);
+      })
+      .filter((model) => {
+        if (!options.requiredInputs || options.requiredInputs.length === 0) return true;
+        const inputs = model.inputModalities?.length ? model.inputModalities : ['text'];
+        return options.requiredInputs.every((required) => inputs.includes(required));
+      })
+      .filter((model) => {
+        if (!options.excludeProviderPrefixes || options.excludeProviderPrefixes.length === 0) {
+          return true;
+        }
+        return !options.excludeProviderPrefixes.some((prefix) => model.id.startsWith(prefix));
+      })
+      .filter((model) => !options.excludeIds?.includes(model.id))
+      .sort((a, b) => this.compareForAutoSelection(a, b));
+
+    return filtered[0] ?? null;
   }
 
   /** 이미지 생성 모델을 모델 목록에 합친다 (중복 제거 + 최신순 정렬) */
@@ -697,6 +802,220 @@ export class ModelService {
       }
     }
     return Array.from(byId.values()).sort((a, b) => b.created - a.created);
+  }
+
+  private trainingRiskRank(model: FreeModelMeta): number {
+    if (model.dataPolicy?.training === false) return 0;
+    if (model.dataPolicy?.training === true) return 2;
+    return 1;
+  }
+
+  private compareForAutoSelection(a: FreeModelMeta, b: FreeModelMeta): number {
+    const riskA = this.trainingRiskRank(a);
+    const riskB = this.trainingRiskRank(b);
+    if (riskA !== riskB) return riskA - riskB;
+
+    const daysA = a.daysAgo ?? 9999;
+    const daysB = b.daysAgo ?? 9999;
+    if (daysA !== daysB) return daysA - daysB;
+
+    const intelA = a.intelligenceIndex ?? -1;
+    const intelB = b.intelligenceIndex ?? -1;
+    if (intelA !== intelB) return intelB - intelA;
+
+    const codingA = a.codingIndex ?? -1;
+    const codingB = b.codingIndex ?? -1;
+    if (codingA !== codingB) return codingB - codingA;
+
+    const agenticA = a.agenticIndex ?? -1;
+    const agenticB = b.agenticIndex ?? -1;
+    if (agenticA !== agenticB) return agenticB - agenticA;
+
+    const contextA = a.contextLength ?? 0;
+    const contextB = b.contextLength ?? 0;
+    if (contextA !== contextB) return contextB - contextA;
+
+    const speedA = a.speedTokensPerSecond ?? 0;
+    const speedB = b.speedTokensPerSecond ?? 0;
+    if (speedA !== speedB) return speedB - speedA;
+
+    return (a.name ?? '').localeCompare(b.name ?? '');
+  }
+
+  private isGuardrailModel(model: FreeModelMeta): boolean {
+    const haystack = `${model.id} ${model.name} ${model.intelligenceTier ?? ''}`.toLowerCase();
+    return (
+      haystack.includes('content-safety') ||
+      haystack.includes('content safety') ||
+      haystack.includes('guardrail') ||
+      haystack.includes('안전성')
+    );
+  }
+
+  private getProviderTag(modelId: string): string {
+    if (modelId.startsWith('opencode/')) return 'opencode';
+    const [provider] = modelId.split('/');
+    return provider || 'unknown';
+  }
+
+  private async fetchOpenRouterLivePerf(): Promise<Map<string, ModelPerfMetric>> {
+    const map = new Map<string, ModelPerfMetric>();
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch('https://openrouter.ai/api/frontend/v1/models/find?max_price=0', {
+        headers: {
+          'HTTP-Referer': 'https://reportist.kr',
+          'X-Title': 'Reportist',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (!res.ok) return map;
+
+      const json = (await res.json()) as {
+        data?: {
+          endpoint_perf?: Record<string, { p50_throughput?: number; p50_latency?: number }>;
+          models?: Array<{
+            slug?: string;
+            endpoint?: {
+              id?: string;
+              provider_info?: { dataPolicy?: Record<string, unknown> };
+              data_policy?: Record<string, unknown>;
+            };
+            data_policy?: Record<string, unknown>;
+          }>;
+        };
+      };
+      const perfMap = json.data?.endpoint_perf ?? {};
+      const models = Array.isArray(json.data?.models) ? json.data.models : [];
+
+      for (const model of models) {
+        const endpointId = model.endpoint?.id as string | undefined;
+        const perf = endpointId ? perfMap[endpointId] : undefined;
+        const rawDataPolicy =
+          model.endpoint?.provider_info?.dataPolicy ??
+          model.endpoint?.data_policy ??
+          model.data_policy;
+
+        const dataPolicy = rawDataPolicy
+          ? {
+              training:
+                typeof rawDataPolicy.training === 'boolean' ? rawDataPolicy.training : undefined,
+              trainingOpenRouter:
+                typeof rawDataPolicy.trainingOpenRouter === 'boolean'
+                  ? rawDataPolicy.trainingOpenRouter
+                  : undefined,
+              retainsPrompts:
+                typeof rawDataPolicy.retainsPrompts === 'boolean'
+                  ? rawDataPolicy.retainsPrompts
+                  : undefined,
+              retentionDays:
+                typeof rawDataPolicy.retentionDays === 'number'
+                  ? rawDataPolicy.retentionDays
+                  : ((rawDataPolicy.prompt_retention_days as number | null | undefined) ?? null),
+              safetyRetention:
+                typeof rawDataPolicy.safetyRetention === 'boolean'
+                  ? rawDataPolicy.safetyRetention
+                  : undefined,
+            }
+          : undefined;
+
+        const speed =
+          perf?.p50_throughput != null && Number.isFinite(perf.p50_throughput)
+            ? Math.round(perf.p50_throughput)
+            : 0;
+        const latency =
+          perf?.p50_latency != null && Number.isFinite(perf.p50_latency)
+            ? Math.round(perf.p50_latency)
+            : 0;
+
+        if (!model.slug || (!speed && !latency && !dataPolicy)) continue;
+
+        const entry: ModelPerfMetric = {
+          speedTokensPerSecond: speed,
+          latencyMs: latency,
+          dataPolicy,
+        };
+        map.set(model.slug, entry);
+        map.set(`${model.slug}:free`, entry);
+        map.set(model.slug.replace(/:free$/i, ''), entry);
+      }
+    } catch {
+      // 실시간 메트릭 실패 시 기본 데이터만 사용
+    }
+    return map;
+  }
+
+  private getSupabase(): SupabaseClient | null {
+    if (this.supabase) return this.supabase;
+    if (!env.supabaseUrl || !env.supabaseServiceRoleKey) return null;
+    try {
+      this.supabase = createClient(env.supabaseUrl, env.supabaseServiceRoleKey);
+    } catch (err) {
+      console.warn('[ModelService] Failed to create Supabase client:', err);
+    }
+    return this.supabase;
+  }
+
+  private syncCatalogInBackground(models: FreeModelMeta[]): void {
+    void this.syncCatalog(models).catch((err) => {
+      console.warn('[ModelService] Failed to sync gateway_model_catalog:', err);
+    });
+  }
+
+  private async syncCatalog(models: FreeModelMeta[]): Promise<void> {
+    if (this.catalogTableUnavailable) return;
+    const client = this.getSupabase();
+    if (!client) return;
+
+    const rows = models.map((model) => ({
+      model_id: model.id,
+      provider: this.getProviderTag(model.id),
+      name: model.name,
+      modality: model.modality ?? 'text->text',
+      input_modalities: model.inputModalities ?? ['text'],
+      output_modalities: model.outputModalities ?? ['text'],
+      supports_reasoning: model.supportsReasoning ?? false,
+      supports_tools: model.supportsTools ?? false,
+      supports_structured_output: model.supportsStructuredOutput ?? false,
+      data_policy: model.dataPolicy ?? {},
+      speed_tokens_per_second: model.speedTokensPerSecond ?? null,
+      latency_ms: model.latencyMs ?? null,
+      intelligence_index: model.intelligenceIndex ?? null,
+      coding_index: model.codingIndex ?? null,
+      agentic_index: model.agenticIndex ?? null,
+      source_updated_at: new Date().toISOString(),
+    }));
+
+    const { error: upsertError } = await client
+      .from('gateway_model_catalog')
+      .upsert(rows, { onConflict: 'model_id' });
+    if (upsertError) {
+      if (
+        upsertError.code === '42P01' ||
+        upsertError.message.includes('Could not find the table')
+      ) {
+        this.catalogTableUnavailable = true;
+        console.warn(
+          '[ModelService] gateway_model_catalog 테이블이 없어 상태 동기화를 건너뜁니다.'
+        );
+        return;
+      }
+      throw upsertError;
+    }
+
+    const modelIds = rows.map((row) => row.model_id);
+    const { error: deleteError } = await client
+      .from('gateway_model_catalog')
+      .delete()
+      .not('model_id', 'in', `(${modelIds.map((id) => `"${id}"`).join(',')})`);
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    this.lastCatalogSyncAt = new Date().toISOString();
   }
 
   private deriveModelIntelligence(

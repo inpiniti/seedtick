@@ -2,6 +2,7 @@
 
 import { Elysia, t } from 'elysia';
 import { env } from '../config/env.ts';
+import { modelService } from '../domain/models/ModelService.ts';
 
 let keyIndex = 0;
 function getNextOpenRouterKey(): string {
@@ -22,6 +23,17 @@ export const decisionsRoute = new Elysia().post(
     }
 
     try {
+      const incoming = body as { model?: string; state: unknown; questions: unknown };
+      const autoModel = await modelService.selectBestModel({
+        outputModality: 'text',
+        requiredInputs: ['text'],
+        excludeProviderPrefixes: ['opencode/'],
+      });
+      const requestBody = {
+        ...incoming,
+        model: incoming.model?.trim() || autoModel?.id || 'perplexity/sonar-reasoning',
+      };
+
       const response = await fetch('https://openrouter.ai/api/alpha/decisions', {
         method: 'POST',
         headers: {
@@ -30,7 +42,7 @@ export const decisionsRoute = new Elysia().post(
           'HTTP-Referer': 'https://reportist.kr',
           'X-Title': 'Reportist Game',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();

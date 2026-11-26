@@ -39,11 +39,37 @@ const resetModelCache = () => {
 describe('ModelService & Models Route', () => {
   beforeEach(() => {
     resetModelCache();
-    const mockFetch = (async () =>
-      new Response(JSON.stringify({ data: FIXTURE_MODELS }), {
+    const mockFetch = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes('/api/frontend/v1/models/find')) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              endpoint_perf: {
+                ep_0: { p50_throughput: 120, p50_latency: 420 },
+              },
+              models: [
+                {
+                  slug: 'test/fixture-model-0',
+                  endpoint: {
+                    id: 'ep_0',
+                    provider_info: { dataPolicy: { training: false, retainsPrompts: false } },
+                  },
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        );
+      }
+      return new Response(JSON.stringify({ data: FIXTURE_MODELS }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
-      })) as unknown as typeof fetch;
+      });
+    }) as unknown as typeof fetch;
     fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(mockFetch);
   });
 
@@ -76,5 +102,32 @@ describe('ModelService & Models Route', () => {
     expect(json.object).toBe('list');
     expect(json.total).toBeGreaterThanOrEqual(15);
     expect(Array.isArray(json.data)).toBe(true);
+  });
+
+  it('ModelService.selectBestModel() should prefer non-training policy model', async () => {
+    const best = await modelService.selectBestModel({
+      outputModality: 'text',
+      requiredInputs: ['text'],
+    });
+
+    expect(best).toBeDefined();
+    expect(best?.id).toBe('test/fixture-model-0:free');
+    expect(best?.dataPolicy?.training).toBe(false);
+  });
+
+  it('GET /v1/models/status should include policy summary', async () => {
+    const response = await app.handle(
+      new Request('http://localhost/v1/models/status?refresh=1', {
+        method: 'GET',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as {
+      total: number;
+      trainingPolicy: { nonTraining: number; unknown: number; training: number };
+    };
+    expect(json.total).toBeGreaterThan(0);
+    expect(json.trainingPolicy.nonTraining).toBeGreaterThan(0);
   });
 });
