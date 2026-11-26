@@ -941,61 +941,13 @@
   padding: 0;
 }
 
-/* 모노톤 별 배경 — 라이트 테마에 맞춰 낮은 대비의 점으로만 표현한다. */
-.sv2-stars {
+/* 인터랙티브 설원 & 모노크롬 펭귄 스테이지.
+   포인터 이벤트는 부모 .sv2-center가 위임받으므로 프리뷰 클릭·호버를 방해하지 않는다. */
+.sv2-penguin-stage {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image:
-    radial-gradient(1.5px 1.5px at 18px 22px, rgba(15, 23, 42, 0.26) 50%, transparent 52%),
-    radial-gradient(1px 1px at 68px 44px, rgba(15, 23, 42, 0.2) 50%, transparent 52%),
-    radial-gradient(1.8px 1.8px at 122px 16px, rgba(15, 23, 42, 0.3) 50%, transparent 52%),
-    radial-gradient(1.1px 1.1px at 172px 58px, rgba(15, 23, 42, 0.22) 50%, transparent 52%),
-    radial-gradient(1.3px 1.3px at 36px 92px, rgba(15, 23, 42, 0.24) 50%, transparent 52%),
-    radial-gradient(1px 1px at 96px 118px, rgba(15, 23, 42, 0.18) 50%, transparent 52%),
-    radial-gradient(1.6px 1.6px at 148px 88px, rgba(15, 23, 42, 0.28) 50%, transparent 52%),
-    radial-gradient(1px 1px at 188px 132px, rgba(15, 23, 42, 0.2) 50%, transparent 52%),
-    radial-gradient(1.2px 1.2px at 12px 158px, rgba(15, 23, 42, 0.22) 50%, transparent 52%),
-    radial-gradient(1px 1px at 72px 178px, rgba(15, 23, 42, 0.18) 50%, transparent 52%),
-    radial-gradient(1.5px 1.5px at 128px 152px, rgba(15, 23, 42, 0.26) 50%, transparent 52%),
-    radial-gradient(1.1px 1.1px at 180px 186px, rgba(15, 23, 42, 0.2) 50%, transparent 52%);
-  background-size: 200px 200px;
-  animation: sv2-stars-drift 40s linear infinite;
-}
-
-.sv2-stars::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(0.9px 0.9px at 30px 70px, rgba(15, 23, 42, 0.16) 50%, transparent 52%),
-    radial-gradient(1px 1px at 90px 30px, rgba(15, 23, 42, 0.18) 50%, transparent 52%),
-    radial-gradient(0.9px 0.9px at 160px 110px, rgba(15, 23, 42, 0.16) 50%, transparent 52%),
-    radial-gradient(1px 1px at 50px 140px, rgba(15, 23, 42, 0.16) 50%, transparent 52%),
-    radial-gradient(0.9px 0.9px at 130px 180px, rgba(15, 23, 42, 0.14) 50%, transparent 52%),
-    radial-gradient(1px 1px at 200px 40px, rgba(15, 23, 42, 0.16) 50%, transparent 52%);
-  background-size: 220px 220px;
-  animation: sv2-stars-twinkle 4.5s ease-in-out infinite;
-}
-
-@keyframes sv2-stars-drift {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: -200px -200px;
-  }
-}
-
-@keyframes sv2-stars-twinkle {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 1;
-  }
 }
 .sv2-stage-wrap {
   position: relative;

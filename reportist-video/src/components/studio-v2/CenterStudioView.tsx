@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { Loader2, Sparkles, X } from 'lucide-react';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
@@ -85,6 +86,11 @@ import {
 } from './types.ts';
 import './studioV2.css';
 import './studioV2Onboarding.css';
+import {
+  INTERACTIVE_OR_BLOCKED_SELECTOR,
+  StudioPenguinStage,
+  type StudioPenguinStageHandle,
+} from './penguin-stage/StudioPenguinStage.tsx';
 
 // 무거운 모달은 지연 로드
 const SegmentTrimModal = lazy(() =>
@@ -747,6 +753,22 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [playhead, setPlayhead] = useState(0);
   const playheadRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // 빈 설원 여백만 우클릭 명령을 받는다. 버튼·프리뷰·타임라인 위는 기본 동작 유지.
+  const penguinStageRef = useRef<StudioPenguinStageHandle>(null);
+  const handleStageContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>): void => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(INTERACTIVE_OR_BLOCKED_SELECTOR)) return;
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      penguinStageRef.current?.moveTo(
+        event.clientX - rect.left,
+        event.clientY - rect.top
+      );
+    },
+    []
+  );
 
   // 원본 영상 현장음은 <video> 언뮤트로, BGM은 아래 훅으로 타임라인과 함께 재생한다.
   usePreviewAudio({
@@ -1420,8 +1442,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
           isOnboardingActive={onboardingInProgress}
         />
 
-        <div className="sv2-center">
-          <div className="sv2-stars" aria-hidden="true" />
+        <div className="sv2-center" onContextMenu={handleStageContextMenu}>
+          <StudioPenguinStage
+            ref={penguinStageRef}
+            isExporting={isReStitching}
+            isVideoPlaying={isPlaying}
+          />
           <div className="sv2-stage-wrap">
             {isProcessing && (
               <div className="sv2-status-pill" role="status" aria-live="polite" data-tour="onboarding-status">

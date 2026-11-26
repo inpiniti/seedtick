@@ -106,16 +106,6 @@
   );
 }
 
-:root.dark .sv2-stars,
-:root.dark .sv2-stars::after {
-  background-image: radial-gradient(1.5px 1.5px at 18px 22px, rgba(255, 255, 255, 0.22) 50%, transparent 52%),
-    radial-gradient(1px 1px at 68px 44px, rgba(255, 255, 255, 0.16) 50%, transparent 52%),
-    radial-gradient(1.8px 1.8px at 122px 16px, rgba(255, 255, 255, 0.24) 50%, transparent 52%),
-    radial-gradient(1.1px 1.1px at 172px 58px, rgba(255, 255, 255, 0.18) 50%, transparent 52%),
-    radial-gradient(1.3px 1.3px at 36px 92px, rgba(255, 255, 255, 0.2) 50%, transparent 52%),
-    radial-gradient(1px 1px at 96px 118px, rgba(255, 255, 255, 0.14) 50%, transparent 52%);
-}
-
 :root.dark .sv2-settings-backdrop,
 :root.dark .sv2-celebration {
   background: rgba(0, 0, 0, 0.62);
