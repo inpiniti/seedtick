@@ -6,7 +6,7 @@ import type { LLMProvider } from '../types.ts';
 
 export class QuotaManager {
   private supabase: SupabaseClient | null = null;
-  private exhaustedSet = new Set<string>();
+  private exhaustedMap = new Map<string, number>();
 
   private buildKey(provider: string, model: string, apiKeyHash: string): string {
     return `${provider}:${model}:${apiKeyHash}`;
@@ -31,7 +31,7 @@ export class QuotaManager {
     const now = new Date().toISOString();
     const { data, error } = await this.getSupabase()
       .from('gateway_quota_exhausted')
-      .select('provider, model, api_key_hash')
+      .select('provider, model, api_key_hash, reset_at')
       .gt('reset_at', now);
 
     if (error) {
@@ -39,13 +39,15 @@ export class QuotaManager {
       return;
     }
 
-    this.exhaustedSet.clear();
+    this.exhaustedMap.clear();
     for (const row of data ?? []) {
-      this.exhaustedSet.add(this.buildKey(row.provider, row.model, row.api_key_hash));
+      const resetAtMs = row.reset_at ? new Date(row.reset_at).getTime() : Number.NaN;
+      if (!Number.isFinite(resetAtMs)) continue;
+      this.exhaustedMap.set(this.buildKey(row.provider, row.model, row.api_key_hash), resetAtMs);
     }
-    console.info(`[Gateway] Loaded ${this.exhaustedSet.size} exhausted keys from Supabase`);
-    if (this.exhaustedSet.size > 0) {
-      console.info(`[Gateway] Exhausted: ${Array.from(this.exhaustedSet).join(', ')}`);
+    console.info(`[Gateway] Loaded ${this.exhaustedMap.size} exhausted keys from Supabase`);
+    if (this.exhaustedMap.size > 0) {
+      console.info(`[Gateway] Exhausted: ${Array.from(this.exhaustedMap.keys()).join(', ')}`);
     }
   }
 
@@ -73,7 +75,7 @@ export class QuotaManager {
     const resetAt = this.calcResetAt(provider);
 
     // 인메모리 즉시 반영
-    this.exhaustedSet.add(this.buildKey(provider, model, hash));
+    this.exhaustedMap.set(this.buildKey(provider, model, hash), resetAt.getTime());
 
     // Supabase 비동기 기록 (응답 지연 없음)
     this.getSupabase()
@@ -96,8 +98,9 @@ export class QuotaManager {
   }
 
   isExhaustedLocal(provider: LLMProvider, model: string, apiKey: string): boolean {
+    this.pruneExpiredLocal();
     const hash = this.getApiKeyHash(apiKey);
-    return this.exhaustedSet.has(this.buildKey(provider, model, hash));
+    return this.exhaustedMap.has(this.buildKey(provider, model, hash));
   }
 
   async isExhausted(provider: LLMProvider, model: string, apiKey: string): Promise<boolean> {
@@ -138,9 +141,17 @@ export class QuotaManager {
     return count ?? 0;
   }
 
+  private pruneExpiredLocal(): void {
+    const now = Date.now();
+    for (const [key, resetAtMs] of this.exhaustedMap.entries()) {
+      if (resetAtMs <= now) this.exhaustedMap.delete(key);
+    }
+  }
+
   // 디버그용
   getExhaustedSet(): Set<string> {
-    return this.exhaustedSet;
+    this.pruneExpiredLocal();
+    return new Set(this.exhaustedMap.keys());
   }
 }
 
