@@ -411,10 +411,10 @@ function drawFootprints(
     const p = clamp(age / FOOTPRINT_LIFETIME, 0, 1);
     if (p >= 1) continue;
 
-    const scale = 1 - 0.42 * p * p;
-    const alphaScale = fp.alphaScale ?? 1;
-    const fillAlpha = 0.16 * Math.pow(1 - p, 1.8) * alphaScale;
-    const rimAlpha = 0.3 * Math.pow(1 - p, 2.2) * alphaScale;
+    // 선택 여부와 무관하게 모든 발자국이 또렷하게 보이도록 천천히 옅어진다.
+    const scale = 1 - 0.28 * p * p;
+    const fillAlpha = 0.24 * Math.pow(1 - p, 1.4);
+    const rimAlpha = 0.44 * Math.pow(1 - p, 1.6);
 
     ctx.save();
     ctx.translate(fp.x, fp.y);
@@ -422,13 +422,13 @@ function drawFootprints(
     ctx.scale(scale, scale);
     ctx.fillStyle = rgba(palette.inkRgb, fillAlpha);
     ctx.beginPath();
-    ctx.ellipse(0, 0, 3.6, 2.0 * PERSPECTIVE_Y, 0, 0, TAU);
+    ctx.ellipse(0, 0, 4.0, 2.2 * PERSPECTIVE_Y, 0, 0, TAU);
     ctx.fill();
     ctx.strokeStyle = rgba(palette.inkRgb, rimAlpha);
-    ctx.lineWidth = 1;
-    if (p > 0.45) ctx.setLineDash([2.2 * (1 - p) + 0.6, 2.5 * p]);
+    ctx.lineWidth = 1.2;
+    if (p > 0.55) ctx.setLineDash([2.2 * (1 - p) + 0.6, 2.5 * p]);
     ctx.beginPath();
-    ctx.ellipse(0, 0, 3.8, 2.2 * PERSPECTIVE_Y, 0, Math.PI, TAU);
+    ctx.ellipse(0, 0, 4.2, 2.4 * PERSPECTIVE_Y, 0, Math.PI, TAU);
     ctx.stroke();
     ctx.restore();
   }

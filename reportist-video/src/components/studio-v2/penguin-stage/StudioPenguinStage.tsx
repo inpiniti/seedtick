@@ -297,24 +297,45 @@ export const StudioPenguinStage = forwardRef<
     };
     remeasureRef.current = remeasure;
 
+    // 스테이지 셸은 pointer-events: none 이므로 실제 클릭을 받는 부모에서 위임한다.
+    const clickSurface = host.parentElement ?? host;
+    const findHitAgent = (x: number, y: number): StageAgent | null => {
+      let best: StageAgent | null = null;
+      let bestScore = Infinity;
+      for (const agent of agentsRef.current) {
+        // 몸통은 접지점 위 -35~0px에 그려진다. 전체 실루엣을 타원으로 감싸 클릭을 받는다.
+        const dx = (x - agent.physics.x) / 15;
+        const dy = (y - (agent.physics.y - 17)) / 24;
+        const score = dx * dx + dy * dy;
+        if (score < 1 && score < bestScore) {
+          bestScore = score;
+          best = agent;
+        }
+      }
+      return best;
+    };
+
     const onClick = (event: MouseEvent): void => {
       const target = event.target as HTMLElement | null;
       if (target?.closest(INTERACTIVE_OR_BLOCKED_SELECTOR)) return;
       const rect = host.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      let best: StageAgent | null = null;
-      let bestDistance = 16;
-      for (const agent of agentsRef.current) {
-        const distance = Math.hypot(agent.physics.x - x, agent.physics.y - y);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          best = agent;
-        }
-      }
+      const best = findHitAgent(event.clientX - rect.left, event.clientY - rect.top);
       if (best) onSelectSpeciesRef.current?.(best.species);
     };
-    host.addEventListener('click', onClick);
+
+    const onPointerMove = (event: PointerEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(INTERACTIVE_OR_BLOCKED_SELECTOR)) {
+        clickSurface.style.cursor = '';
+        return;
+      }
+      const rect = host.getBoundingClientRect();
+      const hit = findHitAgent(event.clientX - rect.left, event.clientY - rect.top);
+      clickSurface.style.cursor = hit ? 'pointer' : '';
+    };
+
+    clickSurface.addEventListener('click', onClick);
+    clickSurface.addEventListener('pointermove', onPointerMove);
 
     const BUBBLE_DURATION_MS = 5600;
     const TURN_GAP_MS = 500;
@@ -508,7 +529,6 @@ export const StudioPenguinStage = forwardRef<
           isSelected ? 1 : NPC_SPEED_SCALE
         );
         if (fresh.length > 0) {
-          for (const fp of fresh) fp.alphaScale = isSelected ? 1 : 0.5;
           const list = footprintsByAgent.get(agent.id) ?? [];
           list.push(...fresh);
           while (list.length > MAX_FOOTPRINTS_PER_AGENT) list.shift();
@@ -605,7 +625,9 @@ export const StudioPenguinStage = forwardRef<
 
     return () => {
       stop();
-      host.removeEventListener('click', onClick);
+      clickSurface.removeEventListener('click', onClick);
+      clickSurface.removeEventListener('pointermove', onPointerMove);
+      clickSurface.style.cursor = '';
       resizeObserver.disconnect();
       themeObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibilityChange);

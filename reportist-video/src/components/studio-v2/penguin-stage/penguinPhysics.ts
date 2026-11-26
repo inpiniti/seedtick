@@ -256,7 +256,6 @@ export function stepPenguin(
           angle: state.heading + sign * 0.22,
           sign,
           bornAt: now,
-          alphaScale: 1,
         });
       }
       state.squash = Math.min(1, state.squash + (gait === 'hop' ? 0.85 : 0.7));

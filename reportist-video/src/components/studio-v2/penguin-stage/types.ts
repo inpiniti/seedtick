@@ -21,8 +21,6 @@ export interface Footprint {
   angle: number;
   sign: 1 | -1;
   bornAt: number;
-  /** 선택 개체 1.0, NPC 0.5 */
-  alphaScale: number;
 }
 
 /** 설원 위를 아주 느리게 흩날리는 초미세 눈송이. */
