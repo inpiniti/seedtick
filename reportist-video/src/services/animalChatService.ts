@@ -157,6 +157,8 @@ let cachedTopics: DiscussionTopicInfo[] = [];
 let trendPoolFetchedAt = 0;
 let trendCursor = 0;
 let trendFetchPromise: Promise<DiscussionTopicInfo[]> | null = null;
+/** exclude 갱신 요청은 키별로 in-flight를 공유해 동시에 여러 펭귄이 같은 배치를 다시 받지 않게 한다. */
+const trendRefreshInFlight = new Map<string, Promise<DiscussionTopicInfo[]>>();
 
 /** 이미 토론에 내보낸 주제. 같은 trends 주제가 다시 나오지 않도록 건너뛴다. */
 const discussedTopicKeys = new Set<string>();
@@ -243,7 +245,13 @@ async function loadTrendPool(
   exclude: string[] = []
 ): Promise<DiscussionTopicInfo[]> {
   const isRefresh = exclude.length > 0;
-  if (!isRefresh && trendFetchPromise) return trendFetchPromise;
+  const refreshKey = isRefresh ? exclude.join('|') : '';
+  if (isRefresh) {
+    const pending = trendRefreshInFlight.get(refreshKey);
+    if (pending) return pending;
+  } else if (trendFetchPromise) {
+    return trendFetchPromise;
+  }
   const base = DEFAULT_CONFIG.baseUrl.replace(/\/$/, '');
   const url = isRefresh
     ? `${base}/v1/trends?exclude=${encodeURIComponent(exclude.join(','))}`
@@ -278,10 +286,12 @@ async function loadTrendPool(
       return [];
     } finally {
       cleanupFetchSignal(controller);
-      if (!isRefresh) trendFetchPromise = null;
+      if (isRefresh) trendRefreshInFlight.delete(refreshKey);
+      else trendFetchPromise = null;
     }
   })();
-  if (!isRefresh) trendFetchPromise = task;
+  if (isRefresh) trendRefreshInFlight.set(refreshKey, task);
+  else trendFetchPromise = task;
   return task;
 }
 

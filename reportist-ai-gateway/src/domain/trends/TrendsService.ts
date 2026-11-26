@@ -22,7 +22,8 @@ export interface RawCandidate {
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const RSS_TIMEOUT_MS = 4500;
-const LLM_CURATE_TIMEOUT_MS = 20_000;
+// 클라이언트(/v1/trends) 타임아웃(15초)보다 짧게 두어 LLM이 지연돼도 RSS 폴백을 먼저 돌려준다.
+const LLM_CURATE_TIMEOUT_MS = 8_000;
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';

@@ -251,6 +251,7 @@ export type ErrorCategory =
   | 'unauthorized'
   | 'forbidden'
   | 'model_not_found'
+  | 'provider_rejected'
   | 'server_overloaded'
   | 'timeout'
   | 'network_error'

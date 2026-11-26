@@ -2,7 +2,8 @@
 import { describe, expect, test } from 'bun:test';
 import { app } from '../src/app.ts';
 import { isSupabaseAuthError } from '../src/config/supabase.ts';
-import { ModelService } from '../src/domain/models/ModelService.ts';
+import { ModelService, modelService } from '../src/domain/models/ModelService.ts';
+import { ProxyService } from '../src/domain/proxy/ProxyService.ts';
 
 type ModelServiceInternals = {
   markModelUnavailable(id: string): void;
@@ -41,6 +42,36 @@ describe('CORS 프리플라이트', () => {
     expect(response.headers.get('access-control-allow-origin')).toBe('*');
     expect(response.headers.get('access-control-allow-headers')).toContain('x-text-only-models');
     expect(response.headers.get('access-control-max-age')).toBe('600');
+  });
+});
+
+type ProxyServiceInternals = {
+  handleError(
+    category: 'provider_rejected',
+    provider: 'openrouter',
+    modelId: string,
+    apiKey: string,
+    allKeys: string[]
+  ): Promise<void>;
+};
+
+describe('가드레일 거부(404) 처리', () => {
+  test('모델을 제외하지 않고 해당 키만 건너뛴다', async () => {
+    const stubLogger = {
+      critical: async () => {},
+      warning: async () => {},
+      info: () => {},
+    } as unknown as NonNullable<ConstructorParameters<typeof ProxyService>[0]>;
+    const service = new ProxyService(stubLogger, [
+      { provider: 'openrouter', keys: ['guardrail-test-key'] },
+    ]) as unknown as ProxyServiceInternals;
+    const modelId = 'test/guardrail-model:free';
+
+    await service.handleError('provider_rejected', 'openrouter', modelId, 'guardrail-test-key', [
+      'guardrail-test-key',
+    ]);
+
+    expect(modelService.isModelUnavailable(modelId)).toBe(false);
   });
 });
 

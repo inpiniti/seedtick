@@ -1137,6 +1137,20 @@ export class ProxyService {
         );
         break;
 
+      case 'provider_rejected':
+        // 가드레일 거부는 모델이 내려간 것이 아니라 해당 키/계정의 정책 문제다.
+        // 모델을 카탈로그에서 제외하면 다른 키까지 못 쓰게 되므로 키만 짧게 쉬게 하고 다음 슬롯으로 넘어간다.
+        this.cooldown.setCooldown(provider, modelId, apiKey, 60_000, category);
+        console.info(
+          `[Gateway] 제공사 거부(404) — ${provider}:${modelId} 키(${apiKey.slice(-8)})를 1분간 건너뜁니다.`
+        );
+        void this.errorLogger.warning(
+          'GATEWAY_PROVIDER_REJECTED',
+          `${provider}:${modelId} 가드레일 거부 (404) — 모델은 유지하고 키만 제외`,
+          { provider, modelId, apiKeyHash: apiKey.slice(-8) }
+        );
+        break;
+
       case 'reasoning_mandatory':
         // 모델 스펙을 몰라 보정하지 못한 요청이었을 수 있으므로 짧게만 차단하고 다음 모델로 넘어간다.
         this.cooldown.setModelCooldownAllKeys(provider, modelId, allKeys, 5 * 60_000, category);
