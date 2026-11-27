@@ -272,8 +272,25 @@ export class ProxyService {
     const direct = requestedModel?.trim();
     const forced: string[] = [];
     if (direct) {
+      // 이미지 생성 모델을 채팅 엔드포인트에 보내면 텍스트 content가 비어 422로 오고,
+      // ErrorClassifier가 이를 reasoning_exhausted로 오분류해 모든 키를 쿨다운시킨다.
+      // 카탈로그에서 출력 모달리티를 확인해 여기서 걸러내고 자동 텍스트 모델로 대체한다.
+      const directMeta = await modelService.findModelById(direct);
+      const directOutputs = directMeta?.outputModalities?.length
+        ? directMeta.outputModalities
+        : directMeta
+          ? ['text']
+          : null;
+      const modalityMismatch =
+        Boolean(directMeta?.isImageGenerationModel) ||
+        Boolean(directOutputs && !directOutputs.includes(outputModality));
+
       // 404로 확인된 모델은 다음 요청부터 자동 선택으로 전환해 같은 404를 반복하지 않는다.
-      if (modelService.isModelUnavailable(direct)) {
+      if (modalityMismatch) {
+        console.warn(
+          `[Gateway] 요청 모델 ${direct}은(는) ${outputModality} 출력을 지원하지 않아 자동 모델로 대체합니다.`
+        );
+      } else if (modelService.isModelUnavailable(direct)) {
         console.warn(
           `[Gateway] 요청 모델 ${direct}은(는) 제공사에서 내려져 자동 모델로 대체합니다.`
         );

@@ -7,6 +7,13 @@ import type { ChatRequest, ErrorCategory, FreeModelMeta } from '../src/domain/ty
 
 type ProxyInternals = {
   adaptRequestForModel(request: ChatRequest, modelId: string): Promise<ChatRequest>;
+  resolveTargetModels(
+    requestedModel: string | undefined,
+    requiredInputs: Array<'text' | 'image' | 'audio' | 'video'>,
+    outputModality: 'text' | 'image' | 'audio' | 'video',
+    textOnlyModels?: boolean,
+    preferFastNonReasoning?: boolean
+  ): Promise<string[]>;
   shouldBreakModelLoop(category: ErrorCategory): boolean;
 };
 
@@ -90,6 +97,43 @@ describe('모델 추론 파라미터 보정', () => {
 
     const adapted = await internals().adaptRequestForModel(request(), 'unknown/model:free');
     expect(adapted.reasoning_effort).toBe('none');
+  });
+});
+
+describe('채팅 대상 모델 필터링', () => {
+  const IMAGE_MODEL = {
+    ...MODEL,
+    id: 'recraft/recraft-v4.1-flash-v2:free',
+    modality: 'text->image',
+    outputModalities: ['image'],
+    isImageGenerationModel: true,
+  } as FreeModelMeta;
+
+  test('이미지 생성 모델이 채팅으로 지정되면 자동 텍스트 모델로 대체한다', async () => {
+    spyOn(modelService, 'findModelById').mockImplementation(
+      (async () => IMAGE_MODEL) as unknown as typeof modelService.findModelById
+    );
+    let selectCount = 0;
+    spyOn(modelService, 'selectBestModel').mockImplementation((async () => {
+      selectCount += 1;
+      if (selectCount > 1) return null;
+      return { ...MODEL, id: 'candidate/text:free' };
+    }) as unknown as typeof modelService.selectBestModel);
+
+    const targets = await internals().resolveTargetModels(IMAGE_MODEL.id, [], 'text');
+
+    expect(targets).not.toContain(IMAGE_MODEL.id);
+    expect(targets).toContain('candidate/text:free');
+  });
+
+  test('출력 모달리티가 맞는 텍스트 모델은 그대로 사용한다', async () => {
+    spyOn(modelService, 'findModelById').mockImplementation(
+      (async () => MODEL) as unknown as typeof modelService.findModelById
+    );
+
+    const targets = await internals().resolveTargetModels(MODEL.id, [], 'text');
+
+    expect(targets[0]).toBe(MODEL.id);
   });
 });
 
