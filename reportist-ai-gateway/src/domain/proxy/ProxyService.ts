@@ -33,6 +33,14 @@ function isReasoningDisabledEffort(effort: string | undefined): boolean {
   return lower === 'none' || lower === 'off' || lower === '기본' || lower === '끄기';
 }
 
+// 서로 다른 키가 연달아 가드레일에 거부되면 모델 자체가 이 키 풀에서 막힌 것이므로
+// 모델 단위로 짧게 차단하고 다음 후보로 넘어간다. (단일 키 거부는 키만 건너뛴다.)
+const GUARDRAIL_ESCALATION_KEY_COUNT = 2;
+const GUARDRAIL_MODEL_BLOCK_MS = 60 * 60_000;
+// 같은 키가 짧은 시간에 여러 번 거부되면 정책이 바뀌지 않는 한 계속 거부되므로 하루로 늘린다.
+const GUARDRAIL_KEY_REJECTION_LIMIT = 3;
+const GUARDRAIL_KEY_LONG_BLOCK_MS = 24 * 60 * 60_000;
+
 export class ProxyService {
   private readonly rotator: KeyRotator;
   private readonly cooldown: CooldownManager;
@@ -640,7 +648,7 @@ export class ProxyService {
                 header: result.resetAt,
                 errorBody: result.errorBody,
               });
-              if (this.shouldBreakModelLoop(category)) {
+              if (this.shouldBreakModelLoop(category, provider, targetModel)) {
                 console.info(
                   `[Gateway] 다음 모델로 전환: ${provider}:${targetModel} (${category})`
                 );
@@ -839,7 +847,7 @@ export class ProxyService {
                 header: result.resetAt,
                 errorBody: result.errorBody,
               });
-              if (this.shouldBreakModelLoop(category)) {
+              if (this.shouldBreakModelLoop(category, provider, targetModel)) {
                 console.info(
                   `[Gateway] 다음 모델로 전환: ${provider}:${targetModel} (${category})`
                 );
@@ -1259,19 +1267,53 @@ export class ProxyService {
         );
         break;
 
-      case 'provider_rejected':
-        // 가드레일 거부는 모델이 내려간 것이 아니라 해당 키/계정의 정책 문제다.
-        // 모델을 카탈로그에서 제외하면 다른 키까지 못 쓰게 되므로 해당 키만 10분간 건너뛰고 다음 슬롯으로 넘어간다.
-        this.cooldown.setCooldown(provider, modelId, apiKey, 10 * 60_000, category);
-        console.info(
-          `[Gateway] 제공사 거부(404) — ${provider}:${modelId} 키(${apiKey.slice(-8)})를 10분간 건너뜁니다.`
+      case 'provider_rejected': {
+        // 단일 키 거부는 키/계정 정책 문제이므로 해당 키만 건너뛴다.
+        // 서로 다른 키가 짧은 시간 안에 연달아 거부되면 모델 자체가 이 키 풀에서
+        // 쓸 수 없는 것이므로 모델 단위로 차단하고 다음 모델로 넘어가야 한다.
+        const { distinctKeys, keyRejections } = this.cooldown.recordGuardrailRejection(
+          provider,
+          modelId,
+          apiKey
         );
-        void this.errorLogger.warning(
-          'GATEWAY_PROVIDER_REJECTED',
-          `${provider}:${modelId} 가드레일 거부 (404) — 모델은 유지하고 키만 제외`,
-          { provider, modelId, apiKeyHash: apiKey.slice(-8) }
-        );
+        const keyCooldownMs =
+          keyRejections >= GUARDRAIL_KEY_REJECTION_LIMIT
+            ? GUARDRAIL_KEY_LONG_BLOCK_MS
+            : 10 * 60_000;
+        this.cooldown.setCooldown(provider, modelId, apiKey, keyCooldownMs, category);
+        // 실제 거부 사유(정책/데이터 수집 설정 등)를 로그에서 바로 확인할 수 있게 남긴다.
+        const errorSnippet = resetHint?.errorBody?.replace(/\s+/g, ' ').slice(0, 200);
+
+        if (distinctKeys >= GUARDRAIL_ESCALATION_KEY_COUNT) {
+          this.cooldown.setModelCooldownAllKeys(
+            provider,
+            modelId,
+            allKeys,
+            GUARDRAIL_MODEL_BLOCK_MS,
+            category
+          );
+          this.cooldown.blockModelForGuardrail(provider, modelId, GUARDRAIL_MODEL_BLOCK_MS);
+          console.info(
+            `[Gateway] 가드레일 거부(${distinctKeys}개 키) — ${provider}:${modelId} 모델을 1시간간 건너뛰고 다음 모델로 전환합니다.`
+          );
+          void this.errorLogger.warning(
+            'GATEWAY_PROVIDER_REJECTED',
+            `${provider}:${modelId} 가드레일 거부 (${distinctKeys}개 키 반복) — 모델 단위 1시간 차단`,
+            { provider, modelId, distinctKeys, errorSnippet }
+          );
+        } else {
+          const cooldownMinutes = Math.round(keyCooldownMs / 60_000);
+          console.info(
+            `[Gateway] 제공사 거부(404) — ${provider}:${modelId} 키(${apiKey.slice(-8)})를 ${cooldownMinutes}분간 건너뜁니다. (${keyRejections}회 거부)`
+          );
+          void this.errorLogger.warning(
+            'GATEWAY_PROVIDER_REJECTED',
+            `${provider}:${modelId} 가드레일 거부 (${keyRejections}회) — 모델은 유지하고 키만 제외`,
+            { provider, modelId, apiKeyHash: apiKey.slice(-8), keyRejections, errorSnippet }
+          );
+        }
         break;
+      }
 
       case 'reasoning_mandatory':
         // 모델 스펙을 몰라 보정하지 못한 요청이었을 수 있으므로 짧게만 차단하고 다음 모델로 넘어간다.
@@ -1305,7 +1347,15 @@ export class ProxyService {
     }
   }
 
-  private shouldBreakModelLoop(category: ErrorCategory): boolean {
+  private shouldBreakModelLoop(
+    category: ErrorCategory,
+    provider?: LLMProvider,
+    modelId?: string
+  ): boolean {
+    // 가드레일 거부가 여러 키에서 반복되면 같은 모델의 남은 키를 모두 건너뛴다.
+    if (provider && modelId && this.cooldown.isModelGuardrailBlocked(provider, modelId)) {
+      return true;
+    }
     // 다음 모델로 이동해야 하는 케이스
     // timeout, network_error는 다음 키로 재시도하도록 break하지 않음
     return [

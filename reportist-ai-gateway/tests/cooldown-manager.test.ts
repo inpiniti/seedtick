@@ -46,4 +46,44 @@ describe('CooldownManager', () => {
     expect(manager.isCoolingDown('kilo', 'model-b', 'expired-key')).toBe(true);
     expect(manager.isCoolingDown('openrouter', 'model-a', 'expired-key')).toBe(false);
   });
+
+  test('가드레일 거부는 같은 모델의 서로 다른 키 수와 키별 거부 횟수를 센다', () => {
+    const first = manager.recordGuardrailRejection('openrouter', 'model-a', 'key-aaa11111');
+    expect(first).toEqual({ distinctKeys: 1, keyRejections: 1 });
+    expect(manager.recordGuardrailRejection('openrouter', 'model-a', 'key-aaa11111')).toEqual({
+      distinctKeys: 1,
+      keyRejections: 2,
+    });
+    expect(manager.recordGuardrailRejection('openrouter', 'model-a', 'key-bbb22222')).toEqual({
+      distinctKeys: 2,
+      keyRejections: 1,
+    });
+    expect(manager.recordGuardrailRejection('openrouter', 'model-b', 'key-ccc33333')).toEqual({
+      distinctKeys: 1,
+      keyRejections: 1,
+    });
+    expect(manager.recordGuardrailRejection('kilo', 'model-a', 'key-ddd44444')).toEqual({
+      distinctKeys: 1,
+      keyRejections: 1,
+    });
+  });
+
+  test('모델 단위 가드레일 차단은 만료 후 해제된다', async () => {
+    manager.blockModelForGuardrail('openrouter', 'model-a', 10);
+    expect(manager.isModelGuardrailBlocked('openrouter', 'model-a')).toBe(true);
+    expect(manager.isModelGuardrailBlocked('openrouter', 'model-b')).toBe(false);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(manager.isModelGuardrailBlocked('openrouter', 'model-a')).toBe(false);
+  });
+
+  test('clear()는 가드레일 추적 상태도 초기화한다', () => {
+    manager.recordGuardrailRejection('openrouter', 'model-a', 'key-aaa11111');
+    manager.blockModelForGuardrail('openrouter', 'model-a', 60_000);
+    manager.clear();
+    expect(manager.recordGuardrailRejection('openrouter', 'model-a', 'key-aaa11111')).toEqual({
+      distinctKeys: 1,
+      keyRejections: 1,
+    });
+    expect(manager.isModelGuardrailBlocked('openrouter', 'model-a')).toBe(false);
+  });
 });

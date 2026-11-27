@@ -1,7 +1,15 @@
 // CooldownManager.ts - 인메모리 쿨다운 관리
 
+// 가드레일 거부는 같은 모델/키 조합이 반복되므로, 서로 다른 키가 짧은 시간 안에
+// 연달아 거부되면 해당 모델 자체의 정책 문제로 보고 모델 단위로 올려서 차단한다.
+const GUARDRAIL_HIT_WINDOW_MS = 60 * 60_000;
+
 export class CooldownManager {
   private readonly map = new Map<string, { expiresAt: number | null; reason: string }>();
+  // provider:model → (키 해시 → { 최근 거부 시각, 윈도우 내 거부 횟수 })
+  private readonly guardrailHits = new Map<string, Map<string, { at: number; count: number }>>();
+  // provider:model → 모델 단위 가드레일 차단 만료 시각
+  private readonly guardrailBlockedUntil = new Map<string, number>();
 
   private buildKey(provider: string, modelId: string, apiKeyHash: string): string {
     return `${provider}:${modelId}:${apiKeyHash}`;
@@ -78,8 +86,52 @@ export class CooldownManager {
     }
   }
 
+  /**
+   * 가드레일 거부를 기록하고 윈도우 내 통계를 반환한다.
+   * - distinctKeys: 같은 모델에서 거부된 서로 다른 키 수 (모델 단위 차단 판단용)
+   * - keyRejections: 같은 키가 반복 거부된 횟수 (키 단위 장기 차단 판단용)
+   */
+  recordGuardrailRejection(
+    provider: string,
+    modelId: string,
+    apiKey: string
+  ): { distinctKeys: number; keyRejections: number } {
+    const modelKey = `${provider}:${modelId}`;
+    const hash = this.getApiKeyHash(apiKey);
+    const now = Date.now();
+    let hits = this.guardrailHits.get(modelKey);
+    if (!hits) {
+      hits = new Map();
+      this.guardrailHits.set(modelKey, hits);
+    }
+    for (const [keyHash, state] of hits) {
+      if (now - state.at > GUARDRAIL_HIT_WINDOW_MS) hits.delete(keyHash);
+    }
+    const keyRejections = (hits.get(hash)?.count ?? 0) + 1;
+    hits.set(hash, { at: now, count: keyRejections });
+    return { distinctKeys: hits.size, keyRejections };
+  }
+
+  /** 모델 단위 가드레일 차단 — 모든 키가 해당 모델을 건너뛰도록 표시한다. */
+  blockModelForGuardrail(provider: string, modelId: string, durationMs: number): void {
+    this.guardrailBlockedUntil.set(`${provider}:${modelId}`, Date.now() + durationMs);
+  }
+
+  isModelGuardrailBlocked(provider: string, modelId: string): boolean {
+    const key = `${provider}:${modelId}`;
+    const until = this.guardrailBlockedUntil.get(key);
+    if (until === undefined) return false;
+    if (Date.now() > until) {
+      this.guardrailBlockedUntil.delete(key);
+      return false;
+    }
+    return true;
+  }
+
   clear(): void {
     this.map.clear();
+    this.guardrailHits.clear();
+    this.guardrailBlockedUntil.clear();
   }
 
   // 디버그용

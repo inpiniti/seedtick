@@ -37,18 +37,32 @@ type ProxyServiceInternals = {
     provider: 'openrouter',
     modelId: string,
     apiKey: string,
-    allKeys: string[]
+    allKeys: string[],
+    resetHint?: { errorBody?: string }
   ): Promise<void>;
+  shouldBreakModelLoop(
+    category: 'provider_rejected',
+    provider: 'openrouter',
+    modelId: string
+  ): boolean;
+  getCooldownMap(): Map<string, { expiresAt: number | null; reason: string }>;
 };
+
+function createStubLogger(
+  warnings: Array<{ code: string; context?: Record<string, unknown> }> = []
+): NonNullable<ConstructorParameters<typeof ProxyService>[0]> {
+  return {
+    critical: async () => {},
+    warning: async (code: string, _message: string, context?: Record<string, unknown>) => {
+      warnings.push({ code, context });
+    },
+    info: () => {},
+  } as unknown as NonNullable<ConstructorParameters<typeof ProxyService>[0]>;
+}
 
 describe('가드레일 거부(404) 처리', () => {
   test('모델을 제외하지 않고 해당 키만 건너뛴다', async () => {
-    const stubLogger = {
-      critical: async () => {},
-      warning: async () => {},
-      info: () => {},
-    } as unknown as NonNullable<ConstructorParameters<typeof ProxyService>[0]>;
-    const service = new ProxyService(stubLogger, [
+    const service = new ProxyService(createStubLogger(), [
       { provider: 'openrouter', keys: ['guardrail-test-key'] },
     ]) as unknown as ProxyServiceInternals;
     const modelId = 'test/guardrail-model:free';
@@ -58,6 +72,75 @@ describe('가드레일 거부(404) 처리', () => {
     ]);
 
     expect(modelService.isModelUnavailable(modelId)).toBe(false);
+    expect(service.shouldBreakModelLoop('provider_rejected', 'openrouter', modelId)).toBe(false);
+  });
+
+  test('거부 사유 스니펫을 로그에 남겨 원인을 확인할 수 있다', async () => {
+    const warnings: Array<{ code: string; context?: Record<string, unknown> }> = [];
+    const service = new ProxyService(createStubLogger(warnings), [
+      { provider: 'openrouter', keys: ['guardrail-test-key'] },
+    ]) as unknown as ProxyServiceInternals;
+
+    await service.handleError(
+      'provider_rejected',
+      'openrouter',
+      'test/snippet-model:free',
+      'guardrail-test-key',
+      ['guardrail-test-key'],
+      {
+        errorBody:
+          '0 endpoints out of 1 requested are available matching your guardrail restrictions',
+      }
+    );
+
+    expect(warnings[0]?.code).toBe('GATEWAY_PROVIDER_REJECTED');
+    expect(warnings[0]?.context?.errorSnippet).toContain('guardrail restrictions');
+  });
+
+  test('같은 키가 반복 거부되면 키 쿨다운을 하루로 늘린다', async () => {
+    const warnings: Array<{ code: string; context?: Record<string, unknown> }> = [];
+    const key = 'key-repeat1234';
+    const service = new ProxyService(createStubLogger(warnings), [
+      { provider: 'openrouter', keys: [key] },
+    ]) as unknown as ProxyServiceInternals;
+    const modelId = 'test/repeat-key-model:free';
+
+    await service.handleError('provider_rejected', 'openrouter', modelId, key, [key]);
+    expect(
+      service.getCooldownMap().get(`openrouter:${modelId}:${key.slice(-8)}`)?.expiresAt
+    ).toBeLessThan(Date.now() + 11 * 60_000);
+
+    for (let attempt = 2; attempt <= 3; attempt++) {
+      await service.handleError('provider_rejected', 'openrouter', modelId, key, [key]);
+      expect(warnings.at(-1)?.context?.keyRejections).toBe(attempt);
+    }
+
+    const expiresAt = service
+      .getCooldownMap()
+      .get(`openrouter:${modelId}:${key.slice(-8)}`)?.expiresAt;
+    expect(expiresAt).toBeGreaterThan(Date.now() + 23 * 60 * 60_000);
+  });
+
+  test('서로 다른 키에서 반복되면 모델 단위로 차단하고 다음 모델로 넘어간다', async () => {
+    const warnings: Array<{ code: string; context?: Record<string, unknown> }> = [];
+    const firstKey = 'key-aaa11111';
+    const secondKey = 'key-bbb22222';
+    const keys = [firstKey, secondKey];
+    const service = new ProxyService(createStubLogger(warnings), [
+      { provider: 'openrouter', keys },
+    ]) as unknown as ProxyServiceInternals;
+    const modelId = 'test/escalating-model:free';
+
+    await service.handleError('provider_rejected', 'openrouter', modelId, firstKey, keys);
+    expect(service.shouldBreakModelLoop('provider_rejected', 'openrouter', modelId)).toBe(false);
+
+    await service.handleError('provider_rejected', 'openrouter', modelId, secondKey, keys);
+    expect(modelService.isModelUnavailable(modelId)).toBe(false);
+    expect(service.shouldBreakModelLoop('provider_rejected', 'openrouter', modelId)).toBe(true);
+    expect(service.getCooldownMap().get(`openrouter:${modelId}:bbb22222`)?.reason).toBe(
+      'provider_rejected'
+    );
+    expect(warnings.at(-1)?.context?.distinctKeys).toBe(2);
   });
 });
 
