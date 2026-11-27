@@ -7,6 +7,7 @@ import {
   type TrendsPayload,
   buildDeterministicTopics,
   filterSafeCandidates,
+  parseCuratedArray,
   parseRssCandidates,
   trendsService,
 } from '../src/domain/trends/TrendsService.ts';
@@ -109,8 +110,33 @@ describe('buildDeterministicTopics', () => {
   });
 });
 
+describe('LLM 큐레이션 JSON 복구', () => {
+  it('recovers complete items when the model stops mid-array at the token limit', () => {
+    const truncated =
+      '[{"keyword":"삼성 애플도","topic":"20만원 들고 폰 사러 갔다가 날벼락, 어떻게 생각해?","context":"가격 인상"},' +
+      '{"keyword":"붕어빵","topic":"붕어빵 팥이 최고야?","context":"겨울 간식"},' +
+      '{"keyword":"산책","topic":"같이 설원 산책 할래?","context":"날씨가 좋아졌대"},' +
+      '{"keyword":"잘린 항목","topic":"토큰 한도에서 잘려서 닫히지 못한 주제";';
+
+    const parsed = parseCuratedArray(truncated);
+    expect(parsed).not.toBeNull();
+    expect(parsed).toHaveLength(3);
+    expect((parsed?.[0] as { keyword: string }).keyword).toBe('삼성 애플도');
+    expect((parsed?.[2] as { topic: string }).topic).toContain('설원 산책');
+  });
+
+  it('keeps braces inside quoted strings from breaking the recovery scan', () => {
+    const raw =
+      '```json\n[{"keyword":"중괄호","topic":"{} 안에 뭐가 있을까?","context":"괄호가 문장에 들어간 예"}\n```';
+    const parsed = parseCuratedArray(raw);
+    expect(parsed).toHaveLength(1);
+    expect((parsed?.[0] as { topic: string }).topic).toBe('{} 안에 뭐가 있을까?');
+  });
+});
+
 describe('GET /v1/trends', () => {
   it('keeps a long curated topic intact and asks for a non-duplicated context', async () => {
+    let maxTokens = 0;
     const specificTopic =
       '삼성·애플도 못 피한다는 제목으로 20만원을 들고 폰을 사러 갔다가 날벼락을 맞았다는 이야기가 화제다. 할인 광고와 실제 결제 금액이 달랐다는 내용인데, 소비자는 이런 상황에서 어떻게 대응하는 게 좋을까?';
     const specificContext = '할인 광고와 실제 금액 차이가 문제다';
@@ -120,6 +146,7 @@ describe('GET /v1/trends', () => {
     );
     const chatSpy = spyOn(proxyService, 'chat').mockImplementation((async (request) => {
       systemPrompt = String(request.messages[0]?.content ?? '');
+      maxTokens = request.max_tokens ?? 0;
       return makeChatResponse(
         JSON.stringify([
           { keyword: '삼성 애플도', topic: specificTopic, context: specificContext },
@@ -136,6 +163,7 @@ describe('GET /v1/trends', () => {
       expect(json.items[0]?.context).toBe(specificContext);
       expect(systemPrompt).toContain('100~180자');
       expect(systemPrompt).toContain('반복하지 말고');
+      expect(maxTokens).toBeGreaterThanOrEqual(6000);
     } finally {
       fetchSpy.mockRestore();
       chatSpy.mockRestore();

@@ -22,8 +22,10 @@ export interface RawCandidate {
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const RSS_TIMEOUT_MS = 4500;
-// 클라이언트(/v1/trends) 타임아웃(15초)보다 짧게 두어 LLM이 지연돼도 RSS 폴백을 먼저 돌려준다.
-const LLM_CURATE_TIMEOUT_MS = 8_000;
+// 무료 LLM 슬롯은 키별 가드레일(404)·서버 오류(500)를 건너뛴 뒤 성공하는 일이 많다.
+// 8초로는 대부분 RSS 폴백으로 떨어져 LLM 큐레이션이 사실상 비활성화됐다.
+// 자료 조사(/v1/discussions/prepare)가 이미 25초를 허용하므로 그에 맞춘다.
+const LLM_CURATE_TIMEOUT_MS = 28_000;
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
@@ -69,6 +71,53 @@ function matchesExcluded(text: string, excludes: Set<string>): boolean {
     if (excluded.length >= 2 && key.includes(excluded)) return true;
   }
   return false;
+}
+
+/**
+ * LLM이 JSON 배열을 끝까지 만들지 못해도 완성된 객체는 살려서 쓴다.
+ * 긴 주제를 여러 개 요청하면 토큰 한도에서 배열 중간이 잘리는 경우가 흔하다.
+ */
+export function parseCuratedArray(raw: string): unknown[] | null {
+  const start = raw.indexOf('[');
+  const end = raw.lastIndexOf(']');
+  const slice = start !== -1 && end > start ? raw.slice(start, end + 1) : raw.trim();
+  try {
+    const parsed = JSON.parse(slice) as unknown;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    // 닫는 괄호가 없어도 균형 잡힌 객체는 복구한다.
+    const entries: unknown[] = [];
+    let depth = 0;
+    let objStart = -1;
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < slice.length; i += 1) {
+      const ch = slice[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === '{') {
+        if (depth === 0) objStart = i;
+        depth += 1;
+      } else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0 && objStart >= 0) {
+          try {
+            entries.push(JSON.parse(slice.slice(objStart, i + 1)) as unknown);
+          } catch {
+            // 손상된 객체는 건너뛴다.
+          }
+          objStart = -1;
+        }
+      }
+    }
+    return entries.length > 0 ? entries : null;
+  }
 }
 
 export const FALLBACK_TREND_ITEMS: TrendTopicItem[] = [
@@ -347,7 +396,7 @@ export class TrendsService {
               },
             ],
             temperature: 0.5,
-            max_tokens: 4000,
+            max_tokens: 6000,
             reasoning_effort: 'none',
             stream: false,
           },
@@ -363,15 +412,11 @@ export class TrendsService {
 
       if ('error' in result) return null;
       const raw = String(result.choices?.[0]?.message?.content ?? '');
-      const start = raw.indexOf('[');
-      const end = raw.lastIndexOf(']');
-      if (start === -1 || end <= start) return null;
-
-      const parsed = JSON.parse(raw.slice(start, end + 1)) as unknown;
-      if (!Array.isArray(parsed)) return null;
+      const entries = parseCuratedArray(raw);
+      if (!entries) return null;
 
       const items: TrendTopicItem[] = [];
-      for (const entry of parsed) {
+      for (const entry of entries) {
         if (!entry || typeof entry !== 'object') continue;
         const rec = entry as Record<string, unknown>;
         const keyword = typeof rec.keyword === 'string' ? rec.keyword.trim().slice(0, 16) : '';
