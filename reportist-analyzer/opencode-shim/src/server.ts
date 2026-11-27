@@ -1,5 +1,6 @@
 import { isReady, runCompletion, startHost, type StreamItem } from "./host"
 import { chunk, completion, DONE, errorBody, extractPromptFiles, toPrompt, type ChatRequest } from "./convert"
+import { SHIM_IDLE_TIMEOUT, SSE_HEARTBEAT_MS, startSseHeartbeat } from "./sse"
 
 const port = Number(process.env.OPENCODE_SHIM_PORT ?? 4096)
 const secret = process.env.OPENCODE_SHIM_SECRET ?? ""
@@ -11,6 +12,7 @@ console.log(`[opencode-shim] ready on 127.0.0.1:${port}`)
 Bun.serve({
   hostname: "127.0.0.1",
   port,
+  idleTimeout: SHIM_IDLE_TIMEOUT,
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     if (url.pathname === "/health") {
@@ -73,6 +75,14 @@ Bun.serve({
       async start(ctrl) {
         // 첫 청크를 정상 role 청크로 보내면 게이트웨이가 에러를 못 잡고 키를 바꾸지 않는다.
         // 실제 토큰이 올 때까지 role 청크를 미뤄, 에러가 먼저 오면 첫 청크가 에러가 되게 한다.
+        // 콜드 스타트/락 대기 중에는 실제 청크가 없으므로 SSE 주석으로 연결을 유지한다.
+        const stopHeartbeat = startSseHeartbeat((ping) => {
+          try {
+            ctrl.enqueue(ping)
+          } catch {
+            // 소비자가 이미 끊어진 경우 무시한다.
+          }
+        }, SSE_HEARTBEAT_MS)
         let sentRole = false
         const ensureRole = () => {
           if (sentRole) return
@@ -112,6 +122,7 @@ Bun.serve({
           ctrl.close()
           console.error("[opencode-shim] stream error", error)
         } finally {
+          stopHeartbeat()
           clearTimeout(timer)
         }
       },
