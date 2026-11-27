@@ -38,9 +38,72 @@ interface CacheEntry {
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const SEARCH_TIMEOUT_MS = 5000;
-const LLM_TIMEOUT_MS = 25_000;
+const LLM_TIMEOUT_MS = 12_000;
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+
+const QUERY_STOP_WORDS = new Set([
+  '요즘',
+  '진짜',
+  '정말',
+  '혹시',
+  '다들',
+  '너희',
+  '우리',
+  '이거',
+  '그거',
+  '저거',
+  '어때',
+  '어때요',
+  '할까',
+  '할래',
+  '될까',
+  '있어',
+  '있을까',
+  '많대',
+  '인기래',
+  '화제래',
+  '어떻게',
+  '생각해',
+  '생각하나요',
+  '뭐가',
+  '무엇이',
+  '좋을까',
+  '가능해',
+  '얘기',
+  '이야기',
+  '사람들이',
+  '아니면',
+  '관련',
+]);
+
+export function buildNewsSearchQuery(topic: string, context?: string, keyword?: string): string {
+  const tokenize = (text: string): string[] =>
+    text
+      .replace(/[[\]()'"“”‘’…·,:!?~./]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter((token) => token.length >= 2 && !QUERY_STOP_WORDS.has(token));
+
+  const picked: string[] = [];
+  const seen = new Set<string>();
+  const addTokens = (tokens: string[], limit: number): void => {
+    for (const token of tokens) {
+      const norm = token.toLowerCase();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      picked.push(token);
+      if (picked.length >= limit) break;
+    }
+  };
+
+  if (keyword?.trim()) addTokens(tokenize(keyword), 3);
+  if (context?.trim()) addTokens(tokenize(context), 5);
+  if (picked.length < 4) addTokens(tokenize(topic.split(/[.?!]\s/)[0] ?? topic), 5);
+
+  const built = picked.join(' ').trim();
+  return (built || topic.replace(/[?~…!]/g, ' ').trim()).slice(0, 60);
+}
 
 function normalizeTopic(topic: string): string {
   return topic.toLowerCase().replace(/\s+/g, '').slice(0, 240);
@@ -54,7 +117,7 @@ export class DiscussionPrepService {
   private cache = new Map<string, CacheEntry>();
   private inFlight = new Map<string, Promise<DiscussionPrepPayload>>();
 
-  async prepare(topic: string, context?: string): Promise<DiscussionPrepPayload> {
+  async prepare(topic: string, context?: string, keyword?: string): Promise<DiscussionPrepPayload> {
     const key = normalizeTopic(topic);
     const hit = this.cache.get(key);
     if (hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS) return hit.payload;
@@ -62,7 +125,7 @@ export class DiscussionPrepService {
     const pending = this.inFlight.get(key);
     if (pending) return pending;
 
-    const task = this.refresh(topic, context)
+    const task = this.refresh(topic, context, keyword)
       .then((payload) => {
         this.cache.set(key, { payload, fetchedAt: Date.now() });
         return payload;
@@ -74,17 +137,14 @@ export class DiscussionPrepService {
     return task;
   }
 
-  /** 주제로 뉴스 검색을 수행해 출처 후보를 모은다. 실패하면 빈 배열. */
-  private async searchNews(topic: string): Promise<ReturnType<typeof filterSafeCandidates>> {
+  private async fetchSearchCandidates(
+    rawQuery: string
+  ): Promise<ReturnType<typeof filterSafeCandidates>> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
     try {
-      const query = encodeURIComponent(
-        topic
-          .replace(/[?~…!]/g, ' ')
-          .trim()
-          .slice(0, 60)
-      );
+      const query = encodeURIComponent(rawQuery.trim().slice(0, 60));
+      if (!query) return [];
       const url = `https://news.google.com/rss/search?q=${query}&hl=ko&gl=KR&ceid=KR:ko`;
       const response = await fetch(url, {
         headers: { 'User-Agent': UA, Accept: 'application/rss+xml, application/xml, text/xml' },
@@ -98,6 +158,23 @@ export class DiscussionPrepService {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /** 주제/키워드로 뉴스 검색을 수행해 출처 후보를 모은다. 실패하면 빈 배열. */
+  private async searchNews(
+    topic: string,
+    context?: string,
+    keyword?: string
+  ): Promise<ReturnType<typeof filterSafeCandidates>> {
+    const primaryQuery = buildNewsSearchQuery(topic, context, keyword);
+    const results = await this.fetchSearchCandidates(primaryQuery);
+    if (results.length > 0) return results;
+
+    const fallbackKeyword = keyword?.trim();
+    if (fallbackKeyword && fallbackKeyword !== primaryQuery) {
+      return this.fetchSearchCandidates(fallbackKeyword);
+    }
+    return [];
   }
 
   /** 검색 결과와 RSS 문맥을 근거로 배경·사실·쟁점을 정리한다. 근거 없이 단정하지 않는다. */
@@ -134,12 +211,12 @@ export class DiscussionPrepService {
               },
             ],
             temperature: 0.3,
-            max_tokens: 700,
+            max_tokens: 2000,
             reasoning_effort: 'none',
             stream: false,
           },
           undefined,
-          { textOnlyModels: true }
+          { textOnlyModels: true, preferFastNonReasoning: true }
         ),
         new Promise<never>((_resolve, reject) => {
           controller.signal.addEventListener('abort', () => reject(new Error('timeout')), {
@@ -221,8 +298,12 @@ export class DiscussionPrepService {
     };
   }
 
-  private async refresh(topic: string, context?: string): Promise<DiscussionPrepPayload> {
-    const sources = isSafeTopicText(topic) ? await this.searchNews(topic) : [];
+  private async refresh(
+    topic: string,
+    context?: string,
+    keyword?: string
+  ): Promise<DiscussionPrepPayload> {
+    const sources = isSafeTopicText(topic) ? await this.searchNews(topic, context, keyword) : [];
     const curated =
       sources.length > 0 || context ? await this.curate(topic, context, sources) : null;
     const briefing = curated ?? this.deterministic(topic, context, sources);

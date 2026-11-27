@@ -8,17 +8,19 @@ export const discussionsRoute = new Elysia().post(
   '/v1/discussions/prepare',
   async ({ body, set }) => {
     const topic = body.topic.trim().slice(0, 240);
-    if (topic.length < 4 || !isSafeTopicText(`${topic} ${body.context ?? ''}`)) {
+    const keyword = body.keyword?.trim().slice(0, 40);
+    if (topic.length < 4 || !isSafeTopicText(`${topic} ${body.context ?? ''} ${keyword ?? ''}`)) {
       set.status = 400;
       return { error: { code: 'UNSAFE_TOPIC', message: '토론에 부적합한 주제예요.' } };
     }
 
-    return discussionPrepService.prepare(topic, body.context?.trim().slice(0, 200));
+    return discussionPrepService.prepare(topic, body.context?.trim().slice(0, 200), keyword);
   },
   {
     body: t.Object({
       topic: t.String({ minLength: 4, maxLength: 240 }),
       context: t.Optional(t.String({ maxLength: 200 })),
+      keyword: t.Optional(t.String({ maxLength: 40 })),
     }),
     response: t.Union([
       t.Object({

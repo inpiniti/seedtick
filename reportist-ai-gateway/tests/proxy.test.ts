@@ -139,4 +139,57 @@ describe('ProxyService', () => {
     expect(slots[4]).toEqual({ provider: 'openrouter', key: 'or-3' });
     expect(slots[5]).toEqual({ provider: 'kilo', key: 'kilo-1' });
   });
+
+  test('연속 5xx가 2회 발생하면 남은 키를 다 돌지 않고 다음 모델로 전환한다', async () => {
+    const { ProxyService } = await import('../src/domain/proxy/ProxyService.ts');
+    const { modelService } = await import('../src/domain/models/ModelService.ts');
+    const { spyOn } = await import('bun:test');
+
+    const service = new ProxyService(undefined, [
+      { provider: 'openrouter', keys: ['or-1', 'or-2', 'or-3', 'or-4', 'or-5'] },
+    ]);
+
+    const selectSpy = spyOn(modelService, 'selectBestModel')
+      .mockResolvedValueOnce({ id: 'broken/model-a:free' } as never)
+      .mockResolvedValueOnce({ id: 'healthy/model-b:free' } as never)
+      .mockResolvedValueOnce(null);
+    const findSpy = spyOn(modelService, 'findModelById').mockResolvedValue(null);
+
+    const calledModels: string[] = [];
+    const adaptersMap = (
+      service as unknown as {
+        adapters: Map<
+          string,
+          {
+            call: (req: ChatRequest, modelId: string, apiKey: string) => Promise<unknown>;
+          }
+        >;
+      }
+    ).adapters;
+    adaptersMap.set('openrouter', {
+      call: async (_req: ChatRequest, modelId: string) => {
+        calledModels.push(modelId);
+        if (modelId === 'broken/model-a:free') {
+          return { ok: false, status: 500, errorBody: 'Internal Server Error' };
+        }
+        return { ok: true, status: 200, response: mockChatResponse, errorBody: '' };
+      },
+    });
+
+    try {
+      const result = await service.chat({ ...mockRequest, reasoning_effort: 'none' }, undefined, {
+        textOnlyModels: true,
+        preferFastNonReasoning: true,
+      });
+      expect('choices' in result).toBe(true);
+      expect(calledModels).toEqual([
+        'broken/model-a:free',
+        'broken/model-a:free',
+        'healthy/model-b:free',
+      ]);
+    } finally {
+      selectSpy.mockRestore();
+      findSpy.mockRestore();
+    }
+  });
 });

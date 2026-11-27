@@ -150,7 +150,7 @@ export function getFallbackLine(species: AnimalSpecies, seed: number): string {
 }
 
 const TREND_CLIENT_TTL_MS = 15 * 60 * 1000;
-const TREND_FETCH_TIMEOUT_MS = 15_000;
+const TREND_FETCH_TIMEOUT_MS = 18_000;
 let cachedTopics: DiscussionTopicInfo[] = [];
 let trendPoolFetchedAt = 0;
 let trendCursor = 0;
@@ -339,7 +339,8 @@ const briefingInFlight = new Map<string, Promise<DiscussionBriefing | null>>();
 export async function requestDiscussionBriefing(
   topic: string,
   context: string | undefined,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  keyword?: string
 ): Promise<DiscussionBriefing | null> {
   const key = topic.trim().toLowerCase().slice(0, 240);
   const hit = briefingCache.get(key);
@@ -358,7 +359,7 @@ export async function requestDiscussionBriefing(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${DEFAULT_CONFIG.gatewaySecret}`,
         },
-        body: JSON.stringify({ topic, context }),
+        body: JSON.stringify({ topic, context, keyword }),
         signal: controller,
       });
       if (!response.ok) return null;

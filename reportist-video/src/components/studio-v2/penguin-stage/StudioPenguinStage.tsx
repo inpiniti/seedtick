@@ -496,10 +496,15 @@ export const StudioPenguinStage = forwardRef<
             }
             const topicInfo = await requestDiscussionTopic(controller.signal);
             if (controller.signal.aborted) return;
+            setTopic(topicInfo.topic);
+            setTopicContext(topicInfo.context ?? '');
+            setTranscript([]);
+            setBriefing(null);
             const prepared = await requestDiscussionBriefing(
               topicInfo.topic,
               topicInfo.context,
-              controller.signal
+              controller.signal,
+              topicInfo.keyword
             );
             if (controller.signal.aborted) return;
             activeDiscussion = {
@@ -513,9 +518,6 @@ export const StudioPenguinStage = forwardRef<
               ended: false,
             };
             setBriefing(prepared);
-            setTopic(topicInfo.topic);
-            setTopicContext(topicInfo.context ?? '');
-            setTranscript([]);
           }
 
           const current = activeDiscussion;

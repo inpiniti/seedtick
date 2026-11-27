@@ -161,8 +161,8 @@ describe('GET /v1/trends', () => {
       const json = (await response.json()) as TrendsPayload;
       expect(json.items[0]?.topic).toBe(specificTopic);
       expect(json.items[0]?.context).toBe(specificContext);
-      expect(systemPrompt).toContain('100~180자');
-      expect(systemPrompt).toContain('반복하지 말고');
+      expect(systemPrompt).toContain('80~135자');
+      expect(systemPrompt).toContain('겹치지 않는');
       expect(maxTokens).toBeGreaterThanOrEqual(6000);
     } finally {
       fetchSpy.mockRestore();
@@ -275,7 +275,7 @@ describe('GET /v1/trends', () => {
     }
   });
 
-  it('falls back to deterministic RSS topics when the LLM fails', async () => {
+  it('falls back to deterministic RSS topics with short cache-control when the LLM fails', async () => {
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       (async () => new Response(RSS_XML, { status: 200 })) as unknown as typeof fetch
     );
@@ -286,6 +286,8 @@ describe('GET /v1/trends', () => {
     try {
       const response = await app.handle(new Request('http://localhost/v1/trends'));
       expect(response.status).toBe(200);
+      expect(response.headers.get('cache-control')).toContain('s-maxage=15');
+      expect(response.headers.get('cache-control')).not.toContain('s-maxage=1800');
       const json = (await response.json()) as TrendsPayload;
       expect(json.source).toBe('rss');
       expect(json.items.length).toBeGreaterThan(0);
@@ -294,5 +296,45 @@ describe('GET /v1/trends', () => {
       fetchSpy.mockRestore();
       chatSpy.mockRestore();
     }
+  });
+
+  it('cleans bracket tags, publisher suffixes, non-Korean items, and tabloid noise', () => {
+    const noisyRss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:ht="https://trends.google.com/trending/rss">
+  <channel>
+    <item>
+      <title>김장 배추</title>
+      <ht:news_item>
+        <ht:news_item_title>English Breaking News Title - Reuters</ht:news_item_title>
+        <ht:news_item_url>https://news.google.com/articles/en-1</ht:news_item_url>
+      </ht:news_item>
+      <ht:news_item>
+        <ht:news_item_title>[단독] 올해 배추 가격 안정세, 김장 수요 늘었다 [특종세상] - 머니투데이</ht:news_item_title>
+        <ht:news_item_url>https://news.google.com/articles/ko-1</ht:news_item_url>
+      </ht:news_item>
+      <ht:news_item>
+        <ht:news_item_title>절임배추 온라인 주문 30% 증가 - 한국경제</ht:news_item_title>
+        <ht:news_item_url>https://news.google.com/articles/ko-2</ht:news_item_url>
+      </ht:news_item>
+    </item>
+    <item>
+      <title>연예인 가십</title>
+      <ht:news_item_title>유명 배우 음주운전 적발 후 빚더미 폭락 눈물</ht:news_item_title>
+    </item>
+    <item>
+      <title>English Only Trend</title>
+      <ht:news_item_title>Some English Headline</ht:news_item_title>
+    </item>
+  </channel>
+</rss>`;
+
+    const candidates = parseRssCandidates(noisyRss, 'google-trends');
+    expect(candidates).toHaveLength(2);
+    expect(candidates[0]?.headline).toBe('올해 배추 가격 안정세, 김장 수요 늘었다');
+    expect(candidates[0]?.subHeadlines).toEqual(['절임배추 온라인 주문 30% 증가']);
+
+    const safe = filterSafeCandidates(candidates);
+    expect(safe).toHaveLength(1);
+    expect(safe[0]?.keyword).toBe('김장 배추');
   });
 });

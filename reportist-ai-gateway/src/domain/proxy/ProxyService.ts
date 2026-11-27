@@ -266,7 +266,8 @@ export class ProxyService {
     requestedModel: string | undefined,
     requiredInputs: Array<'text' | 'image' | 'audio' | 'video'>,
     outputModality: 'text' | 'image' | 'audio' | 'video',
-    textOnlyModels = false
+    textOnlyModels = false,
+    preferFastNonReasoning = false
   ): Promise<string[]> {
     const direct = requestedModel?.trim();
     const forced: string[] = [];
@@ -292,6 +293,7 @@ export class ProxyService {
         requiredInputs,
         excludeIds,
         textOnly: textOnlyModels,
+        preferFastNonReasoning,
       });
       if (!selected?.id) break;
       candidates.push(selected.id);
@@ -304,6 +306,11 @@ export class ProxyService {
         ? 'nvidia/nemotron-3.5-lightning:free'
         : 'nvidia/nemotron-3.5-super-vl:free';
       return forced.includes(fallback) ? forced : [...forced, fallback];
+    }
+
+    if (preferFastNonReasoning) {
+      // 빠른 비추론 우선 모드에서는 커서 회전으로 느린 2~3순위 모델이 맨 앞으로 오지 않게 고정한다.
+      return [...forced, ...candidates];
     }
 
     const start = this.autoModelCursor % candidates.length;
@@ -460,7 +467,7 @@ export class ProxyService {
   async chat(
     request: ChatRequest,
     opencodeKeyOverride?: string,
-    options?: { textOnlyModels?: boolean }
+    options?: { textOnlyModels?: boolean; preferFastNonReasoning?: boolean }
   ): Promise<ChatResponse | GatewayError> {
     const attempts: GatewayAttempt[] = [];
     const directModel = request.model?.trim();
@@ -468,11 +475,15 @@ export class ProxyService {
       return this.chatOpenCode(request, directModel, opencodeKeyOverride);
     }
     const requiredInputs = this.inferRequiredInputs(request);
+    const preferFastNonReasoning =
+      options?.preferFastNonReasoning === true ||
+      (options?.textOnlyModels === true && isReasoningDisabledEffort(request.reasoning_effort));
     const targetModels = await this.resolveTargetModels(
       request.model,
       requiredInputs,
       'text',
-      options?.textOnlyModels === true
+      options?.textOnlyModels === true,
+      preferFastNonReasoning
     );
     const isGeminiDirectRequest = Boolean(request.model?.trim().startsWith('gemini'));
 
@@ -491,6 +502,7 @@ export class ProxyService {
       if (!isGeminiDirect && this.slots.length > 0) {
         // 실패한 키는 즉시 쿨다운되므로 같은 키를 두 번 시도할 이유가 없다.
         const maxAttempts = this.slots.length;
+        let consecutiveServerErrors = 0;
         console.info(
           `[Gateway] 🚀 통합 풀 호출 시작 (총 ${this.slots.length}개 슬롯 교차 로테이션, 최대 ${maxAttempts}회 시도, 모델=${targetModel})`
         );
@@ -537,6 +549,7 @@ export class ProxyService {
             });
 
             if (result.status === 429) {
+              consecutiveServerErrors = 0;
               // RPM/TPM은 쿨다운, 일일 소진(RPD)은 리셋 시각까지 사용 제외로 처리한다.
               const allProviderKeys = this.slots
                 .filter((slot) => slot.provider === provider)
@@ -554,11 +567,19 @@ export class ProxyService {
               result.status === 503 ||
               result.status === 504
             ) {
+              consecutiveServerErrors += 1;
               console.warn(
                 `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
               );
               this.cooldown.setCooldown(provider, targetModel, key, 15_000, 'server_overloaded');
+              if (consecutiveServerErrors >= 2) {
+                console.info(
+                  `[Gateway] 연속 서버 오류(${consecutiveServerErrors}회)로 다음 모델로 전환: ${provider}:${targetModel}`
+                );
+                break;
+              }
             } else {
+              consecutiveServerErrors = 0;
               console.warn(
                 `[Gateway] HTTP ${result.status} ([${provider}], 키: ${keyMasked}): ${result.errorBody.slice(0, 180)} (시도 ${attempt}/${maxAttempts})`
               );
@@ -577,8 +598,14 @@ export class ProxyService {
               }
             }
 
-            // 401/403은 모델/키를 바꿔도 소용이 없으므로 400ms 대기 없이 다음 슬롯으로 넘어간다.
-            if (attempt < maxAttempts && category !== 'unauthorized' && category !== 'forbidden') {
+            // 401/403/404(가드레일/미존재)는 키를 바꿔도 즉시 다음 슬롯/모델로 가는 편이 지연이 적다.
+            if (
+              attempt < maxAttempts &&
+              category !== 'unauthorized' &&
+              category !== 'forbidden' &&
+              category !== 'provider_rejected' &&
+              category !== 'model_not_found'
+            ) {
               await new Promise((r) => setTimeout(r, 400));
             }
           } finally {
@@ -1168,10 +1195,10 @@ export class ProxyService {
 
       case 'provider_rejected':
         // 가드레일 거부는 모델이 내려간 것이 아니라 해당 키/계정의 정책 문제다.
-        // 모델을 카탈로그에서 제외하면 다른 키까지 못 쓰게 되므로 키만 짧게 쉬게 하고 다음 슬롯으로 넘어간다.
-        this.cooldown.setCooldown(provider, modelId, apiKey, 60_000, category);
+        // 모델을 카탈로그에서 제외하면 다른 키까지 못 쓰게 되므로 해당 키만 10분간 건너뛰고 다음 슬롯으로 넘어간다.
+        this.cooldown.setCooldown(provider, modelId, apiKey, 10 * 60_000, category);
         console.info(
-          `[Gateway] 제공사 거부(404) — ${provider}:${modelId} 키(${apiKey.slice(-8)})를 1분간 건너뜁니다.`
+          `[Gateway] 제공사 거부(404) — ${provider}:${modelId} 키(${apiKey.slice(-8)})를 10분간 건너뜁니다.`
         );
         void this.errorLogger.warning(
           'GATEWAY_PROVIDER_REJECTED',

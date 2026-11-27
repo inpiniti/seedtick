@@ -16,8 +16,12 @@ export const trendsRoute = new Elysia().get(
       set.headers['cache-control'] = 'no-store';
       return trendsService.getTrendsExcluding(excluded);
     }
-    set.headers['cache-control'] = 'public, s-maxage=1800, stale-while-revalidate=3600';
-    return trendsService.getTrends();
+    const payload = await trendsService.getTrends();
+    set.headers['cache-control'] =
+      payload.source === 'rss+llm'
+        ? 'public, s-maxage=1800, stale-while-revalidate=3600'
+        : 'public, s-maxage=15, stale-while-revalidate=60';
+    return payload;
   },
   {
     query: t.Object({

@@ -289,4 +289,94 @@ describe('ModelService & Models Route', () => {
       getKeyStatesSpy.mockRestore();
     }
   });
+
+  it('ModelService.selectBestModel() with preferFastNonReasoning ranks non-mandatory-reasoning & faster models first', async () => {
+    fetchSpy?.mockImplementation((async (input: Parameters<typeof fetch>[0]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes('/api/frontend/v1/models/find')) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              endpoint_perf: {
+                ep_mandatory: { p50_throughput: 180, p50_latency: 900 },
+                ep_fast: { p50_throughput: 140, p50_latency: 350 },
+              },
+              models: [
+                {
+                  slug: 'test/mandatory-reasoner',
+                  endpoint: {
+                    id: 'ep_mandatory',
+                    provider_info: { dataPolicy: { training: false } },
+                  },
+                },
+                {
+                  slug: 'test/fast-none-model',
+                  endpoint: {
+                    id: 'ep_fast',
+                    provider_info: { dataPolicy: { training: true } },
+                  },
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'test/mandatory-reasoner:free',
+              name: 'Mandatory Reasoner',
+              created: 1793000000,
+              context_length: 131072,
+              description: 'Mandatory reasoning model',
+              architecture: {
+                modality: 'text->text',
+                input_modalities: ['text'],
+                output_modalities: ['text'],
+              },
+              supported_parameters: ['temperature', 'reasoning'],
+              reasoning: { mandatory: true, supported_efforts: ['high'], default_effort: 'high' },
+            },
+            {
+              id: 'test/fast-none-model:free',
+              name: 'Fast None Model',
+              created: 1792000000,
+              context_length: 131072,
+              description: 'Fast model supporting none effort',
+              architecture: {
+                modality: 'text->text',
+                input_modalities: ['text'],
+                output_modalities: ['text'],
+              },
+              supported_parameters: ['temperature', 'reasoning', 'reasoning_effort'],
+              reasoning: {
+                mandatory: false,
+                supported_efforts: ['none', 'low', 'high'],
+                default_effort: 'none',
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    }) as unknown as typeof fetch);
+    resetModelCache();
+
+    const defaultPick = await modelService.selectBestModel({
+      outputModality: 'text',
+      requiredInputs: ['text'],
+      textOnly: true,
+    });
+    expect(defaultPick?.id).toBe('test/mandatory-reasoner:free');
+
+    const fastPick = await modelService.selectBestModel({
+      outputModality: 'text',
+      requiredInputs: ['text'],
+      textOnly: true,
+      preferFastNonReasoning: true,
+    });
+    expect(fastPick?.id).toBe('test/fast-none-model:free');
+  });
 });

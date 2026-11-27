@@ -26,6 +26,8 @@ interface SelectModelOptions {
   excludeProviderPrefixes?: string[];
   /** 입력은 text/tools만, 출력은 text만 허용한다 (동물 대화 등 텍스트 전용 용도). */
   textOnly?: boolean;
+  /** 추론을 끄고 빠르게 응답하는 텍스트 모델을 우선 선택한다 (큐레이션/브리핑/동물 대화). */
+  preferFastNonReasoning?: boolean;
 }
 
 // OpenRouter API 일시 장애 시 사용하는 기본 폴백 모델 목록.
@@ -826,7 +828,7 @@ export class ModelService {
         return !options.excludeProviderPrefixes.some((prefix) => model.id.startsWith(prefix));
       })
       .filter((model) => !options.excludeIds?.includes(model.id))
-      .sort((a, b) => this.compareForAutoSelection(a, b));
+      .sort((a, b) => this.compareForAutoSelection(a, b, options.preferFastNonReasoning === true));
 
     return filtered[0] ?? null;
   }
@@ -865,7 +867,31 @@ export class ModelService {
     return 1;
   }
 
-  private compareForAutoSelection(a: FreeModelMeta, b: FreeModelMeta): number {
+  private canDisableReasoning(model: FreeModelMeta): boolean {
+    if (model.reasoningMandatory === true) return false;
+    if (model.supportedEfforts?.length && !model.supportedEfforts.includes('none')) return false;
+    return true;
+  }
+
+  private compareForAutoSelection(
+    a: FreeModelMeta,
+    b: FreeModelMeta,
+    preferFastNonReasoning = false
+  ): number {
+    if (preferFastNonReasoning) {
+      const noReasonA = this.canDisableReasoning(a) ? 0 : 1;
+      const noReasonB = this.canDisableReasoning(b) ? 0 : 1;
+      if (noReasonA !== noReasonB) return noReasonA - noReasonB;
+
+      const speedA = a.speedTokensPerSecond ?? 0;
+      const speedB = b.speedTokensPerSecond ?? 0;
+      if (speedA !== speedB) return speedB - speedA;
+
+      const latA = a.latencyMs && a.latencyMs > 0 ? a.latencyMs : Number.MAX_SAFE_INTEGER;
+      const latB = b.latencyMs && b.latencyMs > 0 ? b.latencyMs : Number.MAX_SAFE_INTEGER;
+      if (latA !== latB) return latA - latB;
+    }
+
     const riskA = this.trainingRiskRank(a);
     const riskB = this.trainingRiskRank(b);
     if (riskA !== riskB) return riskA - riskB;
