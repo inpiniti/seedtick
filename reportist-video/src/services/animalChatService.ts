@@ -152,7 +152,8 @@ export function getFallbackLine(species: AnimalSpecies, seed: number): string {
 }
 
 const TREND_CLIENT_TTL_MS = 15 * 60 * 1000;
-const TREND_FETCH_TIMEOUT_MS = 15_000;
+// 게이트웨이 LLM 큐레이션이 무료 키 교체로 지연될 수 있어 자료 조사(32초)와 같은 여유를 둔다.
+const TREND_FETCH_TIMEOUT_MS = 35_000;
 let cachedTopics: DiscussionTopicInfo[] = [];
 let trendPoolFetchedAt = 0;
 let trendCursor = 0;
