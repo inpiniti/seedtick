@@ -12,7 +12,7 @@
 |:---|:---|:---|
 | **RPM 초과** (분당 요청 수 초과) | 응답 body에 `RPM`, `rate_limit` 미포함 | 해당 키+모델 **60초 쿨다운** 후 다음 키/모델 |
 | **TPM 초과** (분당 토큰 수 초과) | 응답 body에 `TPM`, `token` 포함 | 해당 키+모델 **60초 쿨다운** |
-| **RPD 소진** (일일 할당량 소진) | 응답 body에 `PerDay`, `per day`, `quota_limit_value`, `insufficient_quota` 포함 | 해당 키+모델 **Supabase에 소진 기록** (자정 자동 초기화), 당일 해당 키 사용 금지 |
+| **RPD 소진** (일일 할당량 소진) | 응답 body에 `PerDay`, `per day`, `quota_limit_value`, `insufficient_quota` 포함 | 해당 키+모델 **Supabase에 소진 기록** (소진 시점 + 24시간 또는 제공사가 알려준 리셋 시각까지), 해당 키 사용 금지 |
 
 > **핵심**: RPD 소진은 Supabase에 영구 기록. 나머지는 인메모리 cooldownMap으로 충분.
 
@@ -133,7 +133,7 @@ function setCooldown(apiKey: string, provider: string, model: string, durationMs
 | 에러 | 범위 | 쿨다운 |
 |:---|:---|:---|
 | RPM/TPM 429 | 키+모델 | 60초 |
-| RPD 소진 429 | 키+모델 | Supabase 기록 (자정까지) |
+| RPD 소진 429 | 키+모델 | Supabase 기록 (소진 + 24시간 또는 제공사 리셋 시각까지) |
 | 403 Forbidden | 키+모델 | 1시간 |
 | 401 Unauthorized | 키 전체 | 1시간 |
 | 404 Not Found | 모델 전체 | 24시간 |

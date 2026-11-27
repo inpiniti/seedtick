@@ -4,6 +4,7 @@ import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 import { env } from '../../config/env.ts';
 import { hasSupabaseCredentials, isSupabaseAuthError } from '../../config/supabase.ts';
 import type { LLMProvider } from '../types.ts';
+import { fallbackResetAt, parseResetAt } from './ResetAtParser.ts';
 
 export class QuotaManager {
   private supabase: SupabaseClient | null = null;
@@ -77,28 +78,26 @@ export class QuotaManager {
     }
   }
 
-  private calcResetAt(provider: string): Date {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-
-    if (provider === 'gemini') {
-      tomorrow.setUTCHours(env.geminiResetHour, 0, 0, 0);
-    } else if (provider === 'cline') {
-      tomorrow.setUTCHours(env.clineResetHour, 0, 0, 0);
-    } else if (provider === 'kilo') {
-      tomorrow.setUTCHours(env.kiloResetHour, 0, 0, 0);
-    } else if (provider === 'openrouter') {
-      tomorrow.setUTCHours(env.openrouterResetHour, 0, 0, 0);
-    } else {
-      tomorrow.setUTCHours(0, 0, 0, 0);
-    }
-    return tomorrow;
+  /**
+   * 소진 시점부터 24시간 뒤를 기본 리셋 시각으로 쓴다.
+   * 제공사가 응답 헤더/에러 메시지에 알려준 시각이 있으면 그것을 우선한다.
+   */
+  private resolveResetAt(hint?: { header?: string | null; errorBody?: string }): Date {
+    const now = Date.now();
+    const resetAtMs =
+      parseResetAt(hint?.header, now) ?? parseResetAt(hint?.errorBody, now) ?? fallbackResetAt(now);
+    return new Date(resetAtMs);
   }
 
-  async markExhausted(provider: LLMProvider, model: string, apiKey: string): Promise<void> {
+  async markExhausted(
+    provider: LLMProvider,
+    model: string,
+    apiKey: string,
+    hint?: { header?: string | null; errorBody?: string }
+  ): Promise<void> {
     const hash = this.getApiKeyHash(apiKey);
-    const resetAt = this.calcResetAt(provider);
+    const exhaustedAt = new Date();
+    const resetAt = this.resolveResetAt(hint);
 
     // 인메모리 즉시 반영
     this.exhaustedMap.set(this.buildKey(provider, model, hash), resetAt.getTime());
@@ -113,7 +112,7 @@ export class QuotaManager {
           provider,
           model,
           api_key_hash: hash,
-          exhausted_at: new Date().toISOString(),
+          exhausted_at: exhaustedAt.toISOString(),
           reset_at: resetAt.toISOString(),
         },
         {

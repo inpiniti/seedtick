@@ -1,5 +1,6 @@
 // OpenAICompatAdapter.ts - OpenAI 호환 제공사 어댑터 (Cline, Kilo, OpenRouter)
 
+import { readResetAtHeader } from '../../key-rotator/ResetAtParser.ts';
 import type { ChatRequest, ChatResponse, ProviderConfig } from '../../types.ts';
 import type { ILLMAdapter } from './ILLMAdapter.ts';
 
@@ -61,6 +62,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
     status: number;
     response?: ChatResponse;
     errorBody: string;
+    resetAt?: string | null;
   }> {
     const headers: Record<string, string> = {
       ...(this.config.keyHeaderName
@@ -92,6 +94,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
           ok: false,
           status: response.status,
           errorBody: responseText,
+          resetAt: readResetAtHeader(response.headers),
         };
       }
 
@@ -126,6 +129,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
           ok: false,
           status: errCode,
           errorBody: errMsg,
+          resetAt: readResetAtHeader(response.headers),
         };
       }
 
@@ -206,6 +210,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
     status: number;
     stream?: ReadableStream<Uint8Array>;
     errorBody: string;
+    resetAt?: string | null;
   }> {
     const headers: Record<string, string> = {
       ...(this.config.keyHeaderName
@@ -237,6 +242,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
           ok: false,
           status: response.status,
           errorBody,
+          resetAt: readResetAtHeader(response.headers),
         };
       }
 
@@ -338,6 +344,8 @@ export class OpenAICompatAdapter implements ILLMAdapter {
           ok: false,
           status: errorStatus,
           errorBody: errorMessage,
+          // HTTP 200으로 오는 스트림 에러도 헤더에 리셋 시각이 있을 수 있다.
+          resetAt: readResetAtHeader(response.headers),
         };
       }
 

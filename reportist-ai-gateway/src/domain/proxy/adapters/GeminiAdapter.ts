@@ -1,7 +1,15 @@
 // GeminiAdapter.ts - Gemini API 어댑터 (OpenAI 규격 변환)
 
+import { readResetAtHeader } from '../../key-rotator/ResetAtParser.ts';
 import type { ChatMessage, ChatRequest, ChatResponse, ProviderConfig } from '../../types.ts';
 import type { ILLMAdapter } from './ILLMAdapter.ts';
+
+// ChatMessage.content는 unknown이라 어댑터에서 읽는 최소 형태로 좁혀 사용한다.
+interface ContentPart {
+  type?: string;
+  text?: string;
+  image_url?: { url?: string };
+}
 
 interface GeminiPart {
   text?: string;
@@ -58,6 +66,7 @@ export class GeminiAdapter implements ILLMAdapter {
     status: number;
     response?: ChatResponse;
     errorBody: string;
+    resetAt?: string | null;
   }> {
     const geminiRequest = this.transformRequest(request);
 
@@ -84,6 +93,7 @@ export class GeminiAdapter implements ILLMAdapter {
           ok: false,
           status: response.status,
           errorBody: responseText,
+          resetAt: readResetAtHeader(response.headers),
         };
       }
 
@@ -123,9 +133,9 @@ export class GeminiAdapter implements ILLMAdapter {
       return content;
     }
     if (Array.isArray(content)) {
-      return content
-        .filter((part: any) => part?.type === 'text' && typeof part?.text === 'string')
-        .map((part: any) => part.text)
+      return (content as ContentPart[])
+        .filter((part): part is ContentPart & { text: string } => typeof part?.text === 'string')
+        .map((part) => part.text)
         .join('\n');
     }
     return String(content ?? '');
@@ -153,7 +163,7 @@ export class GeminiAdapter implements ILLMAdapter {
         if (role === 'user') isFirstUser = false;
       } else if (Array.isArray(msg.content)) {
         let prependedSystem = false;
-        for (const item of msg.content as any[]) {
+        for (const item of msg.content as ContentPart[]) {
           if (item?.type === 'text' && typeof item.text === 'string') {
             const text =
               isFirstUser && !prependedSystem && systemText

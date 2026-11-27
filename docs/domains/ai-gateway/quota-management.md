@@ -1,7 +1,7 @@
 ﻿# AI-Gateway 일일 소진 키 관리 (Supabase)
 
 > RPM/TPM 등 일시적 에러는 인메모리 cooldownMap으로 충분하지만,
-> **일일 할당량(RPD) 소진**은 자정까지 유효하므로 Supabase에 영구 기록합니다.
+> **일일 할당량(RPD) 소진**은 소진 시점부터 24시간(또는 제공사가 알려준 리셋 시각)까지 유효하므로 Supabase에 기록합니다.
 
 ---
 
@@ -14,7 +14,7 @@ CREATE TABLE gateway_quota_exhausted (
   model       TEXT NOT NULL,           -- 모델 ID
   api_key_hash TEXT NOT NULL,          -- API 키 끝 8자 (보안상 전체 저장 금지)
   exhausted_at TIMESTAMPTZ DEFAULT NOW(),
-  reset_at    TIMESTAMPTZ NOT NULL,    -- 초기화 예정 시각 (제공사 기준 자정)
+  reset_at    TIMESTAMPTZ NOT NULL,    -- 초기화 예정 시각 (제공사 리셋 시각 또는 exhausted_at + 24시간)
   UNIQUE(provider, model, api_key_hash)
 );
 
@@ -24,30 +24,20 @@ DELETE FROM gateway_quota_exhausted WHERE reset_at < NOW();
 
 ---
 
-## reset_at 계산 (제공사별 자정 기준)
+## reset_at 계산 (소진 시점 + 24시간 기준)
 
-| 제공사 | 기준 자정 | reset_at 계산 |
-|:---|:---|:---|
-| **Gemini** | 태평양 자정 (PT) | 다음 날 UTC 07:00 (PST) 또는 08:00 (PDT) |
-| **Cline** | UTC 자정 | 다음 날 UTC 00:00 |
-| **Kilo** | UTC 자정 | 다음 날 UTC 00:00 |
-| **OpenRouter** | UTC 자정 | 다음 날 UTC 00:00 |
+자정(UTC 00:00 = KST 09:00)에 일괄 리셋하지 않는다. 실제 소진이 발생한 시점을 기준으로 24시간 뒤에 해제된다.
+
+1. 제공사 응답에 리셋 시각이 있으면 그 값을 우선 사용한다.
+   - `x-ratelimit-reset`, `x-ratelimit-reset-at`, `retry-after` 헤더 (유닉스 초 / ISO / HTTP date)
+   - 에러 메시지의 ISO 8601 시각, `try again in 3h 12m`, `retry after 90 seconds`, `1시간 30분 후 사용 가능` 등
+2. 시각을 알 수 없으면 `exhausted_at + 24시간`을 기록한다.
+3. 과거 시각이거나 48시간을 초과하는 값은 신뢰하지 않고 폴백한다.
 
 ```typescript
-function calcResetAt(provider: string): Date {
-  const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
-
-  if (provider === 'gemini') {
-    // 태평양 자정 = UTC 08:00 (PDT 기준, 동절기 07:00)
-    tomorrow.setUTCHours(8, 0, 0, 0)
-  } else {
-    // 나머지: UTC 자정
-    tomorrow.setUTCHours(0, 0, 0, 0)
-  }
-  return tomorrow
-}
+// src/domain/key-rotator/ResetAtParser.ts
+const resetAtMs =
+  parseResetAt(headerHint, now) ?? parseResetAt(errorBody, now) ?? now + 24 * 60 * 60 * 1000
 ```
 
 ---
@@ -63,7 +53,7 @@ async function markKeyExhausted(
   apiKey: string
 ): Promise<void> {
   const hash = apiKey.slice(-8)
-  const resetAt = calcResetAt(provider)
+  const resetAt = resolveResetAt(resetHint) // 제공사 힌트 우선, 없으면 소진 + 24시간
 
   await supabase.from('gateway_quota_exhausted').upsert({
     provider,
@@ -101,11 +91,11 @@ async function isKeyExhausted(
 }
 ```
 
-### 3. 자정 자동 초기화 (Supabase Edge Function 또는 배치)
+### 3. 만료된 기록 정리 (Supabase Edge Function 또는 배치)
 
 ```typescript
 // Supabase Edge Function: /functions/cleanup-gateway-quota
-// cron: '0 0,8 * * *' (UTC 자정 + 08:00 두 번 실행)
+// 각 키의 reset_at이 지난 뒤 실행 (예: 매시간)
 const { error } = await supabase
   .from('gateway_quota_exhausted')
   .delete()

@@ -533,7 +533,10 @@ export class ProxyService {
               const allProviderKeys = this.slots
                 .filter((slot) => slot.provider === provider)
                 .map((slot) => slot.key);
-              await this.handleError(category, provider, targetModel, key, allProviderKeys);
+              await this.handleError(category, provider, targetModel, key, allProviderKeys, {
+                header: result.resetAt,
+                errorBody: result.errorBody,
+              });
               console.warn(
                 `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}, ${category}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
               );
@@ -554,7 +557,10 @@ export class ProxyService {
               const providerKeys = this.slots
                 .filter((slot) => slot.provider === provider)
                 .map((slot) => slot.key);
-              await this.handleError(category, provider, targetModel, key, providerKeys);
+              await this.handleError(category, provider, targetModel, key, providerKeys, {
+                header: result.resetAt,
+                errorBody: result.errorBody,
+              });
               if (this.shouldBreakModelLoop(category)) {
                 console.info(
                   `[Gateway] 다음 모델로 전환: ${provider}:${targetModel} (${category})`
@@ -612,7 +618,10 @@ export class ProxyService {
             errorSnippet: result.errorBody.slice(0, 200),
             attemptedAt: new Date().toISOString(),
           });
-          await this.handleError(category, 'gemini', geminiModel, apiKey, env.geminiKeys);
+          await this.handleError(category, 'gemini', geminiModel, apiKey, env.geminiKeys, {
+            header: result.resetAt,
+            errorBody: result.errorBody,
+          });
         } finally {
           this.rotator.releaseKey('gemini', apiKey);
         }
@@ -717,7 +726,10 @@ export class ProxyService {
               const allProviderKeys = this.slots
                 .filter((slot) => slot.provider === provider)
                 .map((slot) => slot.key);
-              await this.handleError(category, provider, targetModel, key, allProviderKeys);
+              await this.handleError(category, provider, targetModel, key, allProviderKeys, {
+                header: result.resetAt,
+                errorBody: result.errorBody,
+              });
               console.warn(
                 `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}, ${category}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
               );
@@ -738,7 +750,10 @@ export class ProxyService {
               const providerKeys = this.slots
                 .filter((slot) => slot.provider === provider)
                 .map((slot) => slot.key);
-              await this.handleError(category, provider, targetModel, key, providerKeys);
+              await this.handleError(category, provider, targetModel, key, providerKeys, {
+                header: result.resetAt,
+                errorBody: result.errorBody,
+              });
               if (this.shouldBreakModelLoop(category)) {
                 console.info(
                   `[Gateway] 다음 모델로 전환: ${provider}:${targetModel} (${category})`
@@ -788,7 +803,10 @@ export class ProxyService {
             errorSnippet: result.errorBody.slice(0, 200),
             attemptedAt: new Date().toISOString(),
           });
-          await this.handleError(category, 'gemini', geminiModel, apiKey, env.geminiKeys);
+          await this.handleError(category, 'gemini', geminiModel, apiKey, env.geminiKeys, {
+            header: result.resetAt,
+            errorBody: result.errorBody,
+          });
         } finally {
           this.rotator.releaseKey('gemini', apiKey);
         }
@@ -1025,6 +1043,7 @@ export class ProxyService {
     status: number;
     response?: ChatResponse;
     errorBody: string;
+    resetAt?: string | null;
   }> {
     const coldStartKey = `${provider}:${modelId}`;
     const isFirstCall = !this.coldStartTried.has(coldStartKey);
@@ -1079,7 +1098,8 @@ export class ProxyService {
     provider: LLMProvider,
     modelId: string,
     apiKey: string,
-    allKeys: string[]
+    allKeys: string[],
+    resetHint?: { header?: string | null; errorBody?: string }
   ): Promise<void> {
     console.info(
       `[Gateway] Handling error: ${category} for ${provider}:${modelId}:${apiKey.slice(-8)}`
@@ -1095,7 +1115,8 @@ export class ProxyService {
         break;
 
       case 'daily_exhausted':
-        this.quota.markExhausted(provider, modelId, apiKey);
+        // 제공사가 알려준 리셋 시각이 있으면 사용하고, 없으면 소진 시점 + 24시간을 기록한다.
+        this.quota.markExhausted(provider, modelId, apiKey, resetHint);
         console.info(
           `[Gateway] Marked daily exhausted for ${provider}:${modelId}:${apiKey.slice(-8)}`
         );

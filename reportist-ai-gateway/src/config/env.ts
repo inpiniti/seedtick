@@ -13,10 +13,6 @@ export interface EnvConfig {
   opencodeBaseUrl: string;
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
-  geminiResetHour: number;
-  clineResetHour: number;
-  kiloResetHour: number;
-  openrouterResetHour: number;
 }
 
 function parseKeys(...values: (string | undefined)[]): string[] {
@@ -30,12 +26,6 @@ function parseKeys(...values: (string | undefined)[]): string[] {
     result.push(...parts);
   }
   return [...new Set(result)];
-}
-
-function parseIntOrDefault(value: string | undefined, defaultValue: number): number {
-  if (!value) return defaultValue;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? defaultValue : parsed;
 }
 
 export function loadEnv(): EnvConfig {
@@ -52,10 +42,6 @@ export function loadEnv(): EnvConfig {
     opencodeBaseUrl: process.env.OPENCODE_BRIDGE_URL ?? 'http://127.0.0.1:4096/v1/chat/completions',
     supabaseUrl: process.env.SUPABASE_URL ?? '',
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-    geminiResetHour: parseIntOrDefault(process.env.GEMINI_RESET_HOUR, 8),
-    clineResetHour: parseIntOrDefault(process.env.CLINE_RESET_HOUR, 0),
-    kiloResetHour: parseIntOrDefault(process.env.KILO_RESET_HOUR, 0),
-    openrouterResetHour: parseIntOrDefault(process.env.OPENROUTER_RESET_HOUR, 0),
   };
 }
 
