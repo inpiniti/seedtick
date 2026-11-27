@@ -1,6 +1,6 @@
 import { placeBubble, type BubbleBox } from './bubblePlacement.ts';
 import { FOOTPRINT_LIFETIME } from './penguinPhysics.ts';
-import { drawSnowScenery } from './snowScenery.ts';
+import { drawSnowGround, getSceneryProps, type SceneryDrawable } from './snowScenery.ts';
 import { PERSPECTIVE_Y } from './stageStyle.ts';
 import {
   getAgentTheme,
@@ -123,13 +123,13 @@ export interface RenderOptions {
   previewRect: Rect | null;
 }
 
-/** 레이어 순서: 설원 배경 → 눈송이(뒤) → 발자국 → 목표 파동 → 개체 → 말풍선 → 눈송이(앞). */
+/** 레이어 순서: 설원 바닥·해빙 → 눈송이(뒤) → 발자국·파동 → 소품+개체(y 정렬) → 말풍선 → 눈송이(앞). */
 export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): void {
   ctx.clearRect(0, 0, o.width, o.height);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  drawSnowScenery(
+  drawSnowGround(
     ctx,
     o.width,
     o.height,
@@ -159,25 +159,42 @@ export function renderScene(ctx: CanvasRenderingContext2D, o: RenderOptions): vo
     ctx.fill();
   }
 
-  // 선택 개체를 맨 마지막에 그리면 뒤에 있는 개체가 앞으로 튀어나온다.
-  // 접지점 y 오름차순(먼 개체부터)으로 모두 그려 2.5D 깊이를 유지한다.
-  const drawOrder = [...o.agents].sort((a, b) => a.physics.y - b.physics.y);
-  for (const agent of drawOrder) {
+  // 소품과 개체를 접지점 y 오름차순(먼 것부터)으로 함께 그려 2.5D 깊이와 가림 순서를 일치시킨다.
+  const drawables: SceneryDrawable[] = getSceneryProps(
+    o.width,
+    o.height,
+    o.now,
+    o.reducedMotion,
+    o.palette,
+    o.previewRect,
+    o.obstacles
+  );
+  for (const agent of o.agents) {
     const isSelected = agent === selected;
-    if (isSelected) {
-      drawSelectionRing(ctx, agent.physics.x, agent.physics.y, o.now, o.palette, o.reducedMotion);
-    }
-    drawAgent(
-      ctx,
-      agent.physics,
-      isSelected
-        ? getSpeciesTheme(agent.species, dark)
-        : getAgentTheme(agent.species, dark, false),
-      agent.species,
-      o.now,
-      o.reducedMotion
-    );
+    drawables.push({
+      y: agent.physics.y,
+      draw: (c: CanvasRenderingContext2D): void => {
+        if (isSelected) {
+          drawSelectionRing(c, agent.physics.x, agent.physics.y, o.now, o.palette, o.reducedMotion);
+        }
+        drawAgent(
+          c,
+          agent.physics,
+          isSelected
+            ? getSpeciesTheme(agent.species, dark)
+            : getAgentTheme(agent.species, dark, false),
+          agent.species,
+          o.now,
+          o.reducedMotion
+        );
+      },
+    });
   }
+  drawables.sort((a, b) => a.y - b.y);
+  for (const item of drawables) {
+    item.draw(ctx);
+  }
+
   drawBubbles(ctx, o.agents, o.now, o.width, o.height, o.palette, o.obstacles);
   drawParticles(ctx, o.particles, o.palette, true);
 }

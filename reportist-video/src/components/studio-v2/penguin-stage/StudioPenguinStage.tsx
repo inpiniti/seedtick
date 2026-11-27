@@ -19,6 +19,7 @@ import {
   resolvePalette,
   stepParticles,
 } from './penguinRenderer.ts';
+import { collectSceneryObstacles } from './snowScenery.ts';
 import {
   ANIMAL_LABELS,
   ANIMAL_MBTI,
@@ -188,6 +189,7 @@ export const StudioPenguinStage = forwardRef<
   const particlesRef = useRef<SnowParticle[]>([]);
   const pingRef = useRef<Ping | null>(null);
   const previewRectRef = useRef<Rect | null>(null);
+  const domObstaclesRef = useRef<Rect[]>([]);
   const paletteRef = useRef<Palette>(resolvePalette(false));
   const sizeRef = useRef({ width: 0, height: 0 });
   const initializedRef = useRef(false);
@@ -336,11 +338,18 @@ export const StudioPenguinStage = forwardRef<
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const obstacles = collectObstacles(obstacleRoot, rect);
-      const grid = buildGrid(width, height, obstacles);
-      lastObstacleKey = obstacleKey(obstacles);
+      const domObstacles = collectObstacles(obstacleRoot, rect);
+      const previewRect = measurePreviewRect(rect);
+      const sceneryObstacles = collectSceneryObstacles(width, height, previewRect, domObstacles);
+      const grid = buildGrid(width, height, [...domObstacles, ...sceneryObstacles]);
+      lastObstacleKey = `${obstacleKey(domObstacles)}@${
+        previewRect
+          ? `${Math.round(previewRect.left)}:${Math.round(previewRect.top)}:${Math.round(previewRect.right)}:${Math.round(previewRect.bottom)}`
+          : 'none'
+      }`;
+      domObstaclesRef.current = domObstacles;
       gridRef.current = grid;
-      previewRectRef.current = measurePreviewRect(rect);
+      previewRectRef.current = previewRect;
 
       if (!initializedRef.current) {
         spawnAgents(grid);
@@ -361,7 +370,7 @@ export const StudioPenguinStage = forwardRef<
     };
     remeasureRef.current = remeasure;
 
-    // 스테이지 셸은 pointer-events: none 이므로 실제 클릭을 받는 부모에서 위임한다.
+    // 스테이지 쉘은 pointer-events: none 이므로 실제 클릭을 받는 부모에서 위임한다.
     const clickSurface = host.parentElement ?? host;
     const findHitAgent = (x: number, y: number): StageAgent | null => {
       let best: StageAgent | null = null;
@@ -383,15 +392,23 @@ export const StudioPenguinStage = forwardRef<
     const refreshObstacles = (): void => {
       const { width, height } = sizeRef.current;
       if (width < 1 || height < 1) return;
-      const obstacles = collectObstacles(obstacleRoot, host.getBoundingClientRect());
-      const key = obstacleKey(obstacles);
+      const origin = host.getBoundingClientRect();
+      const domObstacles = collectObstacles(obstacleRoot, origin);
+      const previewRect = measurePreviewRect(origin);
+      const key = `${obstacleKey(domObstacles)}@${
+        previewRect
+          ? `${Math.round(previewRect.left)}:${Math.round(previewRect.top)}:${Math.round(previewRect.right)}:${Math.round(previewRect.bottom)}`
+          : 'none'
+      }`;
       // 말풍선·주제 등 레이아웃과 무관한 리렌더에 반응해 이동 중 경로를
       // 반복해서 되그리는 것을 막는다.
       if (key === lastObstacleKey) return;
       lastObstacleKey = key;
-      const grid = buildGrid(width, height, obstacles);
+      domObstaclesRef.current = domObstacles;
+      previewRectRef.current = previewRect;
+      const sceneryObstacles = collectSceneryObstacles(width, height, previewRect, domObstacles);
+      const grid = buildGrid(width, height, [...domObstacles, ...sceneryObstacles]);
       gridRef.current = grid;
-      previewRectRef.current = measurePreviewRect(host.getBoundingClientRect());
       reconcileAgents(grid);
     };
 
@@ -703,8 +720,8 @@ export const StudioPenguinStage = forwardRef<
         palette: paletteRef.current,
         reducedMotion: reducedMotionRef.current,
         selectedSpecies: speciesRef.current,
-        // 동물이 피한 장애물 영역은 말풍선도 피해야 미리보기에 가리지 않는다.
-        obstacles: grid.obstacles,
+        // 미리보기·상단바·토론 카드 등 실제 DOM 오버레이 영역을 넘겨 말풍선과 배경 소품이 피하게 한다.
+        obstacles: domObstaclesRef.current,
         previewRect: previewRectRef.current,
       });
     };
