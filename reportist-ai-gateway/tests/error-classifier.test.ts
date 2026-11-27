@@ -29,6 +29,7 @@ describe('ErrorClassifier', () => {
     ],
     [400, 'content_filter violation', 'safety_filter'],
     [400, 'safety settings triggered', 'safety_filter'],
+    [400, 'Upstream request failed: Model is unavailable.', 'model_not_found'],
     [401, 'Unauthorized', 'unauthorized'],
     [401, 'Invalid API key', 'unauthorized'],
     [403, 'Forbidden', 'forbidden'],

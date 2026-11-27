@@ -85,4 +85,14 @@ describe('QuotaManager 리셋 시각 기록', () => {
     const resetAt = manager.getExhaustedMap().get('openrouter:test-model:abcdefgh');
     expect(Math.abs((resetAt ?? 0) - Number(header) * 1000)).toBeLessThan(2000);
   });
+
+  it('계정 전체 일일 한도(free-models-per-day)면 같은 제공사의 다른 모델도 소진으로 본다', async () => {
+    const manager = new QuotaManager();
+    await manager.markExhausted('openrouter', 'model-a:free', 'sk-or-v1-abcdefgh', {
+      errorBody: '{"error":{"message":"Rate limit exceeded: free-models-per-day"}}',
+    });
+
+    expect(manager.isExhaustedLocal('openrouter', 'model-a:free', 'sk-or-v1-abcdefgh')).toBe(true);
+    expect(manager.isExhaustedLocal('openrouter', 'model-b:free', 'sk-or-v1-abcdefgh')).toBe(true);
+  });
 });

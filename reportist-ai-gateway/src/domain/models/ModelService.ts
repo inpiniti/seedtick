@@ -1,6 +1,6 @@
 // ModelService.ts - OpenRouter 무료 모델 목록 및 메타데이터 서비스
 
-import { env } from '../../config/env.ts';
+import { isOpenCodeAvailable } from '../../config/env.ts';
 import type { FreeModelMeta } from '../types.ts';
 
 interface ModelPerfMetric {
@@ -500,17 +500,6 @@ const OPENCODE_FREE_MODEL_SEEDS: ReadonlyArray<{
     supportsTools: true,
     supportedEfforts: ['none', 'high'],
   },
-  {
-    id: 'tidepool-alpha-free',
-    name: 'Tidepool Alpha Free',
-    createdDate: '2026-11-18',
-    contextLength: 1048576,
-    description: 'Stealth reasoning model, free for a limited time',
-    inputModalities: ['text'],
-    supportsReasoning: true,
-    supportsTools: true,
-    supportedEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
-  },
 ];
 
 function buildOpenCodeFreeModels(now: number): FreeModelMeta[] {
@@ -843,7 +832,7 @@ export class ModelService {
     for (const model of IMAGE_GENERATION_FREE_MODELS) {
       if (!byId.has(model.id)) byId.set(model.id, model);
     }
-    if (env.opencodeKeys.length > 0) {
+    if (isOpenCodeAvailable()) {
       for (const model of buildOpenCodeFreeModels(Date.now())) {
         if (!byId.has(model.id)) byId.set(model.id, model);
       }

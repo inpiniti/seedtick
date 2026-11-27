@@ -264,83 +264,132 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         };
       }
 
-      // 첫 번째 청크 사전 검증 (Peek & Validate)
-      // 상위 제공자가 HTTP 200을 줬더라도 첫 청크로 429 에러나 빈 스트림을 뱉는 경우 다음 슬롯으로 전환할 수 있게 방어
+      // 첫 번째 실제 SSE 이벤트 사전 검증 (Peek & Validate)
+      // opencode-shim 등은 콜드 스타트 중 `: ping\n\n` 하트비트 주석을 먼저 보낼 수 있으므로
+      // 주석 라인만 온 청크는 건너뛰고 실제 data/에러 이벤트가 올 때까지 남은 타임아웃 예산 안에서 읽는다.
       const reader = response.body.getReader();
-      // OpenCode 브릿지는 세션 생성 + 추론 초기화가 직렬로 붙어 첫 토큰까지 수 초가 걸린다.
-      // 15초는 정상 콜드 스타트도 408로 잘라버려 모든 키가 연쇄적으로 실패한다.
       const firstChunkTimeoutMs = 60_000;
-      let firstChunkTimer: ReturnType<typeof setTimeout> | undefined;
-
-      const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>(
-        (resolve) => {
-          firstChunkTimer = setTimeout(
-            () => resolve({ done: true, value: undefined, timedOut: true }),
-            firstChunkTimeoutMs
-          );
-        }
-      );
-
-      const readPromise = reader.read().then((res) => ({ ...res, timedOut: false }));
-      const firstResult = await Promise.race([readPromise, timeoutPromise]);
-      clearTimeout(firstChunkTimer);
-
-      if (firstResult.timedOut) {
-        try {
-          await reader.cancel('First token timeout');
-        } catch {}
-        return {
-          ok: false,
-          status: 408,
-          errorBody: `First token timeout after ${firstChunkTimeoutMs}ms (model hung/cold)`,
-        };
-      }
-
-      if (firstResult.done || !firstResult.value || firstResult.value.byteLength === 0) {
-        try {
-          await reader.cancel('Empty stream');
-        } catch {}
-        return {
-          ok: false,
-          status: 502,
-          errorBody: 'Empty stream received from provider (0 bytes before stream completion)',
-        };
-      }
-
-      // 첫 청크 디코딩 및 에러 검사
+      const peekDeadline = Date.now() + firstChunkTimeoutMs;
       const decoder = new TextDecoder();
-      const firstChunkText = decoder.decode(firstResult.value, { stream: true });
+
+      let firstChunkValue: Uint8Array | undefined;
+      let firstChunkText = '';
+
+      while (true) {
+        const remainingMs = peekDeadline - Date.now();
+        if (remainingMs <= 0) {
+          try {
+            await reader.cancel('First token timeout');
+          } catch {}
+          return {
+            ok: false,
+            status: 408,
+            errorBody: `First token timeout after ${firstChunkTimeoutMs}ms (model hung/cold)`,
+          };
+        }
+
+        let firstChunkTimer: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>(
+          (resolve) => {
+            firstChunkTimer = setTimeout(
+              () => resolve({ done: true, value: undefined, timedOut: true }),
+              remainingMs
+            );
+          }
+        );
+
+        const readPromise = reader.read().then((res) => ({ ...res, timedOut: false }));
+        const firstResult = await Promise.race([readPromise, timeoutPromise]);
+        clearTimeout(firstChunkTimer);
+
+        if (firstResult.timedOut) {
+          try {
+            await reader.cancel('First token timeout');
+          } catch {}
+          return {
+            ok: false,
+            status: 408,
+            errorBody: `First token timeout after ${firstChunkTimeoutMs}ms (model hung/cold)`,
+          };
+        }
+
+        if (firstResult.done) {
+          try {
+            await reader.cancel('Empty stream');
+          } catch {}
+          return {
+            ok: false,
+            status: 502,
+            errorBody: 'Empty stream received from provider (0 bytes before stream completion)',
+          };
+        }
+
+        if (!firstResult.value || firstResult.value.byteLength === 0) {
+          continue;
+        }
+
+        const chunkText = decoder.decode(firstResult.value, { stream: true });
+        const hasNonCommentContent = chunkText.split(/\r?\n/).some((line) => {
+          const trimmed = line.trim();
+          return trimmed.length > 0 && !trimmed.startsWith(':');
+        });
+        if (!hasNonCommentContent) {
+          continue;
+        }
+
+        firstChunkValue = firstResult.value;
+        firstChunkText = chunkText;
+        break;
+      }
+
+      const nonCommentText = firstChunkText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith(':'))
+        .join('\n');
 
       let isStreamError = false;
       let errorStatus = 500;
       let errorMessage = '';
 
-      if (firstChunkText.includes('"error":') || firstChunkText.includes('"error" :')) {
+      if (nonCommentText.includes('"error":') || nonCommentText.includes('"error" :')) {
         isStreamError = true;
-        errorMessage = firstChunkText;
+        errorMessage = nonCommentText;
         if (
-          firstChunkText.includes('429') ||
-          firstChunkText.includes('rate-limited') ||
-          firstChunkText.includes('RateLimit') ||
-          firstChunkText.includes('quota') ||
+          nonCommentText.includes('429') ||
+          nonCommentText.includes('rate-limited') ||
+          nonCommentText.includes('RateLimit') ||
+          nonCommentText.includes('quota') ||
           // OpenCode/free 티어 한도 에러는 위 키워드에 하나도 걸리지 않아 500으로 오분류됐다.
-          firstChunkText.includes('FreeUsageLimitError') ||
-          firstChunkText.includes('Free usage limit reached') ||
-          firstChunkText.includes('provider.free-limit') ||
-          firstChunkText.includes('BudgetLimitError') ||
-          firstChunkText.includes('GoUsageLimitError')
+          nonCommentText.includes('FreeUsageLimitError') ||
+          nonCommentText.includes('Free usage limit reached') ||
+          nonCommentText.includes('provider.free-limit') ||
+          nonCommentText.includes('BudgetLimitError') ||
+          nonCommentText.includes('GoUsageLimitError')
         ) {
           errorStatus = 429;
         } else if (
-          firstChunkText.includes('503') ||
-          firstChunkText.includes('overloaded') ||
-          firstChunkText.includes('temporarily unavailable')
+          /workspace access denied|"status"\s*:\s*403|\b403\b|forbidden/i.test(nonCommentText)
+        ) {
+          errorStatus = 403;
+        } else if (
+          /unauthorized|"status"\s*:\s*401|\b401\b|invalid.?api.?key|api_key_expired/i.test(
+            nonCommentText
+          )
+        ) {
+          errorStatus = 401;
+        } else if (/model is unavailable|model_not_found/i.test(nonCommentText)) {
+          errorStatus = 502;
+        } else if (
+          nonCommentText.includes('503') ||
+          nonCommentText.includes('overloaded') ||
+          nonCommentText.includes('temporarily unavailable')
         ) {
           errorStatus = 503;
-        } else if (firstChunkText.includes('stream_initialization_failed')) {
-          errorStatus = firstChunkText.includes('429') ? 429 : 502;
+        } else if (nonCommentText.includes('stream_initialization_failed')) {
+          errorStatus = nonCommentText.includes('429') ? 429 : 502;
         }
-      } else if (firstChunkText.trim() === 'data: [DONE]' || firstChunkText.trim() === '[DONE]') {
+      } else if (nonCommentText === 'data: [DONE]' || nonCommentText === '[DONE]') {
         isStreamError = true;
         errorStatus = 502;
         errorMessage = 'Provider sent immediate [DONE] without any completion tokens';
@@ -360,12 +409,12 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       }
 
       // 정상 청크 확인 완료: 첫 청크를 프리펜드(Prepend)한 새 ReadableStream 생성
-      const firstChunkValue = firstResult.value;
+      const validatedFirstChunk = firstChunkValue;
       const prependedStream = new ReadableStream<Uint8Array>({
         async start(streamController) {
           try {
             // 1. 검증된 첫 번째 청크 먼저 방출
-            streamController.enqueue(firstChunkValue);
+            streamController.enqueue(validatedFirstChunk);
 
             // 2. 이후 청크 계속 파이프
             while (true) {

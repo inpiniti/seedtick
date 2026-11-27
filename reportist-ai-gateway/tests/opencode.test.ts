@@ -44,6 +44,8 @@ describe('OpenCode bridge provider', () => {
   beforeEach(() => {
     env.opencodeKeys = ['oc_sk_key111111', 'oc_sk_key222222'];
     env.opencodeBaseUrl = 'http://bridge.test/v1/chat/completions';
+    env.opencodeBridgeConfigured = false;
+    env.opencodeAllowPublic = true;
     env.gatewaySecret = 'gateway-secret';
     env.geminiKeys = [];
     env.openrouterKeys = [];
@@ -115,7 +117,7 @@ describe('OpenCode bridge provider', () => {
     expect('error' in result).toBe(true);
     if ('error' in result) {
       expect(result.error.code).toBe('GATEWAY_OPENCODE_EXHAUSTED');
-      expect(result.error.attempts).toHaveLength(2);
+      expect(result.error.attempts).toHaveLength(3);
     }
     expect(logger.critical).toHaveBeenCalled();
   });
@@ -149,7 +151,45 @@ describe('OpenCode bridge provider', () => {
     expect(usedKeys).toEqual(['oc_sk_key222222']);
   });
 
-  test('502 인증 실패면 남은 키를 소모하지 않고 제공사 전체를 6시간 차단한다', async () => {
+  test('502 인증 실패면 남은 sk 키는 건너뛰고 무키(public) 슬롯으로 돌파 시도한다', async () => {
+    const spy = vi.fn(async (_input: unknown, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string>;
+      if (headers['X-OpenCode-Api-Key'] === 'public') {
+        return new Response(JSON.stringify(chatResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(
+        JSON.stringify({ error: { message: '{"status":403,"type":"provider.auth"}' } }),
+        { status: 502 }
+      );
+    });
+    globalThis.fetch = spy as unknown as typeof fetch;
+
+    const service = new ProxyService(logger);
+    const result = await service.chat(request);
+
+    expect('error' in result).toBe(false);
+    const usedKeys = spy.mock.calls.map(
+      (call) => (call[1]?.headers as Record<string, string>)['X-OpenCode-Api-Key']
+    );
+    expect(usedKeys).toEqual(['oc_sk_key111111', 'public']);
+
+    const cooldown = (service as unknown as ProxyInternals).getCooldownMap();
+    expect(cooldown.get(`opencode:*:${env.opencodeKeys[0].slice(-8)}`)?.reason).toBe('forbidden');
+    expect(cooldown.get(`opencode:*:${env.opencodeKeys[1].slice(-8)}`)?.reason).toBe('forbidden');
+
+    // 다음 요청은 6시간 쿨다운 중인 sk 키를 건너뛰고 바로 public으로 간다.
+    const second = await service.chat(request);
+    expect('error' in second).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(3);
+    expect((spy.mock.calls[2]?.[1]?.headers as Record<string, string>)['X-OpenCode-Api-Key']).toBe(
+      'public'
+    );
+  });
+
+  test('무키(public)까지 502 인증 실패면 제공사 전체를 6시간 차단한다', async () => {
     globalThis.fetch = vi.fn(
       async () =>
         new Response(
@@ -163,14 +203,37 @@ describe('OpenCode bridge provider', () => {
 
     expect('error' in result).toBe(true);
     if ('error' in result) {
-      expect(result.error.attempts).toHaveLength(1);
+      expect(result.error.attempts).toHaveLength(2);
       expect(result.error.attempts[0]?.errorCategory).toBe('forbidden');
+      expect(result.error.attempts[1]?.apiKeyHash).toBe('public');
     }
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     const cooldown = (service as unknown as ProxyInternals).getCooldownMap();
     const blocked = cooldown.get(`opencode:*:${env.opencodeKeys[0].slice(-8)}`);
     expect(blocked?.reason).toBe('forbidden');
     expect(blocked?.expiresAt).toBeGreaterThan(Date.now() + 5 * 3_600_000);
+    expect(cooldown.get('opencode:*:public')?.reason).toBe('forbidden');
+  });
+
+  test('OPENCODE_API_KEYS가 비어 있어도 브릿지가 설정되면 public 슬롯으로 호출한다', async () => {
+    env.opencodeKeys = [];
+    env.opencodeBridgeConfigured = true;
+    const spy = vi.fn(
+      async (_input: unknown, _init?: RequestInit) =>
+        new Response(JSON.stringify(chatResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+    globalThis.fetch = spy as unknown as typeof fetch;
+
+    const service = new ProxyService(logger);
+    const result = await service.chat(request);
+
+    expect('error' in result).toBe(false);
+    expect((spy.mock.calls[0]?.[1]?.headers as Record<string, string>)['X-OpenCode-Api-Key']).toBe(
+      'public'
+    );
   });
 
   test('모든 키가 막힌 모델은 자동 후보에서 제외된다', async () => {
@@ -178,7 +241,7 @@ describe('OpenCode bridge provider', () => {
     const blockedModel = 'opencode/nemotron-3.5-lightning-free';
 
     expect(service.isModelFullyBlocked(blockedModel)).toBe(false);
-    for (const key of env.opencodeKeys) {
+    for (const key of [...env.opencodeKeys, 'public']) {
       await service.handleError('daily_exhausted', 'opencode', blockedModel, key, env.opencodeKeys);
     }
     expect(service.isModelFullyBlocked(blockedModel)).toBe(true);
@@ -210,7 +273,8 @@ describe('OpenCode bridge provider', () => {
     expect(ids).toContain('opencode/hy4-flash-free');
     expect(ids).toContain('opencode/deepseek-v4.1-flash-free');
     expect(ids).toContain('opencode/beam-free');
-    expect(ids.filter((id) => id.startsWith('opencode/')).length).toBe(10);
+    expect(ids).not.toContain('opencode/tidepool-alpha-free');
+    expect(ids.filter((id) => id.startsWith('opencode/')).length).toBe(9);
   });
 
   test('OpenCode 모델은 실제 입력 모달리티와 capability를 노출한다', () => {

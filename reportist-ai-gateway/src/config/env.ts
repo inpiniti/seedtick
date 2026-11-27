@@ -11,6 +11,8 @@ export interface EnvConfig {
   geminiKeys: string[];
   opencodeKeys: string[];
   opencodeBaseUrl: string;
+  opencodeBridgeConfigured: boolean;
+  opencodeAllowPublic: boolean;
 }
 
 function parseKeys(...values: (string | undefined)[]): string[] {
@@ -27,6 +29,7 @@ function parseKeys(...values: (string | undefined)[]): string[] {
 }
 
 export function loadEnv(): EnvConfig {
+  const rawOpencodeBridgeUrl = process.env.OPENCODE_BRIDGE_URL?.trim();
   return {
     gatewaySecret: process.env.GATEWAY_SECRET ?? '',
     clineKeys: parseKeys(process.env.CLINE_API_KEY, process.env.CLINE_API_KEYS),
@@ -37,11 +40,20 @@ export function loadEnv(): EnvConfig {
     openrouterKeys: parseKeys(process.env.OPENROUTER_API_KEY, process.env.OPENROUTER_API_KEYS),
     geminiKeys: parseKeys(process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEYS),
     opencodeKeys: parseKeys(process.env.OPENCODE_API_KEY, process.env.OPENCODE_API_KEYS),
-    opencodeBaseUrl: process.env.OPENCODE_BRIDGE_URL ?? 'http://127.0.0.1:4096/v1/chat/completions',
+    opencodeBaseUrl: rawOpencodeBridgeUrl || 'http://127.0.0.1:4096/v1/chat/completions',
+    opencodeBridgeConfigured: Boolean(rawOpencodeBridgeUrl),
+    opencodeAllowPublic: process.env.OPENCODE_ALLOW_PUBLIC !== 'false',
   };
 }
 
 export const env = loadEnv();
+
+export function isOpenCodeAvailable(config: EnvConfig = env): boolean {
+  return (
+    config.opencodeKeys.length > 0 ||
+    (config.opencodeBridgeConfigured && config.opencodeAllowPublic)
+  );
+}
 
 export function validateEnv(): string[] {
   const errors: string[] = [];

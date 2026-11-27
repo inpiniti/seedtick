@@ -128,6 +128,212 @@ export class GeminiAdapter implements ILLMAdapter {
     }
   }
 
+  async callStream(
+    request: ChatRequest,
+    modelId: string,
+    apiKey: string,
+    timeoutMs = 120_000
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    stream?: ReadableStream<Uint8Array>;
+    errorBody: string;
+    resetAt?: string | null;
+  }> {
+    const geminiRequest = this.transformRequest(request);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const url = `${this.baseUrl}${modelId}:streamGenerateContent?alt=sse&key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify(geminiRequest),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        return {
+          ok: false,
+          status: response.status,
+          errorBody,
+          resetAt: readResetAtHeader(response.headers),
+        };
+      }
+
+      if (!response.body) {
+        return {
+          ok: false,
+          status: 500,
+          errorBody: 'No response body received from Gemini',
+        };
+      }
+
+      const reader = response.body.getReader();
+      const firstChunkTimeoutMs = 60_000;
+      let firstTimer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>(
+        (resolve) => {
+          firstTimer = setTimeout(
+            () => resolve({ done: true, value: undefined, timedOut: true }),
+            firstChunkTimeoutMs
+          );
+        }
+      );
+      const firstResult = await Promise.race([
+        reader.read().then((res) => ({ ...res, timedOut: false })),
+        timeoutPromise,
+      ]);
+      clearTimeout(firstTimer);
+
+      if (firstResult.timedOut) {
+        try {
+          await reader.cancel('First token timeout');
+        } catch {}
+        return {
+          ok: false,
+          status: 408,
+          errorBody: `Gemini first token timeout after ${firstChunkTimeoutMs}ms`,
+        };
+      }
+
+      if (firstResult.done || !firstResult.value || firstResult.value.byteLength === 0) {
+        try {
+          await reader.cancel('Empty stream');
+        } catch {}
+        return {
+          ok: false,
+          status: 502,
+          errorBody: 'Empty stream received from Gemini',
+        };
+      }
+
+      const decoder = new TextDecoder();
+      const encoder = new TextEncoder();
+      const firstText = decoder.decode(firstResult.value, { stream: true });
+      if (firstText.includes('"error":') || firstText.includes('"error" :')) {
+        try {
+          await reader.cancel('Gemini stream error');
+        } catch {}
+        const status = firstText.includes('429') ? 429 : 502;
+        return {
+          ok: false,
+          status,
+          errorBody: firstText,
+          resetAt: readResetAtHeader(response.headers),
+        };
+      }
+
+      const streamId = `chatcmpl-gemini-${Date.now()}`;
+      let sentRole = false;
+      let buffer = firstText;
+
+      const emitLine = (
+        line: string,
+        streamController: ReadableStreamDefaultController<Uint8Array>
+      ) => {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) return;
+        const payload = trimmed.slice(5).trim();
+        if (!payload || payload === '[DONE]') return;
+
+        let parsed: GeminiRawResponse;
+        try {
+          parsed = JSON.parse(payload) as GeminiRawResponse;
+        } catch {
+          return;
+        }
+
+        const candidate = parsed.candidates?.[0];
+        if (!candidate) return;
+        const text = (candidate.content?.parts ?? [])
+          .map((p) => (typeof p.text === 'string' ? p.text : ''))
+          .join('');
+        const finishReason = candidate.finishReason
+          ? this.mapFinishReason(candidate.finishReason)
+          : null;
+
+        if (!text && !finishReason) return;
+
+        const delta: Record<string, string> = {};
+        if (!sentRole) {
+          delta.role = 'assistant';
+          sentRole = true;
+        }
+        if (text) delta.content = text;
+
+        const openAiChunk = {
+          id: streamId,
+          object: 'chat.completion.chunk',
+          model: modelId,
+          choices: [
+            {
+              index: 0,
+              delta,
+              finish_reason: finishReason,
+            },
+          ],
+        };
+        streamController.enqueue(encoder.encode(`data: ${JSON.stringify(openAiChunk)}\n\n`));
+      };
+
+      const transformedStream = new ReadableStream<Uint8Array>({
+        async start(streamController) {
+          try {
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop() ?? '';
+            for (const line of lines) emitLine(line, streamController);
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (!value) continue;
+              buffer += decoder.decode(value, { stream: true });
+              const nextLines = buffer.split(/\r?\n/);
+              buffer = nextLines.pop() ?? '';
+              for (const line of nextLines) emitLine(line, streamController);
+            }
+
+            buffer += decoder.decode();
+            if (buffer.trim()) emitLine(buffer, streamController);
+            streamController.enqueue(encoder.encode('data: [DONE]\n\n'));
+            streamController.close();
+          } catch (streamErr) {
+            streamController.error(streamErr);
+          }
+        },
+        cancel(reason) {
+          try {
+            reader.cancel(reason);
+          } catch {}
+        },
+      });
+
+      return {
+        ok: true,
+        status: 200,
+        stream: transformedStream,
+        errorBody: '',
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      const message = error instanceof Error ? error.message : 'Network error';
+      const isTimeout = error instanceof Error && error.name === 'AbortError';
+      return {
+        ok: false,
+        status: isTimeout ? 408 : 0,
+        errorBody: isTimeout ? `Timeout after ${timeoutMs}ms` : message,
+      };
+    }
+  }
+
   private extractText(content: unknown): string {
     if (typeof content === 'string') {
       return content;

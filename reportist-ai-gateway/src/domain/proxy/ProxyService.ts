@@ -1,6 +1,6 @@
 // ProxyService.ts - LLM 요청 프록시 핵심 엔진
 
-import { env } from '../../config/env.ts';
+import { env, isOpenCodeAvailable } from '../../config/env.ts';
 import { type ErrorLogService, errorLogService } from '../error-log/ErrorLogService.ts';
 import { CooldownManager } from '../key-rotator/CooldownManager.ts';
 import { ErrorClassifier } from '../key-rotator/ErrorClassifier.ts';
@@ -29,6 +29,8 @@ import { AnthropicAdapter } from './adapters/AnthropicAdapter.ts';
 import { GeminiAdapter } from './adapters/GeminiAdapter.ts';
 import type { ILLMAdapter } from './adapters/ILLMAdapter.ts';
 import { OpenAICompatAdapter } from './adapters/OpenAICompatAdapter.ts';
+
+const OPENCODE_PUBLIC_KEY = 'public';
 
 function isReasoningDisabledEffort(effort: string | undefined): boolean {
   if (!effort) return false;
@@ -72,7 +74,7 @@ export class ProxyService {
         { provider: 'openrouter', keys: env.openrouterKeys },
         { provider: 'kilo', keys: env.kiloKeys },
         { provider: 'gemini', keys: env.geminiKeys },
-        { provider: 'opencode', keys: env.opencodeKeys },
+        { provider: 'opencode', keys: this.getOpenCodeKeys() },
       ]
     );
 
@@ -235,12 +237,12 @@ export class ProxyService {
     }
 
     // OpenCode 무료 모델 브릿지 (Vercel → Analyzer → Bun 사이드카)
-    if (env.opencodeKeys.length > 0) {
+    if (isOpenCodeAvailable()) {
       this.adapters.set(
         'opencode',
         new OpenAICompatAdapter({
           baseUrl: env.opencodeBaseUrl,
-          apiKeys: env.opencodeKeys,
+          apiKeys: this.getOpenCodeKeys(),
           keyHeaderName: 'X-OpenCode-Api-Key',
           defaultHeaders: env.gatewaySecret
             ? { Authorization: `Bearer ${env.gatewaySecret}` }
@@ -284,7 +286,24 @@ export class ProxyService {
   }
 
   private getOpenCodeKeys(keyOverride?: string): string[] {
-    return [...new Set(keyOverride?.trim() ? [keyOverride.trim()] : env.opencodeKeys)];
+    if (keyOverride?.trim()) return [keyOverride.trim()];
+    if (!isOpenCodeAvailable()) return [];
+    const keys = [...env.opencodeKeys];
+    if (env.opencodeAllowPublic && !keys.includes(OPENCODE_PUBLIC_KEY)) {
+      keys.push(OPENCODE_PUBLIC_KEY);
+    }
+    return [...new Set(keys)];
+  }
+
+  /** 등록된 sk- 키를 먼저 라운드로빈하고, 무키('public') 폴백은 항상 마지막 슬롯으로 둔다. */
+  private orderOpenCodeKeys(keys: string[]): Array<{ key: string; index: number }> {
+    const hasPublic = keys.includes(OPENCODE_PUBLIC_KEY);
+    const configured = keys.filter((k) => k !== OPENCODE_PUBLIC_KEY);
+    const ordered = this.orderKeysForUse('opencode', configured, this.opencodeIndex);
+    if (hasPublic) {
+      ordered.push({ key: OPENCODE_PUBLIC_KEY, index: -1 });
+    }
+    return ordered;
   }
 
   private inferRequiredInputs(request: ChatRequest): Array<'text' | 'image' | 'audio' | 'video'> {
@@ -444,7 +463,24 @@ export class ProxyService {
     errorBody: string
   ): Promise<boolean> {
     await this.handleError(category, 'opencode', targetModel, key, keys, { errorBody });
-    // 인증 실패(브리지/계정 문제)는 제공사 전체를 막았으므로 다음 키도 같은 결과다.
+
+    // 등록된 워크스페이스 키가 401/403(예: Workspace access denied)으로 막힌 경우
+    // 같은 워크스페이스의 나머지 sk- 키들도 즉시 6시간 차단해 불필요한 왕복을 건너뛰고,
+    // 무키('public') 폴백 슬롯이 남아 있으면 1회 돌파 시도할 수 있게 루프를 계속한다.
+    if (key !== OPENCODE_PUBLIC_KEY && (category === 'forbidden' || category === 'unauthorized')) {
+      for (const otherKey of keys) {
+        if (otherKey !== OPENCODE_PUBLIC_KEY && otherKey !== key) {
+          this.cooldown.setProviderKeyCooldown('opencode', otherKey, 6 * 3_600_000, category);
+        }
+      }
+      const hasUntriedPublic =
+        keys.includes(OPENCODE_PUBLIC_KEY) &&
+        !this.quota.isExhaustedLocal('opencode', targetModel, OPENCODE_PUBLIC_KEY) &&
+        !this.cooldown.isCoolingDown('opencode', targetModel, OPENCODE_PUBLIC_KEY);
+      return !hasUntriedPublic;
+    }
+
+    // 인증 실패(무키 경로까지 막힘) 또는 모델 단위 오류는 남은 키 소모를 중단한다.
     return (
       category === 'forbidden' ||
       category === 'unauthorized' ||
@@ -461,8 +497,9 @@ export class ProxyService {
     const attempts: GatewayAttempt[] = [];
     const adapter = this.adapters.get('opencode');
     const keys = this.getOpenCodeKeys(keyOverride);
+    const configuredCount = keys.filter((k) => k !== OPENCODE_PUBLIC_KEY).length;
     if (adapter && keys.length > 0) {
-      for (const { key, index } of this.orderKeysForUse('opencode', keys, this.opencodeIndex)) {
+      for (const { key, index } of this.orderOpenCodeKeys(keys)) {
         if (this.quota.isExhaustedLocal('opencode', targetModel, key)) continue;
         if (this.cooldown.isCoolingDown('opencode', targetModel, key)) continue;
         this.rotator.acquireKey('opencode', key);
@@ -476,7 +513,9 @@ export class ProxyService {
             attempts
           );
           if (result.ok && result.response) {
-            this.opencodeIndex = (index + 1) % keys.length;
+            if (key !== OPENCODE_PUBLIC_KEY && configuredCount > 0) {
+              this.opencodeIndex = (index + 1) % configuredCount;
+            }
             return result.response;
           }
           const category = this.classifier.classify(result.status, result.errorBody);
@@ -510,15 +549,18 @@ export class ProxyService {
     const attempts: GatewayAttempt[] = [];
     const adapter = this.adapters.get('opencode');
     const keys = this.getOpenCodeKeys(keyOverride);
+    const configuredCount = keys.filter((k) => k !== OPENCODE_PUBLIC_KEY).length;
     if (adapter?.callStream && keys.length > 0) {
-      for (const { key, index } of this.orderKeysForUse('opencode', keys, this.opencodeIndex)) {
+      for (const { key, index } of this.orderOpenCodeKeys(keys)) {
         if (this.quota.isExhaustedLocal('opencode', targetModel, key)) continue;
         if (this.cooldown.isCoolingDown('opencode', targetModel, key)) continue;
         this.rotator.acquireKey('opencode', key);
         try {
           const result = await adapter.callStream(request, targetModel, key, 180_000);
           if (result.ok && result.stream) {
-            this.opencodeIndex = (index + 1) % keys.length;
+            if (key !== OPENCODE_PUBLIC_KEY && configuredCount > 0) {
+              this.opencodeIndex = (index + 1) % configuredCount;
+            }
             return { ok: true, stream: result.stream };
           }
           const category = this.classifier.classify(result.status, result.errorBody);
@@ -1414,7 +1456,12 @@ export class ProxyService {
       case 'model_not_found':
         // 키가 아니라 모델이 사라진 것이므로 전 키 24시간 차단은 과하다.
         // 카탈로그에서 즉시 제외하고 재조회 전까지 짧게만 건너뛴다.
-        if (provider === 'openrouter' || provider === 'cline' || provider === 'kilo') {
+        if (
+          provider === 'openrouter' ||
+          provider === 'cline' ||
+          provider === 'kilo' ||
+          provider === 'opencode'
+        ) {
           modelService.markModelUnavailable(modelId);
         }
         this.cooldown.setCooldown(provider, modelId, apiKey, 60_000, category);

@@ -81,6 +81,31 @@ def test_sidecar_dir_resolution():
 
 
 @pytest.mark.asyncio
+async def test_bridge_public_key_passthrough(gateway_secret, monkeypatch):
+    fake_response = MagicMock()
+    fake_response.status_code = 200
+    fake_response.json.return_value = {
+        "id": "chatcmpl-public",
+        "object": "chat.completion",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": "OK"}, "finish_reason": "stop"}],
+    }
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    client.post = AsyncMock(return_value=fake_response)
+    monkeypatch.setattr(opencode_route.httpx, "AsyncClient", lambda **_: client)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post(
+            "/api/opencode/v1/chat/completions",
+            headers={"Authorization": f"Bearer {gateway_secret}", "X-OpenCode-Api-Key": "public"},
+            json={"model": "opencode/hy4-flash-free", "messages": [{"role": "user", "content": "hi"}]},
+        )
+    assert res.status_code == 200
+    assert client.post.call_args.kwargs["headers"]["X-OpenCode-Api-Key"] == "public"
+
+
+@pytest.mark.asyncio
 async def test_bridge_health():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.get("/api/opencode/health")

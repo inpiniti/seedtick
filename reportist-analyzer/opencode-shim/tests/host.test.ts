@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test"
-import { DENY_TOOLS } from "../src/host"
+import { afterEach, describe, expect, test } from "bun:test"
+import { applyOpenCodeApiKeyEnv, DENY_TOOLS } from "../src/host"
 
 const rules: ReadonlyArray<{ action: string; resource: string; effect: string }> = DENY_TOOLS
 
@@ -15,5 +15,29 @@ describe("host permissions", () => {
     for (const action of ["shell", "edit", "write", "read", "grep", "glob", "webfetch"]) {
       expect(actions).toContain(action)
     }
+  })
+})
+
+describe("applyOpenCodeApiKeyEnv", () => {
+  const originalKey = process.env.OPENCODE_API_KEY
+
+  afterEach(() => {
+    if (originalKey === undefined) delete process.env.OPENCODE_API_KEY
+    else process.env.OPENCODE_API_KEY = originalKey
+  })
+
+  test("public 또는 빈 키는 OPENCODE_API_KEY를 제거해 무키(Bearer public) 경로를 탄다", () => {
+    process.env.OPENCODE_API_KEY = "oc_sk_existing"
+    applyOpenCodeApiKeyEnv("public")
+    expect(process.env.OPENCODE_API_KEY).toBeUndefined()
+
+    process.env.OPENCODE_API_KEY = "oc_sk_existing"
+    applyOpenCodeApiKeyEnv("   ")
+    expect(process.env.OPENCODE_API_KEY).toBeUndefined()
+  })
+
+  test("일반 키는 trim 후 OPENCODE_API_KEY에 설정한다", () => {
+    applyOpenCodeApiKeyEnv(" oc_sk_test123 ")
+    expect(process.env.OPENCODE_API_KEY).toBe("oc_sk_test123")
   })
 })

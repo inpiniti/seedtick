@@ -75,4 +75,87 @@ describe('OpenAICompatAdapter', () => {
       fetchSpy.mockRestore();
     }
   });
+
+  it('callStream은 SSE 주석(: ping)을 건너뛴 뒤 정상 토큰 청크를 스트리밍한다', async () => {
+    const encoder = new TextEncoder();
+    const sse = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(': ping\n\n'));
+        controller.enqueue(
+          encoder.encode(
+            'data: {"id":"1","choices":[{"index":0,"delta":{"role":"assistant","content":"안녕"}}]}\n\n'
+          )
+        );
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
+      (async () =>
+        new Response(sse, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        })) as unknown as typeof fetch
+    );
+
+    try {
+      const adapter = new OpenAICompatAdapter({
+        baseUrl: 'https://example.com/v1/chat/completions',
+        apiKeys: ['test-key'],
+      });
+      const result = await adapter.callStream(
+        { messages: [{ role: 'user', content: '안녕?' }], stream: true },
+        'test-model',
+        'test-key'
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.stream).toBeDefined();
+      const text = await new Response(result.stream).text();
+      expect(text).toContain('"content":"안녕"');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('callStream은 : ping 뒤에 오는 403 Workspace access denied를 403으로 분류한다', async () => {
+    const encoder = new TextEncoder();
+    const sse = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(': ping\n\n'));
+        controller.enqueue(
+          encoder.encode(
+            'data: {"error":{"message":"{\\"status\\":403,\\"message\\":\\"Workspace access denied\\"}","type":"server_error"}}\n\n'
+          )
+        );
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
+      (async () =>
+        new Response(sse, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        })) as unknown as typeof fetch
+    );
+
+    try {
+      const adapter = new OpenAICompatAdapter({
+        baseUrl: 'https://example.com/v1/chat/completions',
+        apiKeys: ['test-key'],
+      });
+      const result = await adapter.callStream(
+        { messages: [{ role: 'user', content: '안녕?' }], stream: true },
+        'test-model',
+        'test-key'
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(403);
+      expect(result.errorBody).toContain('Workspace access denied');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
 });

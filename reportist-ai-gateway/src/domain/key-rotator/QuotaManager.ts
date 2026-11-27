@@ -2,6 +2,9 @@
 import type { LLMProvider } from '../types.ts';
 import { fallbackResetAt, parseResetAt } from './ResetAtParser.ts';
 
+const ACCOUNT_WIDE_RPD_PATTERN =
+  /free-models-per-day|FreeUsageLimitError|Free usage limit reached|provider\.free-limit/i;
+
 /** 원격 DB 없이 인스턴스 메모리에서만 소진 상태를 추적한다. */
 export class QuotaManager {
   private exhaustedMap = new Map<string, number>();
@@ -37,7 +40,11 @@ export class QuotaManager {
   ): Promise<void> {
     const hash = this.getApiKeyHash(apiKey);
     const resetAt = this.resolveResetAt(hint);
-    this.exhaustedMap.set(this.buildKey(provider, model, hash), resetAt.getTime());
+    const resetMs = resetAt.getTime();
+    this.exhaustedMap.set(this.buildKey(provider, model, hash), resetMs);
+    if (hint?.errorBody && ACCOUNT_WIDE_RPD_PATTERN.test(hint.errorBody)) {
+      this.exhaustedMap.set(this.buildKey(provider, '*', hash), resetMs);
+    }
     console.info(
       `[Gateway] Marked daily exhausted for ${provider}:${model}:${hash} until ${resetAt.toISOString()} (in-memory)`
     );
@@ -46,7 +53,10 @@ export class QuotaManager {
   isExhaustedLocal(provider: LLMProvider, model: string, apiKey: string): boolean {
     this.pruneExpiredLocal();
     const hash = this.getApiKeyHash(apiKey);
-    return this.exhaustedMap.has(this.buildKey(provider, model, hash));
+    return (
+      this.exhaustedMap.has(this.buildKey(provider, model, hash)) ||
+      this.exhaustedMap.has(this.buildKey(provider, '*', hash))
+    );
   }
 
   async isExhausted(provider: LLMProvider, model: string, apiKey: string): Promise<boolean> {

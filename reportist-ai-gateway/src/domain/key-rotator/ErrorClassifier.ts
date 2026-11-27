@@ -36,6 +36,9 @@ export class ErrorClassifier {
         return 'reasoning_mandatory';
       }
       if (/content.filter|safety/i.test(errorBody)) return 'safety_filter';
+      if (/model is unavailable|model_not_found|unknown model/i.test(errorBody)) {
+        return 'model_not_found';
+      }
       return 'unknown';
     }
     if (httpStatus === 401) return 'unauthorized';

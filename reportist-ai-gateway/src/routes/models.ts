@@ -124,10 +124,9 @@ export const modelsRoute = new Elysia()
 
         for (const model of models) {
           const stateKey = buildStateKey(provider, model.id, key.apiKeyHash);
-          const exhaustedUntil = exhaustedMap.get(stateKey);
-          const cooldownState =
-            cooldownMap.get(stateKey) ??
-            cooldownMap.get(buildProviderStateKey(provider, key.apiKeyHash));
+          const providerStateKey = buildProviderStateKey(provider, key.apiKeyHash);
+          const exhaustedUntil = exhaustedMap.get(stateKey) ?? exhaustedMap.get(providerStateKey);
+          const cooldownState = cooldownMap.get(stateKey) ?? cooldownMap.get(providerStateKey);
           const isExhausted = typeof exhaustedUntil === 'number' && exhaustedUntil > now;
           const isCoolingDown = Boolean(
             cooldownState && (cooldownState.expiresAt === null || cooldownState.expiresAt > now)

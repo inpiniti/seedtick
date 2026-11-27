@@ -46,6 +46,15 @@ export const DENY_TOOLS = DENY_TOOL_ACTIONS.map((action) => ({
 // 따라서 fetch 로 Authorization 헤더를 덮어쓸 필요 없이 락 안에서 키만 교체한다.
 let previousKey: string | undefined
 
+export function applyOpenCodeApiKeyEnv(key: string): void {
+  const trimmed = key.trim()
+  if (!trimmed || trimmed === "public") {
+    delete process.env.OPENCODE_API_KEY
+    return
+  }
+  process.env.OPENCODE_API_KEY = trimmed
+}
+
 let locked = false
 const waiters: Array<() => void> = []
 
@@ -122,7 +131,7 @@ export async function* runCompletion(input: {
 }): AsyncGenerator<StreamItem> {
   const unlock = await acquire()
   previousKey = process.env.OPENCODE_API_KEY
-  process.env.OPENCODE_API_KEY = input.key
+  applyOpenCodeApiKeyEnv(input.key)
   let sessionID: string | null = null
   try {
     if (!host || !listeners || !sandbox) throw new Error("OpenCode host is not ready")
