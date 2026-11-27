@@ -1,14 +1,15 @@
 """
 AiGatewayClient 직접 호출 및 키 로테이션, 페르소나 프롬프트 고도화 단위 테스트
 """
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
+import pytest
 
 from app.domains.report.ai_client import AiGatewayClient
-from app.domains.report.personas.prompts import GURU_PERSONAS, build_persona_prompt
-from app.domains.report.models import StockDataPack, ValuationRow, BalanceSheetRow
 from app.domains.report.datapack_builder import DataPackBuilder
+from app.domains.report.models import BalanceSheetRow, StockDataPack, ValuationRow
+from app.domains.report.personas.prompts import GURU_PERSONAS, build_persona_prompt
 
 
 def test_ai_client_mode_selection():
@@ -404,7 +405,7 @@ async def test_ai_client_token_limit_length_fallback():
             "httpx.AsyncClient.post",
             new_callable=AsyncMock,
             side_effect=[resp_truncated, resp_success],
-        ) as mock_post,
+        ),
         patch(
             "app.domains.report.ai_client.model_rotation.advance",
             return_value="fallback-model",
@@ -542,4 +543,139 @@ async def test_ai_client_pinned_model_continuation_fail_fast():
 
     # 모델 전환은 호출되지 않아야 함
     mock_advance.assert_not_called()
+
+
+def test_ai_client_kilo_env_disabled_by_default(monkeypatch):
+    """KILO_KEYS_DISABLED 상태에서는 환경변수/설정의 Kilo 키를 자동 로드하지 않고 명시 전달만 허용한다."""
+    import app.domains.report.ai_client as ai_client_mod
+
+    monkeypatch.setattr(ai_client_mod.settings, "OPENROUTER_API_KEYS", "or-env-1")
+    monkeypatch.setattr(ai_client_mod.settings, "KILO_API_KEYS", "kilo-env-1,kilo-env-2")
+    monkeypatch.setattr(ai_client_mod.settings, "KILO_API_KEY", "kilo-env-3")
+
+    client = AiGatewayClient()
+    assert client.kilo.keys == []
+    assert [p.name for p in client.active_providers] == ["OpenRouter"]
+    assert len(client.slots) == 1
+
+    explicit_client = AiGatewayClient(api_keys=["or-1"], kilo_keys=["kilo-explicit"])
+    assert explicit_client.kilo.keys == ["kilo-explicit"]
+    assert len(explicit_client.slots) == 2
+
+
+def test_is_model_level_failure_invalid_model_id():
+    from app.domains.report.ai_client import _is_model_level_failure
+
+    ok, reason = _is_model_level_failure(
+        status_code=400,
+        body='{"error":{"message":"opencode/hy4-flash-free is not a valid model ID","code":400}}',
+    )
+    assert ok is True
+    assert "is not a valid model id" in reason
+
+
+@pytest.mark.asyncio
+async def test_ai_client_opencode_routes_to_shim_and_falls_back_to_public(monkeypatch):
+    """opencode/* 모델은 OpenRouter/Kilo를 거치지 않고 사이드카로 직접 라우팅되며, sk- 403 시 즉시 public 키로 전환한다."""
+    import contextlib
+
+    import app.domains.report.ai_client as ai_client_mod
+
+    monkeypatch.setattr(ai_client_mod.settings, "OPENCODE_SHIM_ENABLED", True)
+    monkeypatch.setattr(ai_client_mod.settings, "OPENCODE_SHIM_URL", "http://127.0.0.1:4096")
+    monkeypatch.setattr(ai_client_mod.settings, "OPENCODE_API_KEYS", "sk-blocked-1,sk-blocked-2")
+    monkeypatch.setattr(ai_client_mod.settings, "AI_GATEWAY_SECRET", "shim-secret")
+
+    client = AiGatewayClient(api_keys=["or-should-not-use"], kilo_keys=["kilo-should-not-use"])
+
+    calls: list[tuple[str, dict]] = []
+
+    def _make_sse_resp(lines: list[str]):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp._is_stream = True
+
+        async def _aiter():
+            for line in lines:
+                yield line
+
+        resp.aiter_lines = _aiter
+        return resp
+
+    resp_403_stream = _make_sse_resp([
+        'data: {"error": {"message": "403 Workspace access denied", "type": "server_error"}}',
+        "data: [DONE]",
+    ])
+    resp_public_ok = _make_sse_resp([
+        'data: {"choices": [{"delta": {"reasoning": "영상 확인 중"}, "finish_reason": null}]}',
+        'data: {"choices": [{"delta": {"content": "{\\"segments\\": []}"}, "finish_reason": "stop"}]}',
+        "data: [DONE]",
+    ])
+
+    @contextlib.asynccontextmanager
+    async def mock_stream(method, url, **kwargs):
+        calls.append((url, kwargs["headers"]))
+        if len(calls) == 1:
+            yield resp_403_stream
+        else:
+            yield resp_public_ok
+
+    deltas: list[tuple[str, str]] = []
+    with (
+        patch("httpx.AsyncClient.stream", side_effect=mock_stream),
+        patch("app.domains.report.ai_client.model_rotation.note_success") as mock_note_success,
+    ):
+        result = await client.chat_messages(
+            messages=[{"role": "user", "content": [{"type": "text", "text": "분석"}]}],
+            model_override="opencode/hy4-flash-free",
+            on_delta=lambda k, t: deltas.append((k, t)),
+        )
+
+    assert result == '{"segments": []}'
+    assert len(calls) == 2
+    assert all(url == "http://127.0.0.1:4096/v1/chat/completions" for url, _ in calls)
+    assert calls[0][1]["X-OpenCode-Api-Key"] == "sk-blocked-1"
+    # sk-blocked-2는 건너뛰고 즉시 public으로 돌파해야 한다
+    assert calls[1][1]["X-OpenCode-Api-Key"] == "public"
+    assert calls[1][1]["Authorization"] == "Bearer shim-secret"
+    assert ("reasoning", "영상 확인 중") in deltas
+    assert ("content", '{"segments": []}') in deltas
+    mock_note_success.assert_called_once_with("opencode/hy4-flash-free")
+
+
+@pytest.mark.asyncio
+async def test_ai_client_opencode_uses_gateway_when_shim_disabled(monkeypatch):
+    """사이드카 비활성 시에도 opencode/* 모델은 OpenRouter/Kilo가 아닌 AI-Gateway로 전달된다."""
+    import contextlib
+
+    import app.domains.report.ai_client as ai_client_mod
+
+    monkeypatch.setattr(ai_client_mod.settings, "OPENCODE_SHIM_ENABLED", False)
+    monkeypatch.setattr(ai_client_mod.settings, "AI_GATEWAY_URL", "https://gw.example.com")
+    monkeypatch.setattr(ai_client_mod.settings, "AI_GATEWAY_SECRET", "gw-secret")
+
+    client = AiGatewayClient(api_keys=["or-should-not-use"])
+    calls: list[str] = []
+
+    resp_ok = MagicMock()
+    resp_ok.status_code = 200
+    resp_ok._is_stream = True
+
+    async def _aiter():
+        yield 'data: {"choices": [{"delta": {"content": "OK"}, "finish_reason": "stop"}]}'
+        yield "data: [DONE]"
+
+    resp_ok.aiter_lines = _aiter
+
+    @contextlib.asynccontextmanager
+    async def mock_stream(method, url, **kwargs):
+        calls.append(url)
+        yield resp_ok
+
+    with patch("httpx.AsyncClient.stream", side_effect=mock_stream):
+        result = await client.chat("hi", model_override="opencode/hy4-flash-free")
+
+    assert result == "OK"
+    assert calls == ["https://gw.example.com/v1/chat/completions"]
+
 

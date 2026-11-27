@@ -3,15 +3,16 @@ AI 연동 클라이언트: 멀티 프로바이더 직접 호출 (OpenRouter, Kil
 """
 import asyncio
 import contextlib
-from collections.abc import Callable
-from dataclasses import dataclass, field
 import json
 import logging
 import os
+import re
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+
 import httpx
-import re
 
 from app.config.settings import settings
 from app.domains.report.model_rotation import model_rotation
@@ -44,6 +45,10 @@ def reset_global_ai_semaphore() -> None:
     _global_ai_semaphore = None
 
 
+# [임시 차단] Kilo 키가 모두 변경되어(401 INVALID_TOKEN) 환경변수에서 자동 로드를 차단한다.
+# 재개 시 False로 되돌리면 된다. (단위 테스트에서 kilo_keys를 명시 전달한 경우는 그대로 동작)
+KILO_KEYS_DISABLED = True
+
 # 모델 레벨 실패로 판정해 다음 순위로 내려가야 하는 HTTP 상태 코드.
 # (키 쿼터/네트워크 문제는 429/예외이므로 여기에 포함하지 않는다. 402는 유료/크레딧 부족 모델 즉시 강등용)
 _MODEL_LEVEL_HTTP = {402, 500, 502, 503, 504, 529}
@@ -58,6 +63,7 @@ _MODEL_LEVEL_PATTERNS = (
     "upstream service",
     "no such model",
     "model not found",
+    "is not a valid model id",
     "does not exist",
     "model is not available",
     "no available",
@@ -448,9 +454,11 @@ class AiGatewayClient:
                 or os.environ.get("CLINE_API_KEY")
             )
 
-        # 3. Kilo 키 초기화
+        # 3. Kilo 키 초기화 (임시 차단 기간에는 환경변수 로드를 건너뜀)
         if kilo_keys is not None:
             k_keys = kilo_keys
+        elif KILO_KEYS_DISABLED:
+            k_keys = []
         else:
             k_keys = _parse_keys(
                 settings.KILO_API_KEYS
@@ -458,6 +466,11 @@ class AiGatewayClient:
                 or os.environ.get("KILO_API_KEYS")
                 or os.environ.get("KILO_API_KEY")
             )
+
+        # 4. OpenCode 키 초기화 (설정된 키가 없으면 무키 'public' 경로로 돌파)
+        self.opencode_keys: list[str] = _parse_keys(
+            getattr(settings, "OPENCODE_API_KEYS", "") or os.environ.get("OPENCODE_API_KEYS")
+        )
 
         # 제공사 인스턴스 생성
         self.openrouter = LLMProvider(
@@ -488,10 +501,11 @@ class AiGatewayClient:
         all_providers = [self.openrouter, self.kilo]
         self.active_providers = [p for p in all_providers if p.keys]
 
-        # 27개 키 등 전체 제공사의 키를 교차(Interleaving) 배치한 통합 로테이션 슬롯 풀 구성
+        # 전체 제공사의 키를 교차(Interleaving) 배치한 통합 로테이션 슬롯 풀 구성
         self.slots: list[KeySlot] = _build_interleaved_slots(self.active_providers)
         self._slot_index: int = 0
         self._slot_lock: asyncio.Lock = asyncio.Lock()
+        self._explicit_base_url = bool(base_url)
 
         # 작동 모드 판별
         if base_url:
@@ -765,6 +779,114 @@ class AiGatewayClient:
                 on_delta=on_delta,
             )
 
+    async def _chat_opencode(
+        self,
+        model: str,
+        payload: dict[str, Any],
+        on_delta: Callable[[str, str], None] | None = None,
+    ) -> str:
+        """opencode/* 모델은 OpenRouter/Kilo로 보내지 않고 로컬 사이드카(또는 게이트웨이)로 직접 전달한다."""
+        use_shim = not self._explicit_base_url and getattr(settings, "OPENCODE_SHIM_ENABLED", False)
+        opencode_timeout = httpx.Timeout(
+            timeout=self.timeout,
+            connect=10.0,
+            read=max(self.chunk_timeout, 60.0),
+            write=10.0,
+            pool=30.0,
+        )
+
+        if use_shim:
+            url = f"{settings.OPENCODE_SHIM_URL.rstrip('/')}/v1/chat/completions"
+            keys = list(dict.fromkeys([k for k in self.opencode_keys if k != "public"] + ["public"]))
+            attempts_targets = [("OpenCode-Shim", url, k) for k in keys]
+        else:
+            gw_base = (
+                self.base_url if self._explicit_base_url else settings.AI_GATEWAY_URL.rstrip("/")
+            )
+            url = gw_base if "/v1/chat/completions" in gw_base else f"{gw_base}/v1/chat/completions"
+            attempts_targets = [("AI-Gateway", url, "")] * 2
+
+        last_error = "OpenCode 응답 없음"
+        skip_remaining_sk = False
+
+        for provider_label, target_url, opencode_key in attempts_targets:
+            if skip_remaining_sk and opencode_key and opencode_key != "public":
+                continue
+
+            headers: dict[str, str] = {
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+                "User-Agent": "OpenCode/1.0.0",
+            }
+            if self.secret:
+                headers["Authorization"] = f"Bearer {self.secret}"
+            if opencode_key:
+                headers["X-OpenCode-Api-Key"] = opencode_key
+
+            key_label = (
+                "public"
+                if opencode_key == "public"
+                else (f"...{opencode_key[-4:]}" if opencode_key else "gateway")
+            )
+
+            try:
+                async with httpx.AsyncClient(timeout=opencode_timeout) as client:
+                    async with _stream_post(client, target_url, payload, headers) as res:
+                        if res.status_code != 200:
+                            if hasattr(res, "aread"):
+                                err_bytes = await res.aread()
+                                err_text = err_bytes.decode(errors="replace")
+                            else:
+                                err_text = getattr(res, "text", "")
+                            last_error = f"HTTP {res.status_code}: {err_text[:200]}"
+                            logger.warning(
+                                f"[AiClient] [{provider_label}] {model} 실패 (키: {key_label}): {last_error}"
+                            )
+                            lower_err = err_text.lower()
+                            if opencode_key and opencode_key != "public" and (
+                                res.status_code in (401, 403, 502)
+                                or "workspace access denied" in lower_err
+                                or "unauthorized" in lower_err
+                                or "forbidden" in lower_err
+                            ):
+                                skip_remaining_sk = True
+                            continue
+
+                        content, _finish_reason, err_obj = await _consume_stream(res, on_delta)
+                        if err_obj:
+                            err_msg = str(err_obj.get("message", err_obj))
+                            last_error = f"stream error: {err_msg[:200]}"
+                            logger.warning(
+                                f"[AiClient] [{provider_label}] {model} 스트림 오류 (키: {key_label}): {last_error}"
+                            )
+                            lower_err = err_msg.lower()
+                            if opencode_key and opencode_key != "public" and (
+                                "workspace access denied" in lower_err
+                                or "403" in lower_err
+                                or "401" in lower_err
+                                or "unauthorized" in lower_err
+                                or "forbidden" in lower_err
+                            ):
+                                skip_remaining_sk = True
+                            continue
+
+                        if not content or not content.strip():
+                            last_error = "빈 응답"
+                            logger.warning(
+                                f"[AiClient] [{provider_label}] {model} 200 OK이지만 본문 비어있음 (키: {key_label})"
+                            )
+                            continue
+
+                        model_rotation.note_success(model)
+                        return content.strip()
+            except Exception as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+                logger.warning(
+                    f"[AiClient] [{provider_label}] {model} 통신 오류 (키: {key_label}): {last_error}"
+                )
+
+        raise RuntimeError(f"OpenCode 모델({model}) 호출 실패: {last_error}")
+
     async def _chat_impl(
         self,
         prompt: str,
@@ -829,6 +951,10 @@ class AiGatewayClient:
         if reasoning_effort and reasoning_effort.lower() not in ("none", "off"):
             payload["reasoning_effort"] = reasoning_effort
             payload["reasoning"] = {"effort": reasoning_effort}
+
+        # OpenCode 모델은 OpenRouter/Kilo로 보내지 않고 전용 브릿지/사이드카로 직접 라우팅
+        if model.startswith("opencode/"):
+            return await self._chat_opencode(model, payload, on_delta=on_delta)
 
         timeout_config = httpx.Timeout(
             timeout=self.timeout,
@@ -1180,7 +1306,7 @@ class AiGatewayClient:
                                         return full_content.strip()
 
                                 logger.warning(
-                                    f"[AiClient] ⚠️ [AI-Gateway] finish_reason=length — 응답이 토큰 한도로 잘림!"
+                                    "[AiClient] ⚠️ [AI-Gateway] finish_reason=length — 응답이 토큰 한도로 잘림!"
                                 )
 
                             if not content or not content.strip():
