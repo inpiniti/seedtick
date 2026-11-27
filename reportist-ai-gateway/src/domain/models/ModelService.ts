@@ -28,6 +28,8 @@ interface SelectModelOptions {
   textOnly?: boolean;
   /** 추론을 끄고 빠르게 응답하는 텍스트 모델을 우선 선택한다 (큐레이션/브리핑/동물 대화). */
   preferFastNonReasoning?: boolean;
+  /** 쿨다운·일일 소진 등 런타임 상태로 모든 키가 막힌 모델을 후보에서 제외한다. */
+  isModelBlocked?: (modelId: string) => boolean;
 }
 
 // OpenRouter API 일시 장애 시 사용하는 기본 폴백 모델 목록.
@@ -796,6 +798,7 @@ export class ModelService {
     const all = await this.getFreeModels();
     const filtered = all
       .filter((model) => !this.isGuardrailModel(model))
+      .filter((model) => !options.isModelBlocked?.(model.id))
       .filter((model) => {
         const outputs = model.outputModalities?.length ? model.outputModalities : ['text'];
         return outputs.includes(options.outputModality);

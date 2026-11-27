@@ -20,8 +20,25 @@ const request: ChatRequest = {
 };
 
 const criticalMock = vi.fn(async () => undefined);
-const logger = { critical: criticalMock } as unknown as ErrorLogService;
+const warningMock = vi.fn(async () => undefined);
+const logger = {
+  critical: criticalMock,
+  warning: warningMock,
+  info: () => {},
+} as unknown as ErrorLogService;
 const originalFetch = globalThis.fetch;
+
+type ProxyInternals = {
+  handleError(
+    category: 'daily_exhausted',
+    provider: 'opencode',
+    modelId: string,
+    apiKey: string,
+    allKeys: string[]
+  ): Promise<void>;
+  isModelFullyBlocked(modelId: string): boolean;
+  getCooldownMap(): Map<string, { expiresAt: number | null; reason: string }>;
+};
 
 describe('OpenCode bridge provider', () => {
   beforeEach(() => {
@@ -32,6 +49,7 @@ describe('OpenCode bridge provider', () => {
     env.openrouterKeys = [];
     env.kiloKeys = [];
     criticalMock.mockClear();
+    warningMock.mockClear();
   });
 
   afterEach(() => {
@@ -100,6 +118,86 @@ describe('OpenCode bridge provider', () => {
       expect(result.error.attempts).toHaveLength(2);
     }
     expect(logger.critical).toHaveBeenCalled();
+  });
+
+  test('일일 소진으로 표시된 키는 건너뛰고 남은 키로 요청한다', async () => {
+    const exhaustedKey = 'oc_sk_key111111';
+    const spy = vi.fn(async (_input: unknown, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string>;
+      expect(headers['X-OpenCode-Api-Key']).not.toBe(exhaustedKey);
+      return new Response(JSON.stringify(chatResponse), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    globalThis.fetch = spy as unknown as typeof fetch;
+
+    const service = new ProxyService(logger);
+    await (service as unknown as ProxyInternals).handleError(
+      'daily_exhausted',
+      'opencode',
+      'opencode/hy4-flash-free',
+      exhaustedKey,
+      env.opencodeKeys
+    );
+
+    const result = await service.chat(request);
+    expect('error' in result).toBe(false);
+    const usedKeys = spy.mock.calls.map(
+      (call) => (call[1]?.headers as Record<string, string>)['X-OpenCode-Api-Key']
+    );
+    expect(usedKeys).toEqual(['oc_sk_key222222']);
+  });
+
+  test('502 인증 실패면 남은 키를 소모하지 않고 제공사 전체를 6시간 차단한다', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ error: { message: '{"status":403,"type":"provider.auth"}' } }),
+          { status: 502 }
+        )
+    ) as unknown as typeof fetch;
+
+    const service = new ProxyService(logger);
+    const result = await service.chat(request);
+
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.error.attempts).toHaveLength(1);
+      expect(result.error.attempts[0]?.errorCategory).toBe('forbidden');
+    }
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const cooldown = (service as unknown as ProxyInternals).getCooldownMap();
+    const blocked = cooldown.get(`opencode:*:${env.opencodeKeys[0].slice(-8)}`);
+    expect(blocked?.reason).toBe('forbidden');
+    expect(blocked?.expiresAt).toBeGreaterThan(Date.now() + 5 * 3_600_000);
+  });
+
+  test('모든 키가 막힌 모델은 자동 후보에서 제외된다', async () => {
+    const service = new ProxyService(logger) as unknown as ProxyInternals;
+    const blockedModel = 'opencode/nemotron-3.5-lightning-free';
+
+    expect(service.isModelFullyBlocked(blockedModel)).toBe(false);
+    for (const key of env.opencodeKeys) {
+      await service.handleError('daily_exhausted', 'opencode', blockedModel, key, env.opencodeKeys);
+    }
+    expect(service.isModelFullyBlocked(blockedModel)).toBe(true);
+    expect(service.isModelFullyBlocked('opencode/hy4-flash-free')).toBe(false);
+  });
+
+  test('isModelBlocked 모델은 자동 선택 후보에서 제외된다', async () => {
+    const service = new ModelService();
+    vi.spyOn(service, 'getFreeModels').mockResolvedValue([
+      { id: 'blocked/model:free' },
+      { id: 'ok/model:free' },
+    ] as FreeModelMeta[]);
+
+    const selected = await service.selectBestModel({
+      outputModality: 'text',
+      isModelBlocked: (id) => id === 'blocked/model:free',
+    });
+
+    expect(selected?.id).toBe('ok/model:free');
   });
 
   test('모든 OpenCode 무료 모델이 /v1/models 메타데이터에 포함된다', () => {

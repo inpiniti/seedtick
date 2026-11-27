@@ -168,6 +168,35 @@ export class ProxyService {
       .map(({ key, index }) => ({ key, index }));
   }
 
+  /**
+   * 모든 키가 쿨다운/일일 소진으로 막힌 모델은 자동 후보에서 제외한다.
+   * OpenCode는 키를 바꿔도 브리지 전체가 막혀 있으면 호출할 수 있는 키가 없고,
+   * 통합 슬롯 풀도 전 슬롯이 막히면 getNextSlot()이 null을 반환해 빈 라운드만 돈다.
+   * 미리 걸러내면 의미 없는 critical 로그와 재시도 비용을 줄일 수 있다.
+   */
+  private isModelFullyBlocked(modelId: string): boolean {
+    if (modelService.isModelUnavailable(modelId)) return true;
+
+    if (modelId.startsWith('opencode/')) {
+      const keys = this.getOpenCodeKeys();
+      return (
+        keys.length > 0 &&
+        keys.every(
+          (key) =>
+            this.quota.isExhaustedLocal('opencode', modelId, key) ||
+            this.cooldown.isCoolingDown('opencode', modelId, key)
+        )
+      );
+    }
+
+    if (this.slots.length === 0) return false;
+    return this.slots.every(
+      (slot) =>
+        this.quota.isExhaustedLocal(slot.provider, modelId, slot.key) ||
+        this.cooldown.isCoolingDown(slot.provider, modelId, slot.key)
+    );
+  }
+
   private initializeAdapters(): void {
     // OpenRouter (Primary)
     this.adapters.set(
@@ -323,6 +352,7 @@ export class ProxyService {
         excludeIds,
         textOnly: textOnlyModels,
         preferFastNonReasoning,
+        isModelBlocked: (id) => this.isModelFullyBlocked(id),
       });
       if (!selected?.id) break;
       candidates.push(selected.id);
@@ -402,6 +432,26 @@ export class ProxyService {
     } as GatewayError;
   }
 
+  /**
+   * opencode 실패를 다른 제공사 경로와 동일하게 카테고리별로 처리한다.
+   * 반환값이 true면 키를 바꿔도 해결되지 않는 오류이므로 남은 키 소모를 중단한다.
+   */
+  private async handleOpenCodeFailure(
+    category: ErrorCategory,
+    targetModel: string,
+    key: string,
+    keys: string[],
+    errorBody: string
+  ): Promise<boolean> {
+    await this.handleError(category, 'opencode', targetModel, key, keys, { errorBody });
+    // 인증 실패(브리지/계정 문제)는 제공사 전체를 막았으므로 다음 키도 같은 결과다.
+    return (
+      category === 'forbidden' ||
+      category === 'unauthorized' ||
+      this.shouldBreakModelLoop(category, 'opencode', targetModel)
+    );
+  }
+
   /** opencode/* 전용 경로: 키 소진 시 다른 제공사로 폴백하지 않고 명시적 에러를 반환한다. */
   private async chatOpenCode(
     request: ChatRequest,
@@ -413,6 +463,7 @@ export class ProxyService {
     const keys = this.getOpenCodeKeys(keyOverride);
     if (adapter && keys.length > 0) {
       for (const { key, index } of this.orderKeysForUse('opencode', keys, this.opencodeIndex)) {
+        if (this.quota.isExhaustedLocal('opencode', targetModel, key)) continue;
         if (this.cooldown.isCoolingDown('opencode', targetModel, key)) continue;
         this.rotator.acquireKey('opencode', key);
         try {
@@ -438,14 +489,11 @@ export class ProxyService {
             errorSnippet: result.errorBody.slice(0, 200),
             attemptedAt: new Date().toISOString(),
           });
-          const duration = result.status === 429 ? 30_000 : 15_000;
-          this.cooldown.setCooldown(
-            'opencode',
-            targetModel,
-            key,
-            duration,
-            result.status === 429 ? 'rpm_exceeded' : 'server_overloaded'
-          );
+          if (
+            await this.handleOpenCodeFailure(category, targetModel, key, keys, result.errorBody)
+          ) {
+            break;
+          }
         } finally {
           this.rotator.releaseKey('opencode', key);
         }
@@ -464,6 +512,7 @@ export class ProxyService {
     const keys = this.getOpenCodeKeys(keyOverride);
     if (adapter?.callStream && keys.length > 0) {
       for (const { key, index } of this.orderKeysForUse('opencode', keys, this.opencodeIndex)) {
+        if (this.quota.isExhaustedLocal('opencode', targetModel, key)) continue;
         if (this.cooldown.isCoolingDown('opencode', targetModel, key)) continue;
         this.rotator.acquireKey('opencode', key);
         try {
@@ -482,14 +531,11 @@ export class ProxyService {
             errorSnippet: result.errorBody.slice(0, 200),
             attemptedAt: new Date().toISOString(),
           });
-          const duration = result.status === 429 ? 30_000 : 15_000;
-          this.cooldown.setCooldown(
-            'opencode',
-            targetModel,
-            key,
-            duration,
-            result.status === 429 ? 'rpm_exceeded' : 'server_overloaded'
-          );
+          if (
+            await this.handleOpenCodeFailure(category, targetModel, key, keys, result.errorBody)
+          ) {
+            break;
+          }
         } finally {
           this.rotator.releaseKey('opencode', key);
         }
