@@ -171,7 +171,10 @@ function drawGround(
   drawDrift(ctx, width * 0.97, height * 0.02, unit * 0.19, unit * 0.055, s);
 }
 
-/** 미리보기창 아래에 자리 잡은, 깨진 얼음 테두리와 물 웅덩이. */
+/**
+ * 미리보기창 아래에 자리 잡은 얼음 구멍.
+ * 얼음판은 땅과 같은 높이로 깔리고, 두께는 구멍 안쪽 벽(뒷쪽 절반)에서만 보인다.
+ */
 function drawFrozenPond(
   ctx: CanvasRenderingContext2D,
   preview: Rect | null,
@@ -185,59 +188,137 @@ function drawFrozenPond(
   const cy = preview ? (preview.top + preview.bottom) / 2 : height / 2;
   const halfW = preview ? (preview.right - preview.left) / 2 : width * 0.36;
   const halfH = preview ? (preview.bottom - preview.top) / 2 : height * 0.26;
-  const rx = halfW * 1.08;
-  const ry = halfH * 1.24;
+  const rx = halfW * 1.18;
+  const ry = halfH * 1.32;
   if (rx < 24 || ry < 16) return;
 
-  const thickness = clamp(Math.min(width, height) * 0.022, 9, 16);
-  const rim = makeIrregularEllipse(cx, cy, rx, ry, 18, 3);
-  drawIceSlab(ctx, rim, thickness, s);
+  const innerRx = halfW * 1.02;
+  const innerRy = halfH * 1.12;
+  const wallH = clamp(Math.min(width, height) * 0.02, 8, 14);
+  const outer = makeIrregularEllipse(cx, cy, rx, ry, 20, 3);
+  const hole = makeIrregularEllipse(cx, cy, innerRx, innerRy, 20, 3);
 
-  // 물은 그라데이션 대신 플랫 2톤으로 깊이만 표현한다.
+  // 1. 구멍 바닥의 물. 그라데이션 대신 플랫 2톤으로 깊이만 표현한다.
   ctx.save();
-  poly(ctx, makeIrregularEllipse(cx, cy, rx * 0.85, ry * 0.82, 18, 3));
+  poly(ctx, hole);
   ctx.clip();
   ctx.fillStyle = s.waterLight;
-  ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+  ctx.fillRect(cx - innerRx, cy - innerRy, innerRx * 2, innerRy * 2);
   ctx.fillStyle = s.waterDeep;
-  ellipse(ctx, cx, cy + ry * 0.35, rx * 0.92, ry * 0.82);
+  ellipse(ctx, cx, cy + innerRy * 0.45, innerRx * 1.1, innerRy * 0.95);
   ctx.fill();
   ctx.restore();
 
-  // 안쪽으로 퍼지는 균열선
-  ctx.strokeStyle = s.line;
+  // 2. 구멍 안쪽 벽. 뒤쪽(화면 위쪽) 절반만 보이므로 그쪽 단면을 아래로 복사한다.
+  const back: number[] = [];
+  for (let i = 0; i < hole.length; i++) {
+    if (Math.sin((i / hole.length) * TAU) < -0.02) back.push(i);
+  }
+  if (back.length > 1) {
+    const lower = hole.map((p) => ({ x: p.x, y: p.y + wallH }));
+    ctx.beginPath();
+    ctx.moveTo(hole[back[0]!]!.x, hole[back[0]!]!.y);
+    for (let k = 1; k < back.length; k++) {
+      ctx.lineTo(hole[back[k]!]!.x, hole[back[k]!]!.y);
+    }
+    for (let k = back.length - 1; k >= 0; k--) {
+      const i = back[k]!;
+      ctx.lineTo(lower[i]!.x, lower[i]!.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = s.iceSide;
+    ctx.fill();
+    ctx.strokeStyle = s.outline;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = s.iceSideDeep;
+    for (let k = 0; k < back.length - 1; k += 2) {
+      const i = back[k]!;
+      const j = back[k + 1]!;
+      ctx.beginPath();
+      ctx.moveTo(hole[i]!.x, hole[i]!.y);
+      ctx.lineTo(lower[i]!.x, lower[i]!.y);
+      ctx.lineTo(lower[j]!.x, lower[j]!.y);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.strokeStyle = s.line;
+    for (const i of back) {
+      ctx.beginPath();
+      ctx.moveTo(hole[i]!.x, hole[i]!.y);
+      ctx.lineTo(lower[i]!.x, lower[i]!.y);
+      ctx.stroke();
+    }
+  }
+
+  // 3. 얼음판 윗면. 바깥 타원에서 구멍을 빼 도넛 모양으로 채운다. (바깥으로 튀어나오지 않음)
+  ctx.beginPath();
+  ctx.moveTo(outer[0]!.x, outer[0]!.y);
+  for (let i = 1; i < outer.length; i++) ctx.lineTo(outer[i]!.x, outer[i]!.y);
+  ctx.closePath();
+  ctx.moveTo(hole[0]!.x, hole[0]!.y);
+  for (let i = 1; i < hole.length; i++) ctx.lineTo(hole[i]!.x, hole[i]!.y);
+  ctx.closePath();
+  ctx.fillStyle = s.iceTop;
+  ctx.fill('evenodd');
+  ctx.strokeStyle = s.outline;
+  ctx.lineWidth = OUTLINE_WIDTH;
+  ctx.stroke();
+
+  // 얼음판 가장자리 광택선
+  ctx.strokeStyle = s.hi;
   ctx.lineWidth = 1;
-  ctx.globalAlpha = 0.45;
-  for (const ratio of [0.86, 0.7, 0.55]) {
-    poly(ctx, makeIrregularEllipse(cx, cy, rx * ratio, ry * ratio, 18, 7));
+  poly(
+    ctx,
+    outer.map((p) => ({ x: cx + (p.x - cx) * 0.96, y: cy + (p.y - cy) * 0.96 }))
+  );
+  ctx.stroke();
+
+  // 4. 구멍에서 바깥으로 뻗는 균열
+  ctx.strokeStyle = s.line;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * TAU + 0.15;
+    const mid = 0.45 + ((i * 7) % 5) * 0.08;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(angle) * innerRx, cy + Math.sin(angle) * innerRy);
+    ctx.lineTo(
+      cx + Math.cos(angle + 0.06) * (innerRx + (rx - innerRx) * mid),
+      cy + Math.sin(angle + 0.06) * (innerRy + (ry - innerRy) * mid)
+    );
+    ctx.lineTo(
+      cx + Math.cos(angle - 0.03) * rx * 0.97,
+      cy + Math.sin(angle - 0.03) * ry * 0.97
+    );
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
 
-  // 테두리의 깨진 얼음 조각
-  for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * TAU + 0.24;
-    const sx = cx + Math.cos(angle) * rx * 0.9;
-    const sy = cy + Math.sin(angle) * ry * 0.9;
-    drawIceSlab(
-      ctx,
-      makeIrregularEllipse(sx, sy, rx * 0.075, ry * 0.085, 8, i + 11),
-      thickness * 0.45,
-      s,
-      1.2
-    );
+  // 5. 얼음판 위에 얹힌 작은 얼음 조각
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * TAU + 0.4;
+    const sx = cx + Math.cos(angle) * (innerRx + (rx - innerRx) * 0.55);
+    const sy = cy + Math.sin(angle) * (innerRy + (ry - innerRy) * 0.55);
+    poly(ctx, makeIrregularEllipse(sx, sy, rx * 0.055, ry * 0.06, 8, i + 11));
+    ctx.fillStyle = s.iceTop;
+    ctx.fill();
+    ctx.strokeStyle = s.outline;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
   }
 
-  // 물 위에 띄운 작은 얼음 조각 (좌우는 물 띠가 좁아 위아래에 배치)
+  // 6. 물 위에 띄운 작은 얼음 조각
   const floes: ReadonlyArray<readonly [number, number, number, number, number]> = [
-    [cx, cy - ry * 0.62, rx * 0.11, ry * 0.11, 5],
-    [cx + rx * 0.12, cy + ry * 0.68, rx * 0.13, ry * 0.12, 9],
+    [cx, cy - innerRy * 0.66, rx * 0.09, ry * 0.09, 5],
+    [cx + rx * 0.1, cy + innerRy * 0.72, rx * 0.1, ry * 0.09, 9],
   ];
   for (const [fx, fy, frx, fry, seed] of floes) {
-    drawIceSlab(ctx, makeIrregularEllipse(fx, fy, frx, fry, 8, seed), thickness * 0.55, s, 1.2);
+    drawIceSlab(ctx, makeIrregularEllipse(fx, fy, frx, fry, 8, seed), wallH * 0.6, s, 1.2);
   }
 
-  // 찰랑거리는 물결
+  // 7. 찰랑거리는 물결
   ctx.strokeStyle = s.ripple;
   ctx.lineWidth = 1.2;
   const t = reducedMotion ? 0 : now * 0.0014;
@@ -245,7 +326,7 @@ function drawFrozenPond(
     const phase = (t + i * 0.63) % 1;
     const scale = 0.18 + phase * 0.58;
     ctx.globalAlpha = (1 - phase) * 0.7;
-    ellipse(ctx, cx + rx * 0.08, cy + ry * 0.1, rx * scale, ry * scale * 0.82);
+    ellipse(ctx, cx + innerRx * 0.08, cy + innerRy * 0.1, innerRx * scale, innerRy * scale * 0.82);
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
