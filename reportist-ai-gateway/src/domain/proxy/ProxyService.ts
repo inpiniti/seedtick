@@ -8,6 +8,7 @@ import { KeyRotator } from '../key-rotator/KeyRotator.ts';
 import { QuotaManager } from '../key-rotator/QuotaManager.ts';
 import { modelService } from '../models/ModelService.ts';
 import type {
+  ChatMessage,
   ChatRequest,
   ChatResponse,
   ErrorCategory,
@@ -18,10 +19,12 @@ import type {
   ImageGenerationResponse,
   KeySlot,
   LLMProvider,
+  MessageContentPart,
   ModelConfig,
   UserPassThroughConfig,
 } from '../types.ts';
 import { FALLBACK_CHAIN } from '../types.ts';
+import { extractMessageText, isKoreanOutput } from './OutputLanguageGuard.ts';
 import { AnthropicAdapter } from './adapters/AnthropicAdapter.ts';
 import { GeminiAdapter } from './adapters/GeminiAdapter.ts';
 import type { ILLMAdapter } from './adapters/ILLMAdapter.ts';
@@ -495,6 +498,61 @@ export class ProxyService {
     return this.openCodeExhausted(attempts, targetModel);
   }
 
+  private appendKoreanRule(content: ChatMessage['content']): string | MessageContentPart[] {
+    const rule =
+      '\n출력은 반드시 한국어로만 작성한다. 중국어 한자와 일본어 가나를 한 글자도 사용하지 마라.';
+    if (typeof content === 'string') return `${content}${rule}`;
+    if (Array.isArray(content)) return [...content, { type: 'text', text: rule.trim() }];
+    return rule.trim();
+  }
+
+  /**
+   * 텍스트 전용 요청(동물 대화·트렌드·토론 자료 조사)은 한국어 출력만 기대한다.
+   * 모델이 중국어·일본어를 섞어 내면 클라이언트 검증을 통과해 화면에 노출될 수 있어
+   * 프롬프트에 언어 규칙을 보강하고, 응답도 게이트웨이에서 먼저 검증한다.
+   */
+  private prepareKoreanOutputRequest(request: ChatRequest): ChatRequest {
+    const systemIndex = request.messages.findIndex((message) => message.role === 'system');
+    const messages = request.messages.map((message, index) =>
+      index === systemIndex
+        ? { ...message, content: this.appendKoreanRule(message.content) }
+        : message
+    );
+    if (systemIndex === -1) {
+      messages.unshift({
+        role: 'system',
+        content:
+          '출력은 반드시 한국어로만 작성한다. 중국어 한자와 일본어 가나를 한 글자도 사용하지 마라.',
+      });
+    }
+    return { ...request, messages };
+  }
+
+  private recordLanguageRejection(
+    attempts: GatewayAttempt[],
+    provider: LLMProvider,
+    modelId: string,
+    apiKey: string,
+    response: ChatResponse
+  ): void {
+    const snippet = response.choices
+      .map((choice) => extractMessageText(choice?.message?.content))
+      .join(' ')
+      .slice(0, 200);
+    attempts.push({
+      provider,
+      modelId,
+      apiKeyHash: apiKey.slice(-8),
+      httpStatus: 200,
+      errorCategory: 'invalid_output_language',
+      errorSnippet: `한국어 출력 가드 거부: ${snippet}`,
+      attemptedAt: new Date().toISOString(),
+    });
+    console.warn(
+      `[Gateway] 중국어·일본어 문자 감지 → ${provider}:${modelId} 응답 거부, 다음 후보로 전환`
+    );
+  }
+
   async chat(
     request: ChatRequest,
     opencodeKeyOverride?: string,
@@ -520,12 +578,40 @@ export class ProxyService {
       },
     });
 
+    // 텍스트 전용 요청은 한국어 출력만 기대한다. 프롬프트를 보강하고 응답 언어도 검증한다.
+    const enforceKoreanOutput = options?.textOnlyModels === true;
+    const effectiveRequest = enforceKoreanOutput
+      ? this.prepareKoreanOutputRequest(request)
+      : request;
+
     const directModel = request.model?.trim();
     if (directModel?.startsWith('opencode/')) {
-      return this.chatOpenCode(request, directModel, opencodeKeyOverride);
+      const directResult = await this.chatOpenCode(
+        effectiveRequest,
+        directModel,
+        opencodeKeyOverride
+      );
+      if ('error' in directResult) return directResult;
+      if (!enforceKoreanOutput || isKoreanOutput(directResult)) return directResult;
+      this.recordLanguageRejection(
+        attempts,
+        'opencode',
+        directModel,
+        opencodeKeyOverride ?? '',
+        directResult
+      );
+      // 명시 모델은 그대로 재시도하지 않고 로컬 폴백을 쓰도록 언어 오류를 반환한다.
+      return {
+        error: {
+          code: 'GATEWAY_OUTPUT_LANGUAGE_REJECTED',
+          message: `요청 모델 ${directModel}이(가) 한국어가 아닌 문자로 응답했습니다.`,
+          type: 'gateway_error',
+          attempts,
+        },
+      } as GatewayError;
     }
     if (isAborted()) return abortedError();
-    const requiredInputs = this.inferRequiredInputs(request);
+    const requiredInputs = this.inferRequiredInputs(effectiveRequest);
     const preferFastNonReasoning =
       options?.preferFastNonReasoning === true ||
       (options?.textOnlyModels === true && isReasoningDisabledEffort(request.reasoning_effort));
@@ -540,10 +626,24 @@ export class ProxyService {
 
     for (const targetModel of targetModels) {
       if (isAborted()) return abortedError();
-      const modelRequest = await this.adaptRequestForModel(request, targetModel);
+      const modelRequest = await this.adaptRequestForModel(effectiveRequest, targetModel);
       if (targetModel.startsWith('opencode/')) {
-        const opencodeResult = await this.chatOpenCode(request, targetModel, opencodeKeyOverride);
-        if (!('error' in opencodeResult)) return opencodeResult;
+        const opencodeResult = await this.chatOpenCode(
+          effectiveRequest,
+          targetModel,
+          opencodeKeyOverride
+        );
+        if (!('error' in opencodeResult)) {
+          if (!enforceKoreanOutput || isKoreanOutput(opencodeResult)) return opencodeResult;
+          this.recordLanguageRejection(
+            attempts,
+            'opencode',
+            targetModel,
+            opencodeKeyOverride ?? '',
+            opencodeResult
+          );
+          continue;
+        }
         attempts.push(...(opencodeResult.error.attempts ?? []));
         continue;
       }
@@ -591,8 +691,12 @@ export class ProxyService {
             if (isAborted()) break;
 
             if (result.ok && result.response) {
-              console.info(`[Gateway] Success: [${provider}] ${targetModel} (키: ${keyMasked})`);
-              return result.response;
+              if (!enforceKoreanOutput || isKoreanOutput(result.response)) {
+                console.info(`[Gateway] Success: [${provider}] ${targetModel} (키: ${keyMasked})`);
+                return result.response;
+              }
+              this.recordLanguageRejection(attempts, provider, targetModel, key, result.response);
+              continue;
             }
 
             const category = this.classifier.classify(result.status, result.errorBody);
@@ -719,6 +823,31 @@ export class ProxyService {
           this.rotator.releaseKey('gemini', apiKey);
         }
       }
+    }
+
+    // 언어 가드 거부가 있으면 단순 키 소진이 아닌 출력 언어 문제로 별도 보고한다.
+    const languageRejections = attempts.filter(
+      (attempt) => attempt.errorCategory === 'invalid_output_language'
+    );
+    if (languageRejections.length > 0) {
+      await this.errorLogger.critical(
+        'GATEWAY_OUTPUT_LANGUAGE_REJECTED',
+        `한국어 출력 요청에서 중국어·일본어 문자가 섞인 응답 ${languageRejections.length}건을 거부했습니다`,
+        {
+          attemptsCount: attempts.length,
+          modelRequested: request.model,
+          lastAttempts: attempts.slice(-5),
+        }
+      );
+      return {
+        error: {
+          code: 'GATEWAY_OUTPUT_LANGUAGE_REJECTED',
+          message:
+            '모든 후보 모델이 한국어가 아닌 문자를 포함해 응답해 출력 언어 가드에 걸렸습니다.',
+          type: 'gateway_error',
+          attempts,
+        },
+      } as GatewayError;
     }
 
     // 모든 제공사/모델/키 소진

@@ -256,6 +256,7 @@ export type ErrorCategory =
   | 'server_overloaded'
   | 'timeout'
   | 'network_error'
+  | 'invalid_output_language'
   | 'unknown';
 
 export interface GatewayAttempt {
@@ -275,7 +276,8 @@ export interface GatewayError {
       | 'GATEWAY_AUTH_FAILED'
       | 'GATEWAY_MODEL_NOT_SUPPORTED'
       | 'GATEWAY_OPENCODE_EXHAUSTED'
-      | 'GATEWAY_REQUEST_ABORTED';
+      | 'GATEWAY_REQUEST_ABORTED'
+      | 'GATEWAY_OUTPUT_LANGUAGE_REJECTED';
     message: string;
     type: 'gateway_error';
     attempts: GatewayAttempt[];
