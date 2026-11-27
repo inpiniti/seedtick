@@ -3,9 +3,12 @@
 import type { ApiKeyPool, LLMProvider } from '../types.ts';
 
 export class KeyRotator {
+  /** 중단된 요청의 release 누수를 막기 위한 키 사용 리스 TTL. */
+  private static readonly LEASE_TTL_MS = 30_000;
   private readonly initialPools: Map<LLMProvider, string[]>;
   private readonly queues: Map<LLMProvider, string[]>;
   private readonly activeCounts = new Map<string, number>();
+  private readonly leases = new Map<string, number[]>();
 
   constructor(keyPools: ApiKeyPool[]) {
     this.initialPools = new Map(keyPools.map((p) => [p.provider, [...p.keys]]));
@@ -16,13 +19,32 @@ export class KeyRotator {
     return `${provider}:${apiKey}`;
   }
 
+  /** TTL이 만료된 리스를 정리해 active 카운트를 실제 사용 중인 요청 수로 되돌린다. */
+  private pruneLeases(key: string): void {
+    const list = this.leases.get(key);
+    if (!list || list.length === 0) return;
+    const now = Date.now();
+    const alive = list.filter((ts) => now - ts < KeyRotator.LEASE_TTL_MS);
+    if (alive.length === list.length) return;
+    if (alive.length === 0) {
+      this.leases.delete(key);
+      this.activeCounts.delete(key);
+    } else {
+      this.leases.set(key, alive);
+      this.activeCounts.set(key, alive.length);
+    }
+  }
+
   /**
    * 해당 키의 사용 시작을 기록 (동시 요청 카운트 증가 및 큐 순환)
    */
   acquireKey(provider: LLMProvider, apiKey: string): void {
     const key = this.buildKey(provider, apiKey);
-    const current = this.activeCounts.get(key) ?? 0;
-    this.activeCounts.set(key, current + 1);
+    this.pruneLeases(key);
+    const list = this.leases.get(key) ?? [];
+    list.push(Date.now());
+    this.leases.set(key, list);
+    this.activeCounts.set(key, list.length);
 
     // 사용 시작 시점에도 큐의 맨 뒤로 이동시켜 다음 요청이 다음 유휴 키를 우선 선택하도록 순환
     this.moveToBack(provider, apiKey);
@@ -33,8 +55,16 @@ export class KeyRotator {
    */
   releaseKey(provider: LLMProvider, apiKey: string): void {
     const key = this.buildKey(provider, apiKey);
-    const current = this.activeCounts.get(key) ?? 0;
-    this.activeCounts.set(key, Math.max(0, current - 1));
+    this.pruneLeases(key);
+    const list = this.leases.get(key) ?? [];
+    if (list.length > 0) list.pop();
+    if (list.length === 0) {
+      this.leases.delete(key);
+      this.activeCounts.delete(key);
+    } else {
+      this.leases.set(key, list);
+      this.activeCounts.set(key, list.length);
+    }
 
     // 다 썼을 때도 큐의 맨 마지막으로 재배치 (FIFO 순환 큐)
     this.moveToBack(provider, apiKey);
@@ -54,7 +84,9 @@ export class KeyRotator {
    * 해당 키의 현재 활성(처리 중) 요청 수 반환
    */
   getActiveCount(provider: LLMProvider, apiKey: string): number {
-    return this.activeCounts.get(this.buildKey(provider, apiKey)) ?? 0;
+    const key = this.buildKey(provider, apiKey);
+    this.pruneLeases(key);
+    return this.activeCounts.get(key) ?? 0;
   }
 
   /**

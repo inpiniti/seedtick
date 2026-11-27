@@ -246,6 +246,7 @@ export type ErrorCategory =
   | 'daily_exhausted'
   | 'context_too_long'
   | 'output_too_long'
+  | 'reasoning_exhausted'
   | 'reasoning_mandatory'
   | 'safety_filter'
   | 'unauthorized'
@@ -273,7 +274,8 @@ export interface GatewayError {
       | 'GATEWAY_ALL_EXHAUSTED'
       | 'GATEWAY_AUTH_FAILED'
       | 'GATEWAY_MODEL_NOT_SUPPORTED'
-      | 'GATEWAY_OPENCODE_EXHAUSTED';
+      | 'GATEWAY_OPENCODE_EXHAUSTED'
+      | 'GATEWAY_REQUEST_ABORTED';
     message: string;
     type: 'gateway_error';
     attempts: GatewayAttempt[];

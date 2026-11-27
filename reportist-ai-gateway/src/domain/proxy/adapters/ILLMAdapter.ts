@@ -7,7 +7,8 @@ export interface ILLMAdapter {
     request: ChatRequest,
     modelId: string,
     apiKey: string,
-    timeoutMs?: number
+    timeoutMs?: number,
+    signal?: AbortSignal
   ): Promise<{
     ok: boolean;
     status: number;

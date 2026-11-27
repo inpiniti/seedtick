@@ -57,7 +57,8 @@ describe('모델 추론 파라미터 보정', () => {
 
     expect(adapted.reasoning_effort).toBeUndefined();
     expect(adapted.messages).toHaveLength(1);
-    expect(adapted.max_tokens).toBe(64);
+    // 추론 강제 모델은 reasoning이 예산을 소진하지 않도록 최소 출력 토큰을 보장한다.
+    expect(adapted.max_tokens).toBe(1024);
   });
 
   test('none을 지원하는 모델은 요청을 그대로 유지한다', async () => {
@@ -93,6 +94,10 @@ describe('모델 추론 파라미터 보정', () => {
 });
 
 describe('모델 루프 중단', () => {
+  test('추론 토큰 소진은 다음 모델로 넘어간다', () => {
+    expect(internals().shouldBreakModelLoop('reasoning_exhausted')).toBe(true);
+  });
+
   test('reasoning_mandatory는 다음 모델로 넘어간다', () => {
     expect(internals().shouldBreakModelLoop('reasoning_mandatory')).toBe(true);
   });

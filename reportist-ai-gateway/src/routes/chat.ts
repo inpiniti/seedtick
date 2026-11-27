@@ -6,7 +6,7 @@ import type { ChatRequest } from '../domain/types.ts';
 
 export const chatRoute = new Elysia().post(
   '/v1/chat/completions',
-  async ({ body, headers, set }) => {
+  async ({ body, headers, set, request }) => {
     const chatReq = body as unknown as ChatRequest;
 
     // 사용자 직접 입력 API 키(BYOK) 패스스루 확인
@@ -79,7 +79,11 @@ export const chatRoute = new Elysia().post(
       typeof opencodeKeyOverride === 'string' && opencodeKeyOverride.trim()
         ? opencodeKeyOverride.trim()
         : undefined,
-      { textOnlyModels }
+      {
+        textOnlyModels,
+        signal: request.signal,
+        deadlineMs: 18_000,
+      }
     );
 
     // GatewayError인 경우 503 반환

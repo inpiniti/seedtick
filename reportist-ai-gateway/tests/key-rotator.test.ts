@@ -1,9 +1,25 @@
 // key-rotator.test.ts
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, setSystemTime, test } from 'bun:test';
 import { KeyRotator } from '../src/domain/key-rotator/KeyRotator';
 import type { ApiKeyPool } from '../src/domain/types';
 
 describe('KeyRotator', () => {
+  test('release 없이 중단된 요청의 active 카운트는 TTL 만료 후 해제된다', () => {
+    const now = Date.now();
+    setSystemTime(new Date(now));
+    try {
+      const rotator = new KeyRotator([{ provider: 'openrouter', keys: ['key1'] } as ApiKeyPool]);
+      rotator.acquireKey('openrouter', 'key1');
+      expect(rotator.getActiveCount('openrouter', 'key1')).toBe(1);
+
+      // 서버리스에서 응답 전에 컨테이너가 정지돼 releaseKey가 누락된 상황
+      setSystemTime(new Date(now + 31_000));
+      expect(rotator.getActiveCount('openrouter', 'key1')).toBe(0);
+    } finally {
+      setSystemTime();
+    }
+  });
+
   test('유휴 상태에서는 등록된 순서대로 키를 반환한다 (1번키 우선)', () => {
     const rotator = new KeyRotator([
       { provider: 'openrouter', keys: ['key1', 'key2', 'key3', 'key4', 'key5'] } as ApiKeyPool,

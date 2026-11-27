@@ -69,8 +69,8 @@ describe('OpenAICompatAdapter', () => {
       );
 
       expect(result.ok).toBe(false);
-      expect(result.status).toBe(500);
-      expect(result.errorBody).toContain('Empty choices or empty content');
+      expect(result.status).toBe(422);
+      expect(result.errorBody).toContain('reasoning_exhausted');
     } finally {
       fetchSpy.mockRestore();
     }

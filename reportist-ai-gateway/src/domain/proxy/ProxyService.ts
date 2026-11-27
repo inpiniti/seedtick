@@ -283,7 +283,8 @@ export class ProxyService {
     }
 
     // 명시 모델이 실패하면 그 모델에서 멈추지 않고 자동 후보로 계속 넘어간다.
-    const AUTO_CANDIDATE_LIMIT = 3;
+    // 조기 탈출(연속 5xx/추론 소진)이 있으므로 후보를 넓게 두어도 체감 지연은 크지 않다.
+    const AUTO_CANDIDATE_LIMIT = 6;
     const excludeIds: string[] = [...forced];
     const candidates: string[] = [];
 
@@ -336,6 +337,11 @@ export class ProxyService {
 
     const adapted: ChatRequest = { ...request };
     adapted.reasoning_effort = undefined;
+    // 추론 강제 모델은 reasoning이 출력 예산을 먼저 소진해 빈 content를 반환할 수 있다.
+    // 짧은 대화 요청도 최소 출력 예산은 확보해 본문이 잘리지 않게 한다.
+    if (typeof adapted.max_tokens === 'number' && adapted.max_tokens < 1024) {
+      adapted.max_tokens = 1024;
+    }
     if (!this.reasoningStrippedModels.has(modelId)) {
       this.reasoningStrippedModels.add(modelId);
       console.debug(`[Gateway] ${modelId}는 추론 비활성화 불가 → reasoning_effort 제거 후 호출`);
@@ -467,13 +473,33 @@ export class ProxyService {
   async chat(
     request: ChatRequest,
     opencodeKeyOverride?: string,
-    options?: { textOnlyModels?: boolean; preferFastNonReasoning?: boolean }
+    options?: {
+      textOnlyModels?: boolean;
+      preferFastNonReasoning?: boolean;
+      signal?: AbortSignal;
+      deadlineMs?: number;
+    }
   ): Promise<ChatResponse | GatewayError> {
     const attempts: GatewayAttempt[] = [];
+    const signal = options?.signal;
+    const deadlineMs = options?.deadlineMs ?? 60_000;
+    const startedAt = Date.now();
+    const isAborted = (): boolean =>
+      Boolean(signal?.aborted || Date.now() - startedAt >= deadlineMs);
+    const abortedError = (): GatewayError => ({
+      error: {
+        code: 'GATEWAY_REQUEST_ABORTED',
+        message: '요청 시간 예산을 초과했거나 클라이언트가 취소했습니다.',
+        type: 'gateway_error',
+        attempts,
+      },
+    });
+
     const directModel = request.model?.trim();
     if (directModel?.startsWith('opencode/')) {
       return this.chatOpenCode(request, directModel, opencodeKeyOverride);
     }
+    if (isAborted()) return abortedError();
     const requiredInputs = this.inferRequiredInputs(request);
     const preferFastNonReasoning =
       options?.preferFastNonReasoning === true ||
@@ -488,6 +514,7 @@ export class ProxyService {
     const isGeminiDirectRequest = Boolean(request.model?.trim().startsWith('gemini'));
 
     for (const targetModel of targetModels) {
+      if (isAborted()) return abortedError();
       const modelRequest = await this.adaptRequestForModel(request, targetModel);
       if (targetModel.startsWith('opencode/')) {
         const opencodeResult = await this.chatOpenCode(request, targetModel, opencodeKeyOverride);
@@ -498,16 +525,19 @@ export class ProxyService {
 
       const isGeminiDirect = targetModel.startsWith('gemini');
 
-      // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
+      // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드빈 로테이션)
       if (!isGeminiDirect && this.slots.length > 0) {
-        // 실패한 키는 즉시 쿨다운되므로 같은 키를 두 번 시도할 이유가 없다.
-        const maxAttempts = this.slots.length;
+        // 시간 예산이 있는 요청(동물 대화 등)은 모델당 키 시도 상한을 둬 다음 모델로 빨리 넘어간다.
+        const maxAttempts = options?.deadlineMs
+          ? Math.min(this.slots.length, 4)
+          : this.slots.length;
         let consecutiveServerErrors = 0;
         console.info(
           `[Gateway] 🚀 통합 풀 호출 시작 (총 ${this.slots.length}개 슬롯 교차 로테이션, 최대 ${maxAttempts}회 시도, 모델=${targetModel})`
         );
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          if (isAborted()) break;
           const slot = this.getNextSlot(targetModel);
           if (!slot) break;
 
@@ -529,8 +559,11 @@ export class ProxyService {
               targetModel,
               key,
               provider,
-              attempts
+              attempts,
+              signal,
+              deadlineMs
             );
+            if (isAborted()) break;
 
             if (result.ok && result.response) {
               console.info(`[Gateway] Success: [${provider}] ${targetModel} (키: ${keyMasked})`);
@@ -571,10 +604,10 @@ export class ProxyService {
               console.warn(
                 `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
               );
-              this.cooldown.setCooldown(provider, targetModel, key, 15_000, 'server_overloaded');
+              this.cooldown.setCooldown(provider, targetModel, key, 60_000, 'server_overloaded');
               if (consecutiveServerErrors >= 2) {
                 console.info(
-                  `[Gateway] 연속 서버 오류(${consecutiveServerErrors}회)로 다음 모델로 전환: ${provider}:${targetModel}`
+                  `[Gateway] 연속 ${consecutiveServerErrors}회 서버 오류(${result.status}) → 다음 모델로 전환: ${provider}:${targetModel}`
                 );
                 break;
               }
@@ -1072,7 +1105,9 @@ export class ProxyService {
     modelId: string,
     apiKey: string,
     provider: LLMProvider,
-    attempts: GatewayAttempt[]
+    attempts: GatewayAttempt[],
+    signal?: AbortSignal,
+    callTimeoutMs = 120_000
   ): Promise<{
     ok: boolean;
     status: number;
@@ -1083,14 +1118,14 @@ export class ProxyService {
     const coldStartKey = `${provider}:${modelId}`;
     const isFirstCall = !this.coldStartTried.has(coldStartKey);
 
-    // 첫 호출: 기본 120초 타임아웃 (긴 토큰 생성 지원)
-    let result = await adapter.call(request, modelId, apiKey, 120_000);
+    // 짧은 대화 요청은 데드라인을 단문 호출 타임아웃으로도 적용해 콜드 스타트에 수 분을 쓰지 않는다.
+    let result = await adapter.call(request, modelId, apiKey, callTimeoutMs, signal);
 
     // 타임아웃/네트워크 에러이고 첫 호출인 경우 한 번 재시도 (180초)
     const isTimeoutOrNetwork = result.status === 408 || result.status === 0;
     if (isFirstCall && isTimeoutOrNetwork) {
       console.info(
-        `[Gateway] Cold start timeout/network error for ${provider}:${modelId}:${apiKey.slice(-8)}, retrying with 180s timeout...`
+        `[Gateway] Cold start timeout/network error for ${provider}:${modelId}:${apiKey.slice(-8)}, retrying (timeout=${callTimeoutMs}ms)...`
       );
       this.coldStartTried.add(coldStartKey);
 
@@ -1106,7 +1141,7 @@ export class ProxyService {
       };
       attempts.push(retryAttempt);
 
-      result = await adapter.call(request, modelId, apiKey, 180_000);
+      result = await adapter.call(request, modelId, apiKey, callTimeoutMs, signal);
 
       if (result.ok && result.response) {
         console.info(
@@ -1193,6 +1228,20 @@ export class ProxyService {
         );
         break;
 
+      case 'reasoning_exhausted':
+        // 추론이 출력 예산을 소진한 모델은 키를 바꿔도 같은 결과다.
+        // 해당 모델의 모든 키를 잠시 쉬게 하고 즉시 다음 모델로 넘어간다.
+        this.cooldown.setModelCooldownAllKeys(provider, modelId, allKeys, 5 * 60_000, category);
+        console.info(
+          `[Gateway] 추론 토큰 소진 — ${provider}:${modelId}의 모든 키를 5분간 건너뜁니다.`
+        );
+        void this.errorLogger.warning(
+          'GATEWAY_REASONING_EXHAUSTED',
+          `${provider}:${modelId} 응답 content가 비어 있음 (추론이 출력 예산 소진)`,
+          { provider, modelId }
+        );
+        break;
+
       case 'provider_rejected':
         // 가드레일 거부는 모델이 내려간 것이 아니라 해당 키/계정의 정책 문제다.
         // 모델을 카탈로그에서 제외하면 다른 키까지 못 쓰게 되므로 해당 키만 10분간 건너뛰고 다음 슬롯으로 넘어간다.
@@ -1216,9 +1265,10 @@ export class ProxyService {
         break;
 
       case 'server_overloaded':
-        this.cooldown.setCooldown(provider, modelId, apiKey, 30_000, category);
+        // 5xx가 다른 키에서도 반복되면 곧바로 다음 모델로 넘어가므로 60초 정도는 유지해도 된다.
+        this.cooldown.setCooldown(provider, modelId, apiKey, 60_000, category);
         console.info(
-          `[Gateway] Set cooldown 30s for ${provider}:${modelId}:${apiKey.slice(-8)} (${category})`
+          `[Gateway] Set cooldown 60s for ${provider}:${modelId}:${apiKey.slice(-8)} (${category})`
         );
         break;
 
@@ -1245,6 +1295,7 @@ export class ProxyService {
       'model_not_found',
       'context_too_long',
       'output_too_long',
+      'reasoning_exhausted',
       'reasoning_mandatory',
       'safety_filter',
       'unknown',

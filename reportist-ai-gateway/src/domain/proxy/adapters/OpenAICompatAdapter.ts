@@ -56,7 +56,8 @@ export class OpenAICompatAdapter implements ILLMAdapter {
     request: ChatRequest,
     modelId: string,
     apiKey: string,
-    timeoutMs = 120_000
+    timeoutMs = 120_000,
+    signal?: AbortSignal
   ): Promise<{
     ok: boolean;
     status: number;
@@ -76,6 +77,11 @@ export class OpenAICompatAdapter implements ILLMAdapter {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const onAbort = (): void => controller.abort(signal?.reason);
+    if (signal) {
+      if (signal.aborted) controller.abort(signal.reason);
+      else signal.addEventListener('abort', onAbort, { once: true });
+    }
 
     try {
       const response = await fetch(this.config.baseUrl, {
@@ -167,10 +173,12 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       // choices가 비어있거나 모든 choices의 content가 비어있으면 모델 오류로 처리 → 다음 키/모델로 폴백
       const hasValidContent = choices.some((c) => c.message.content.trim().length > 0);
       if (choices.length === 0 || !hasValidContent) {
+        // 추론이 출력 예산을 소진한 경우는 서버 장애가 아니라 모델 스펙/토큰 예산 문제다.
+        // 422로 별도 분류해 남은 키를 낭비하지 않고 즉시 다음 모델로 전환한다.
         return {
           ok: false,
-          status: 500,
-          errorBody: `Empty choices or empty content in response (model exhausted output tokens during reasoning or returned empty): ${responseText.slice(0, 200)}`,
+          status: 422,
+          errorBody: `Empty choices or empty content in response (reasoning_exhausted: model consumed output tokens during reasoning): ${responseText.slice(0, 200)}`,
         };
       }
 
@@ -189,7 +197,6 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         errorBody: '',
       };
     } catch (error) {
-      clearTimeout(timeoutId);
       const message = error instanceof Error ? error.message : 'Network error';
       const isTimeout = error instanceof Error && error.name === 'AbortError';
       return {
@@ -197,6 +204,9 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         status: isTimeout ? 408 : 0,
         errorBody: isTimeout ? `Timeout after ${timeoutMs}ms` : message,
       };
+    } finally {
+      clearTimeout(timeoutId);
+      if (signal) signal.removeEventListener('abort', onAbort);
     }
   }
 

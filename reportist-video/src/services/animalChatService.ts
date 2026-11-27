@@ -389,7 +389,7 @@ export async function requestDiscussionBriefing(
   return task;
 }
 
-const CHAT_TIMEOUT_MS = 9000;
+const CHAT_TIMEOUT_MS = 15_000;
 /** 연속 실패 시 짧게 로컬 대사만 사용해 실패한 게이트웨이로 폭주하지 않는다. */
 const LOCAL_FALLBACK_COOLDOWN_MS = 30_000;
 let consecutiveFailures = 0;

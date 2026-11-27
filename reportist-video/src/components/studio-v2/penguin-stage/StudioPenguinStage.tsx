@@ -729,9 +729,21 @@ export const StudioPenguinStage = forwardRef<
 
     loopControlRef.current = { schedule, stop };
 
+    // 탭 복귀 직후 연속 요청으로 게이트웨이가 폭주하지 않도록 재개를 짧게 지연한다.
+    let resumeTimer = 0;
     const onVisibilityChange = (): void => {
-      if (document.hidden) stop();
-      else if (!exportingRef.current) schedule();
+      if (resumeTimer !== 0) {
+        clearTimeout(resumeTimer);
+        resumeTimer = 0;
+      }
+      if (document.hidden) {
+        stop();
+      } else if (!exportingRef.current) {
+        resumeTimer = window.setTimeout(() => {
+          resumeTimer = 0;
+          if (!document.hidden && !exportingRef.current) schedule();
+        }, 600);
+      }
     };
 
     const resizeObserver = new ResizeObserver(() => remeasure());
@@ -780,6 +792,7 @@ export const StudioPenguinStage = forwardRef<
 
     return () => {
       if (advanceTimer !== null) clearTimeout(advanceTimer);
+      if (resumeTimer !== 0) clearTimeout(resumeTimer);
       stop();
       clickSurface.removeEventListener('click', onClick);
       clickSurface.removeEventListener('pointermove', onPointerMove);
