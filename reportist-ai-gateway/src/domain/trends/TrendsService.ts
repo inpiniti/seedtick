@@ -22,10 +22,9 @@ export interface RawCandidate {
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const RSS_TIMEOUT_MS = 4500;
-// 무료 LLM 슬롯은 키별 가드레일(404)·서버 오류(500)를 건너뛴 뒤 성공하는 일이 많다.
-// 8초로는 대부분 RSS 폴백으로 떨어져 LLM 큐레이션이 사실상 비활성화됐다.
-// 자료 조사(/v1/discussions/prepare)가 이미 25초를 허용하므로 그에 맞춘다.
-const LLM_CURATE_TIMEOUT_MS = 28_000;
+// 무료 키는 가드레일(404)·서버 오류(500)를 건너뛰느라 17~50초가 걸릴 수 있다.
+// 토론 주제는 첫 화면을 막으면 안 되므로 짧게 포기하고 RSS 폴백으로 응답한다.
+const LLM_CURATE_TIMEOUT_MS = 8_000;
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
