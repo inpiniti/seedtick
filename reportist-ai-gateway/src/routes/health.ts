@@ -14,7 +14,6 @@ export const healthRoute = new Elysia().get(
       openrouter: env.openrouterKeys.length > 0,
       gemini: env.geminiKeys.length > 0,
     },
-    supabase: env.supabaseUrl ? 'configured' : 'not_configured',
   }),
   {
     response: {
@@ -27,7 +26,6 @@ export const healthRoute = new Elysia().get(
           openrouter: t.Boolean(),
           gemini: t.Boolean(),
         }),
-        supabase: t.String(),
       }),
     },
     detail: {

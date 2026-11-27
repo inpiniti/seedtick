@@ -15,15 +15,16 @@ OpenRouter 기반 고성능 무료 LLM 통합 게이트웨이입니다.
   - OpenRouter 내부 서브 모델 응답의 불완전한 필드(`finish_reason: null`, `usage` 누락 등)를 OpenAI 표준 규격으로 안전하게 정규화
   - Elysia 응답 검증 스키마를 유연하게 완화하여 유효한 응답 거부 방지
 - **초고속 무대기 페일오버**: 429(Rate Limit) 감지 시 해당 키 60초 쿨다운 등록 후 즉시 다음 유휴 키로 투명하게 전환
-- **일일 소진(RPD) 영구 추적**: Supabase 연동으로 RPD 소진 키는 소진 시점 + 24시간(또는 제공사 리셋 시각)까지 인메모리 + DB 이중 차단
+- **일일 소진(RPD) 인메모리 추적**: RPD 소진 키는 소진 시점 + 24시간(또는 제공사 리셋 시각)까지 차단
 - **모델 미지정 요청 자동 선택**: `model` 없이 요청해도 입력 모달리티와 데이터 정책(미학습 우선)을 기준으로 최적 무료 모델 자동 선택
-- **실시간 모델 상태 동기화**: OpenRouter/OpenCode 제공 모델을 주기적으로 조회해 Supabase `gateway_model_catalog` 테이블에 upsert + 미제공 모델 delete
+- **모델 지정 요청도 폴백**: 명시한 모델의 모든 키가 실패하면 자동 후보 모델로 이어서 재시도
+- **외부 DB 의존 없음**: 쿨다운/소진/에러 로그는 모두 인메모리·콘솔로 처리
 
 ## 기술 스택
 
 - **Runtime**: Bun
 - **Framework**: Elysia.js
-- **Database**: Supabase (일일 소진 키 저장)
+- **State**: In-memory (쿨다운/일일 소진)
 - **Deployment**: Vercel Serverless Function
 
 ## 환경 변수 설정 (`.env.local`)
@@ -34,10 +35,6 @@ GATEWAY_SECRET=your-gateway-secret
 
 # OpenRouter 다중 API 키 (콤마 구분으로 5개~10개 이상 등록)
 OPENROUTER_API_KEY=sk-or-v1-key1,sk-or-v1-key2,sk-or-v1-key3,sk-or-v1-key4,sk-or-v1-key5
-
-# Supabase 연동 (일일 쿼터 소진 영구 기록)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 ## 실행 및 테스트
@@ -66,28 +63,3 @@ bun run typecheck
 - `GET /debug/keys`: 각 OpenRouter 키의 실시간 인플라이트(active) 요청 현황 조회
 - `GET /debug/cooldown`: 현재 쿨다운 중인 키 목록 조회
 - `GET /debug/quota`: 일일 소진된 키 목록 조회
-
-## Supabase 테이블 (모델 상태관리)
-
-`gateway_model_catalog` 테이블이 있으면 모델 상태가 자동 동기화됩니다.
-
-```sql
-create table if not exists gateway_model_catalog (
-  model_id text primary key,
-  provider text not null,
-  name text not null,
-  modality text not null,
-  input_modalities jsonb not null default '[]'::jsonb,
-  output_modalities jsonb not null default '[]'::jsonb,
-  supports_reasoning boolean not null default false,
-  supports_tools boolean not null default false,
-  supports_structured_output boolean not null default false,
-  data_policy jsonb not null default '{}'::jsonb,
-  speed_tokens_per_second integer,
-  latency_ms integer,
-  intelligence_index double precision,
-  coding_index double precision,
-  agentic_index double precision,
-  source_updated_at timestamptz not null default now()
-);
-```

@@ -19,7 +19,7 @@ if (envErrors.length > 0) {
   }
 }
 
-// 프록시 서비스 초기화 (Supabase 캐시 로드)
+// 프록시 서비스 초기화 (인메모리 쿨다운/할당량 상태 정리)
 try {
   await proxyService.initialize();
 } catch (err) {

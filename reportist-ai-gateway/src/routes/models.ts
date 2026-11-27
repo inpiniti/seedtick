@@ -344,7 +344,6 @@ export const modelsRoute = new Elysia()
         ['비학습 우선 후보', String(json.trainingPolicy?.nonTraining ?? 0)],
         ['정책 미확인', String(json.trainingPolicy?.unknown ?? 0)],
         ['학습 사용 모델', String(json.trainingPolicy?.training ?? 0)],
-        ['마지막 DB 동기화', json.lastCatalogSyncAt || 'N/A'],
       ];
       for (const [title, value] of cards) {
         const div = document.createElement('div');

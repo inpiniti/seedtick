@@ -1,8 +1,6 @@
 // ModelService.ts - OpenRouter 무료 모델 목록 및 메타데이터 서비스
 
-import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 import { env } from '../../config/env.ts';
-import { hasSupabaseCredentials, isSupabaseAuthError } from '../../config/supabase.ts';
 import type { FreeModelMeta } from '../types.ts';
 
 interface ModelPerfMetric {
@@ -554,11 +552,6 @@ export class ModelService {
   private cache: FreeModelMeta[] | null = null;
   private lastFetchTime = 0;
   private readonly CACHE_TTL_MS = 2 * 60 * 1000; // 2분 캐시
-  private supabase: SupabaseClient | null = null;
-  private catalogTableUnavailable = false;
-  private catalogAuthDisabled = false;
-  private catalogSyncPausedUntil = 0;
-  private lastCatalogSyncAt: string | null = null;
   /** OpenRouter가 내린 모델 — 404 확인 시 캐시/폴백 목록에서 즉시 제거한다. */
   private readonly unavailableModelIds = new Set<string>();
 
@@ -600,7 +593,6 @@ export class ModelService {
           this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS),
           liveCatalog.extraFreeModels
         );
-        this.syncCatalogInBackground(fallback);
         return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
       }
 
@@ -610,7 +602,6 @@ export class ModelService {
           this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS),
           liveCatalog.extraFreeModels
         );
-        this.syncCatalogInBackground(fallback);
         return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
       }
 
@@ -727,7 +718,6 @@ export class ModelService {
           liveCatalog.extraFreeModels
         );
         this.lastFetchTime = now;
-        this.syncCatalogInBackground(this.cache);
         return this.filterForConsumer(this.cache, options?.includeAllOutputs === true);
       }
 
@@ -735,12 +725,10 @@ export class ModelService {
         this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS),
         liveCatalog.extraFreeModels
       );
-      this.syncCatalogInBackground(fallback);
       return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
     } catch (err) {
       console.error('[ModelService] Error fetching openrouter models:', err);
       const fallback = this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
-      this.syncCatalogInBackground(fallback);
       return this.filterForConsumer(fallback, options?.includeAllOutputs === true);
     }
   }
@@ -749,7 +737,6 @@ export class ModelService {
     forceRefresh = false,
     includeAllOutputs = false
   ): Promise<{
-    lastCatalogSyncAt: string | null;
     total: number;
     providers: Record<string, number>;
     outputModalities: Record<string, number>;
@@ -777,7 +764,6 @@ export class ModelService {
     }
 
     return {
-      lastCatalogSyncAt: this.lastCatalogSyncAt,
       total: models.length,
       providers,
       outputModalities,
@@ -1092,100 +1078,6 @@ export class ModelService {
       // 실시간 메트릭 실패 시 기본 데이터만 사용
     }
     return { perfByModel, extraFreeModels };
-  }
-
-  private getSupabase(): SupabaseClient | null {
-    if (this.supabase) return this.supabase;
-    if (!hasSupabaseCredentials()) return null;
-    try {
-      this.supabase = createClient(env.supabaseUrl, env.supabaseServiceRoleKey);
-    } catch (err) {
-      console.warn('[ModelService] Failed to create Supabase client:', err);
-    }
-    return this.supabase;
-  }
-
-  /** 카탈로그 동기화 실패를 한 번만 알리고, 인증 오류면 재시도 자체를 중단한다. */
-  private handleCatalogFailure(error: unknown): void {
-    if (this.catalogAuthDisabled) return;
-    if (isSupabaseAuthError(error)) {
-      this.catalogAuthDisabled = true;
-      console.warn(
-        '[ModelService] Supabase 인증 실패 — gateway_model_catalog 동기화를 중단합니다. SUPABASE_SERVICE_ROLE_KEY를 확인하세요.'
-      );
-      return;
-    }
-    if (Date.now() < this.catalogSyncPausedUntil) return;
-    this.catalogSyncPausedUntil = Date.now() + 10 * 60_000;
-    console.warn(
-      '[ModelService] gateway_model_catalog 동기화 실패 — 10분간 재시도를 건너뜁니다.',
-      error instanceof Error ? error.message : error
-    );
-  }
-
-  private syncCatalogInBackground(models: FreeModelMeta[]): void {
-    void this.syncCatalog(models).catch((err) => this.handleCatalogFailure(err));
-  }
-
-  private async syncCatalog(models: FreeModelMeta[]): Promise<void> {
-    if (
-      this.catalogTableUnavailable ||
-      this.catalogAuthDisabled ||
-      Date.now() < this.catalogSyncPausedUntil
-    ) {
-      return;
-    }
-    const client = this.getSupabase();
-    if (!client) return;
-
-    const rows = models.map((model) => ({
-      model_id: model.id,
-      provider: this.getProviderTag(model.id),
-      name: model.name,
-      modality: model.modality ?? 'text->text',
-      input_modalities: model.inputModalities ?? ['text'],
-      output_modalities: model.outputModalities ?? ['text'],
-      supports_reasoning: model.supportsReasoning ?? false,
-      supports_tools: model.supportsTools ?? false,
-      supports_structured_output: model.supportsStructuredOutput ?? false,
-      data_policy: model.dataPolicy ?? {},
-      speed_tokens_per_second: model.speedTokensPerSecond ?? null,
-      latency_ms: model.latencyMs ?? null,
-      intelligence_index: model.intelligenceIndex ?? null,
-      coding_index: model.codingIndex ?? null,
-      agentic_index: model.agenticIndex ?? null,
-      source_updated_at: new Date().toISOString(),
-    }));
-
-    const { error: upsertError } = await client
-      .from('gateway_model_catalog')
-      .upsert(rows, { onConflict: 'model_id' });
-    if (upsertError) {
-      if (
-        upsertError.code === '42P01' ||
-        upsertError.message.includes('Could not find the table')
-      ) {
-        this.catalogTableUnavailable = true;
-        console.warn(
-          '[ModelService] gateway_model_catalog 테이블이 없어 상태 동기화를 건너뜁니다.'
-        );
-        return;
-      }
-      this.handleCatalogFailure(upsertError);
-      return;
-    }
-
-    const modelIds = rows.map((row) => row.model_id);
-    const { error: deleteError } = await client
-      .from('gateway_model_catalog')
-      .delete()
-      .not('model_id', 'in', `(${modelIds.map((id) => `"${id}"`).join(',')})`);
-    if (deleteError) {
-      this.handleCatalogFailure(deleteError);
-      return;
-    }
-
-    this.lastCatalogSyncAt = new Date().toISOString();
   }
 
   private deriveModelIntelligence(

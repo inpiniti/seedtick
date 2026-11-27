@@ -280,18 +280,6 @@ export interface GatewayError {
   };
 }
 
-// ─────────────────────────────────────────────
-// Supabase: 일일 소진 키 관리
-// ─────────────────────────────────────────────
-
-export interface QuotaExhaustedRecord {
-  provider: LLMProvider;
-  model: string;
-  api_key_hash: string;
-  exhausted_at: string;
-  reset_at: string;
-}
-
 export interface ProviderConfig {
   baseUrl: string;
   apiKeys: string[];

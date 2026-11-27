@@ -1,91 +1,44 @@
-// error-log.test.ts - ErrorLogService 단위 테스트
-import { describe, expect, test, vi } from 'bun:test';
-import type { SupabaseClient } from '@supabase/supabase-js';
+// error-log.test.ts - ErrorLogService 단위 테스트 (콘솔 로깅)
+import { afterEach, describe, expect, test, vi } from 'bun:test';
 import { ErrorLogService } from '../src/domain/error-log/ErrorLogService.ts';
 
 describe('ErrorLogService', () => {
-  test('로그 호출 시 error_logs 테이블에 올바른 row를 insert한다', async () => {
-    let insertedRow: unknown = null;
-    const mockClient = {
-      from: vi.fn((_table: string) => ({
-        insert: vi.fn(async (row: unknown) => {
-          insertedRow = row;
-          return { error: null };
-        }),
-      })),
-    };
-
-    const service = new ErrorLogService(mockClient as unknown as SupabaseClient);
-
-    await service.critical('GATEWAY_ALL_KEYS_EXHAUSTED', '모든 키 소진', {
-      attempts: 3,
-    });
-
-    expect(mockClient.from).toHaveBeenCalledWith('error_logs');
-    expect(insertedRow).toEqual({
-      level: 'CRITICAL',
-      logger_name: 'ai_gateway',
-      code: 'GATEWAY_ALL_KEYS_EXHAUSTED',
-      message: '모든 키 소진',
-      context: { attempts: 3 },
-    });
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  test('warning, error, info 헬퍼 메서드가 각 레벨로 정상 호출된다', async () => {
-    const insertedLevels: string[] = [];
-    const mockClient = {
-      from: vi.fn(() => ({
-        insert: vi.fn(async (row: { level?: string }) => {
-          insertedLevels.push(row.level ?? '');
-          return { error: null };
-        }),
-      })),
-    };
+  test('로그 레벨에 맞는 콘솔 메서드로 구조화된 이벤트를 남긴다', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warns = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const infos = vi.spyOn(console, 'info').mockImplementation(() => {});
+    errors.mockClear();
+    warns.mockClear();
+    infos.mockClear();
 
-    const service = new ErrorLogService(mockClient as unknown as SupabaseClient);
-
-    await service.info('TEST_INFO', '정보');
+    const service = new ErrorLogService();
+    await service.critical('GATEWAY_ALL_KEYS_EXHAUSTED', '모든 키 소진', { attempts: 3 });
     await service.warning('TEST_WARN', '경고');
+    await service.info('TEST_INFO', '정보');
+
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(errors.mock.calls[0]?.[0]).toContain('CRITICAL GATEWAY_ALL_KEYS_EXHAUSTED');
+    expect(errors.mock.calls[0]?.[1]).toEqual({ attempts: 3 });
+    expect(warns.mock.calls[0]?.[0]).toContain('WARNING TEST_WARN');
+    expect(infos.mock.calls[0]?.[0]).toContain('INFO TEST_INFO');
+  });
+
+  test('warning/error/critical 헬퍼가 각 레벨을 유지한다', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warns = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    errors.mockClear();
+    warns.mockClear();
+
+    const service = new ErrorLogService();
     await service.error('TEST_ERR', '에러');
+    await service.warning('TEST_WARN', '경고');
+    await service.critical('TEST_CRIT', '치명적');
 
-    expect(insertedLevels).toEqual(['INFO', 'WARNING', 'ERROR']);
-  });
-
-  test('Supabase 연결 실패 시 서킷브레이커로 5분간 재시도하지 않는다', async () => {
-    let insertCalls = 0;
-    const mockClient = {
-      from: vi.fn(() => ({
-        insert: vi.fn(async () => {
-          insertCalls += 1;
-          throw new Error('Unable to connect to Supabase');
-        }),
-      })),
-    };
-
-    const service = new ErrorLogService(mockClient as unknown as SupabaseClient);
-    await service.warning('NETWORK_FAIL', '연결 실패');
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await service.warning('NETWORK_FAIL', '또 다른 로그');
-
-    expect(insertCalls).toBe(1);
-  });
-
-  test('Invalid API key 오류는 원격 로깅을 중단하고 반복 insert하지 않는다', async () => {
-    let insertCalls = 0;
-    const mockClient = {
-      from: vi.fn(() => ({
-        insert: vi.fn(async () => {
-          insertCalls += 1;
-          return { error: { message: 'Invalid API key' } };
-        }),
-      })),
-    };
-
-    const service = new ErrorLogService(mockClient as unknown as SupabaseClient);
-    await service.warning('AUTH_FAIL', '첫 로그');
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await service.warning('AUTH_FAIL', '두 번째 로그');
-
-    expect(insertCalls).toBe(1);
+    expect(errors).toHaveBeenCalledTimes(2);
+    expect(warns).toHaveBeenCalledTimes(1);
   });
 });

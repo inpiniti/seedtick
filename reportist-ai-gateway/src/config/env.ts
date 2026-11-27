@@ -11,8 +11,6 @@ export interface EnvConfig {
   geminiKeys: string[];
   opencodeKeys: string[];
   opencodeBaseUrl: string;
-  supabaseUrl: string;
-  supabaseServiceRoleKey: string;
 }
 
 function parseKeys(...values: (string | undefined)[]): string[] {
@@ -40,8 +38,6 @@ export function loadEnv(): EnvConfig {
     geminiKeys: parseKeys(process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEYS),
     opencodeKeys: parseKeys(process.env.OPENCODE_API_KEY, process.env.OPENCODE_API_KEYS),
     opencodeBaseUrl: process.env.OPENCODE_BRIDGE_URL ?? 'http://127.0.0.1:4096/v1/chat/completions',
-    supabaseUrl: process.env.SUPABASE_URL ?? '',
-    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
   };
 }
 
@@ -57,7 +53,5 @@ export function validateEnv(): string[] {
         : 'At least one OPENROUTER_API_KEY or KILO_API_KEY is required'
     );
   }
-  if (!env.supabaseUrl) errors.push('SUPABASE_URL is required');
-  if (!env.supabaseServiceRoleKey) errors.push('SUPABASE_SERVICE_ROLE_KEY is required');
   return errors;
 }

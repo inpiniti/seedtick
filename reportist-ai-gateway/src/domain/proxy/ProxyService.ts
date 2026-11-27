@@ -269,14 +269,21 @@ export class ProxyService {
     textOnlyModels = false
   ): Promise<string[]> {
     const direct = requestedModel?.trim();
+    const forced: string[] = [];
     if (direct) {
       // 404로 확인된 모델은 다음 요청부터 자동 선택으로 전환해 같은 404를 반복하지 않는다.
-      if (!modelService.isModelUnavailable(direct)) return [direct];
-      console.warn(`[Gateway] 요청 모델 ${direct}은(는) 제공사에서 내려져 자동 모델로 대체합니다.`);
+      if (modelService.isModelUnavailable(direct)) {
+        console.warn(
+          `[Gateway] 요청 모델 ${direct}은(는) 제공사에서 내려져 자동 모델로 대체합니다.`
+        );
+      } else {
+        forced.push(direct);
+      }
     }
 
+    // 명시 모델이 실패하면 그 모델에서 멈추지 않고 자동 후보로 계속 넘어간다.
     const AUTO_CANDIDATE_LIMIT = 3;
-    const excludeIds: string[] = [];
+    const excludeIds: string[] = [...forced];
     const candidates: string[] = [];
 
     for (let i = 0; i < AUTO_CANDIDATE_LIMIT; i++) {
@@ -293,14 +300,15 @@ export class ProxyService {
 
     if (candidates.length === 0) {
       // 텍스트 전용 요청은 멀티모달 폴백 모델을 절대 사용하지 않는다.
-      return [
-        textOnlyModels ? 'nvidia/nemotron-3.5-lightning:free' : 'nvidia/nemotron-3.5-super-vl:free',
-      ];
+      const fallback = textOnlyModels
+        ? 'nvidia/nemotron-3.5-lightning:free'
+        : 'nvidia/nemotron-3.5-super-vl:free';
+      return forced.includes(fallback) ? forced : [...forced, fallback];
     }
 
     const start = this.autoModelCursor % candidates.length;
     this.autoModelCursor = (this.autoModelCursor + 1) % Number.MAX_SAFE_INTEGER;
-    return [...candidates.slice(start), ...candidates.slice(0, start)];
+    return [...forced, ...candidates.slice(start), ...candidates.slice(0, start)];
   }
 
   /**

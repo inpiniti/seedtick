@@ -1,29 +1,15 @@
-// gateway-resilience.test.ts - 반복 오류 방어(CORS/Supabase 인증/스테일 모델) 테스트
-import { describe, expect, test } from 'bun:test';
+// gateway-resilience.test.ts - 반복 오류 방어(CORS/가드레일/스테일 모델) 테스트
+import { describe, expect, test, vi } from 'bun:test';
 import { app } from '../src/app.ts';
-import { isSupabaseAuthError } from '../src/config/supabase.ts';
 import { ModelService, modelService } from '../src/domain/models/ModelService.ts';
 import { ProxyService } from '../src/domain/proxy/ProxyService.ts';
+import type { FreeModelMeta } from '../src/domain/types.ts';
 
 type ModelServiceInternals = {
   markModelUnavailable(id: string): void;
   isModelUnavailable(id: string): boolean;
   filterForConsumer<T extends { id: string }>(models: T[], includeAllOutputs: boolean): T[];
 };
-
-describe('Supabase 인증 오류 분류', () => {
-  test('Invalid API key / 401 / 403은 인증 실패로 분류한다', () => {
-    expect(isSupabaseAuthError({ message: 'Invalid API key' })).toBe(true);
-    expect(isSupabaseAuthError({ code: '401', message: 'Unauthorized' })).toBe(true);
-    expect(isSupabaseAuthError(new Error('JWT expired'))).toBe(true);
-  });
-
-  test('테이블 없음/네트워크 오류는 인증 실패가 아니다', () => {
-    expect(isSupabaseAuthError({ code: '42P01', message: 'Could not find the table' })).toBe(false);
-    expect(isSupabaseAuthError(new Error('fetch failed'))).toBe(false);
-    expect(isSupabaseAuthError(null)).toBe(false);
-  });
-});
 
 describe('CORS 프리플라이트', () => {
   test('브라우저가 요청한 헤더를 허용 목록에 반영한다', async () => {
@@ -72,6 +58,46 @@ describe('가드레일 거부(404) 처리', () => {
     ]);
 
     expect(modelService.isModelUnavailable(modelId)).toBe(false);
+  });
+});
+
+type ResolveInternals = {
+  resolveTargetModels(
+    requestedModel: string | undefined,
+    requiredInputs: Array<'text' | 'image' | 'audio' | 'video'>,
+    outputModality: 'text' | 'image' | 'audio' | 'video',
+    textOnlyModels?: boolean
+  ): Promise<string[]>;
+};
+
+describe('명시 모델 실패 시 자동 대체', () => {
+  test('요청 모델 뒤에 자동 후보가 이어져 실패 시 다음 모델로 넘어간다', async () => {
+    const stubLogger = {
+      critical: async () => {},
+      warning: async () => {},
+      info: () => {},
+    } as unknown as NonNullable<ConstructorParameters<typeof ProxyService>[0]>;
+    const service = new ProxyService(stubLogger, []) as unknown as ResolveInternals;
+    const pool = ['auto/a:free', 'auto/b:free'];
+    const spy = vi
+      .spyOn(modelService, 'selectBestModel')
+      .mockImplementation(async ({ excludeIds }) => {
+        const next = pool.find((id) => !excludeIds?.includes(id));
+        return next ? ({ id: next } as FreeModelMeta) : null;
+      });
+
+    try {
+      const models = await service.resolveTargetModels(
+        'explicit/model:free',
+        ['text'],
+        'text',
+        true
+      );
+      expect(models[0]).toBe('explicit/model:free');
+      expect(models.slice(1)).toEqual(pool);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
